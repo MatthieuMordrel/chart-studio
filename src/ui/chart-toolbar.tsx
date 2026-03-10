@@ -2,12 +2,13 @@
  * Composable, configurable toolbar with pinned controls and an ellipsis
  * overflow menu — inspired by Notion's clean database view toolbar.
  *
- * Default behavior: all controls live inside the overflow menu.
- * Developers can pin specific controls to the toolbar row and hide others.
+ * Default behavior: the date range stays pinned so the active time window is
+ * always visible, while the remaining controls live inside the overflow menu.
+ * Developers can pin additional controls to the toolbar row and hide others.
  *
  * @example
  * ```tsx
- * // Everything in overflow (default)
+ * // Date range pinned by default, everything else in overflow
  * <ChartToolbar />
  *
  * // Pin chart type and group-by to the toolbar row
@@ -22,10 +23,11 @@
  */
 
 import {useMemo} from 'react'
-import {ChartDateRangeBadge} from './chart-date-range-badge.js'
 import {ChartToolbarOverflow} from './chart-toolbar-overflow.js'
 import type {ControlId} from './toolbar-types.js'
 import {CONTROL_IDS, CONTROL_REGISTRY} from './toolbar-types.js'
+
+const DEFAULT_PINNED_CONTROLS = ['dateRange'] as const satisfies readonly ControlId[]
 
 /**
  * Props for ChartToolbar.
@@ -46,7 +48,11 @@ type ChartToolbarProps = {
  * Controls are rendered in registry order. Each sub-component still
  * auto-hides when not relevant (e.g. time bucket only shows for date X-axis).
  */
-export function ChartToolbar({className, pinned = [], hidden = []}: ChartToolbarProps) {
+export function ChartToolbar({
+  className,
+  pinned = DEFAULT_PINNED_CONTROLS,
+  hidden = [],
+}: ChartToolbarProps) {
   const pinnedSet = useMemo(() => new Set(pinned), [pinned])
   const hiddenSet = useMemo(() => new Set(hidden), [hidden])
 
@@ -54,18 +60,16 @@ export function ChartToolbar({className, pinned = [], hidden = []}: ChartToolbar
   const pinnedControls = CONTROL_IDS.filter((id) => pinnedSet.has(id) && !hiddenSet.has(id))
 
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${className ?? ''}`}>
-      {/* Pinned controls rendered directly in the toolbar */}
-      {pinnedControls.map((id) => {
-        const Component = CONTROL_REGISTRY[id].component
-        return <Component key={id} />
-      })}
+    <div className={`flex items-start justify-between gap-2 ${className ?? ''}`}>
+      {/* Pinned controls wrap on the left while the overflow trigger stays anchored top-right. */}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        {pinnedControls.map((id) => {
+          const Component = CONTROL_REGISTRY[id].component
+          return <Component key={id} />
+        })}
+      </div>
 
-      {/* Date range badge — always visible when date columns exist */}
-      <ChartDateRangeBadge className="ml-auto" />
-
-      {/* Overflow menu pushed to the right */}
-      <ChartToolbarOverflow pinned={pinnedSet} hidden={hiddenSet} />
+      <ChartToolbarOverflow pinned={pinnedSet} hidden={hiddenSet} className="shrink-0 self-start" />
     </div>
   )
 }

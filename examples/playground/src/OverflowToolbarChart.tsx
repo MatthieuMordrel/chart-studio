@@ -4,7 +4,8 @@ import {playgroundSources} from './mock-data'
 
 /**
  * Overflow-first toolbar example.
- * Keeps every control inside the ellipsis menu by relying on ChartToolbar defaults.
+ * Keeps the date range visible while leaving the rest of the controls
+ * inside the ellipsis menu by relying on ChartToolbar defaults.
  */
 export function OverflowToolbarChart() {
   const chart = useChart({
@@ -13,7 +14,7 @@ export function OverflowToolbarChart() {
 
   return (
     <Chart chart={chart} className="space-y-4">
-      {/* Default ChartToolbar behavior: no pinned controls, so everything lives in the ellipsis menu. */}
+      {/* Default ChartToolbar behavior: date range is pinned, everything else lives in the ellipsis menu. */}
       <ChartToolbar />
 
       <div className="rounded-2xl border border-border bg-background p-4">
