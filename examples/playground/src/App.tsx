@@ -30,12 +30,11 @@ function getStoredTheme(): Theme {
     return 'light'
   }
 
-  const storedTheme = window.localStorage.getItem('chart-studio-playground-theme')
-  return storedTheme === 'dark' ? 'dark' : 'light'
+  return window.localStorage.getItem('chart-studio-playground-theme') === 'dark' ? 'dark' : 'light'
 }
 
 /**
- * Apply the current theme to the document root so CSS tokens can react to it.
+ * Apply the current theme using the same data attribute supported by the shipped package theme.
  */
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme
@@ -58,7 +57,7 @@ function PlaygroundSection({title, description, children}: PlaygroundSectionProp
 }
 
 /**
- * Small theme toggle used to compare the package UI in both color schemes.
+ * Small theme toggle for testing the shipped light and dark theme defaults.
  */
 function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>(() => getStoredTheme())
@@ -95,9 +94,7 @@ function ThemeToggle() {
   )
 }
 
-/**
- * Shows the default out-of-the-box toolbar and canvas experience.
- */
+/** Shows the default out-of-the-box toolbar and canvas experience. */
 function DefaultToolbarDemo() {
   const chart = useChart({
     data: jobsPlaygroundData,

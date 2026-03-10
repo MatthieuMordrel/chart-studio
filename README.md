@@ -178,8 +178,14 @@ This does three things for you:
 - Tailwind utilities for the package components
 - automatic scanning of the package UI classes
 - default fallback values for all semantic UI tokens
+- built-in light and dark default themes
 
 If your app already defines matching shadcn-style variables, those values take over automatically. If not, the built-in defaults are used.
+
+The shipped theme supports dark mode through either:
+
+- `.dark`
+- `[data-theme="dark"]`
 
 ### 2. Advanced: define everything yourself
 
@@ -230,6 +236,7 @@ Minimal example:
 How this works in practice:
 
 - import `ui/theme.css` and do nothing else: the package uses its own defaults
+- toggle dark mode with either `.dark` or `[data-theme="dark"]`: the package uses its built-in dark defaults
 - import `ui/theme.css` and define only a few variables: your values win for those variables, defaults cover the rest
 - skip `ui/theme.css`: you must define the whole token contract yourself
 
@@ -251,7 +258,7 @@ These are also optional when you import `ui/theme.css`.
 
 If your app defines `--chart-1` through `--chart-5`, those colors are used automatically.
 
-If they are not defined, `chart-studio` falls back to a built-in OKLCH palette. That is why you may see blue, rose, cyan, or other fallback colors in charts when your app does not provide chart variables.
+If they are not defined, `chart-studio` falls back to a built-in OKLCH palette, with separate light and dark defaults. That is why you may see blue, rose, cyan, or other fallback colors in charts when your app does not provide chart variables.
 
 Minimal example:
 
