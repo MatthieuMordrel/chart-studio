@@ -49,6 +49,106 @@ function isoDateDaysAgo(daysAgo: number): string {
   return date.toISOString()
 }
 
+const DISHES = [
+  {dish: 'Spaghetti Carbonara' as const, cuisine: 'Italian' as const, prep: 15, cook: 20, difficulty: 'Medium' as const},
+  {dish: 'Tacos al Pastor', cuisine: 'Mexican', prep: 30, cook: 25, difficulty: 'Medium'},
+  {dish: 'Fried Rice', cuisine: 'Asian', prep: 10, cook: 15, difficulty: 'Easy'},
+  {dish: 'Grilled Cheese', cuisine: 'American', prep: 2, cook: 5, difficulty: 'Easy'},
+  {dish: 'Risotto', cuisine: 'Italian', prep: 15, cook: 35, difficulty: 'Hard'},
+  {dish: 'Burrito Bowl', cuisine: 'Mexican', prep: 20, cook: 10, difficulty: 'Easy'},
+  {dish: 'Pad Thai', cuisine: 'Asian', prep: 25, cook: 15, difficulty: 'Medium'},
+  {dish: 'Mac and Cheese', cuisine: 'American', prep: 5, cook: 15, difficulty: 'Easy'},
+  {dish: 'Lasagna', cuisine: 'Italian', prep: 45, cook: 60, difficulty: 'Hard'},
+  {dish: 'Quesadilla', cuisine: 'Mexican', prep: 5, cook: 8, difficulty: 'Easy'},
+  {dish: 'Stir Fry', cuisine: 'Asian', prep: 20, cook: 10, difficulty: 'Medium'},
+  {dish: 'Pizza Margherita', cuisine: 'Italian', prep: 20, cook: 15, difficulty: 'Medium'},
+  {dish: 'Enchiladas', cuisine: 'Mexican', prep: 25, cook: 25, difficulty: 'Medium'},
+  {dish: 'Ramen', cuisine: 'Asian', prep: 40, cook: 20, difficulty: 'Hard'},
+  {dish: 'Burgers', cuisine: 'American', prep: 10, cook: 12, difficulty: 'Easy'},
+  {dish: 'Pasta Puttanesca', cuisine: 'Italian', prep: 10, cook: 15, difficulty: 'Easy'},
+  {dish: 'Guacamole', cuisine: 'Mexican', prep: 10, cook: 0, difficulty: 'Easy'},
+  {dish: 'Dumplings', cuisine: 'Asian', prep: 35, cook: 12, difficulty: 'Medium'},
+  {dish: 'Pancakes', cuisine: 'American', prep: 5, cook: 10, difficulty: 'Easy'},
+] as const
+
+const CITIES = ['Lisbon', 'Montreal', 'Singapore', 'Berlin', 'Tokyo', 'Sydney', 'Toronto', 'London'] as const
+const FORMATS = ['Workshop', 'Summit', 'Roundtable'] as const
+const AUDIENCES = ['Developers', 'Executives', 'Operators', 'Designers', 'Marketers'] as const
+const SEGMENTS = ['Product', 'Services', 'Licensing'] as const
+
+/** Seeded pseudo-random for reproducible stress-test data. */
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed) * 10000
+  return x - Math.floor(x)
+}
+
+/** Generate home cooking records – many points over ~18 months. */
+function generateRecipeLogData(count: number): RecipeLogRecord[] {
+  const out: RecipeLogRecord[] = []
+  for (let i = 0; i < count; i++) {
+    const d = DISHES[Math.floor(seededRandom(i * 7) * DISHES.length)]
+    const daysAgo = Math.floor(seededRandom(i * 11) * 550)
+    const rating = Math.floor(seededRandom(i * 13) * 3) + 3 // 3–5
+    out.push({
+      cookedAt: isoDateDaysAgo(daysAgo),
+      dish: d.dish,
+      cuisine: d.cuisine,
+      prepMinutes: d.prep + Math.floor(seededRandom(i * 17) * 10),
+      cookMinutes: d.cook + Math.floor(seededRandom(i * 19) * 15),
+      difficulty: d.difficulty,
+      rating,
+    })
+  }
+  return out.sort((a, b) => new Date(a.cookedAt).getTime() - new Date(b.cookedAt).getTime())
+}
+
+/** Generate quarterly financial records – many quarters × segments. */
+function generateQuarterlyFinancialData(): QuarterlyFinancialRecord[] {
+  const out: QuarterlyFinancialRecord[] = []
+  const baseRevenue = {Product: 4e6, Services: 1.8e6, Licensing: 9e5}
+  const baseGrowth = 1.02
+  for (let q = 0; q < 24; q++) {
+    const daysAgo = 90 * q + 15
+    const growth = Math.pow(baseGrowth, q)
+    for (const segment of SEGMENTS) {
+      const rev = Math.round(baseRevenue[segment as keyof typeof baseRevenue] * growth * (0.9 + seededRandom(q * 31 + segment.length) * 0.2))
+      out.push({
+        periodEnd: isoDateDaysAgo(daysAgo),
+        segment,
+        revenue: rev,
+        netIncome: Math.round(rev * (0.12 + seededRandom(q * 37) * 0.08)),
+        ebitda: Math.round(rev * (0.2 + seededRandom(q * 41) * 0.1)),
+        grossProfit: Math.round(rev * (0.48 + seededRandom(q * 43) * 0.1)),
+      })
+    }
+  }
+  return out.sort((a, b) => new Date(a.periodEnd).getTime() - new Date(b.periodEnd).getTime())
+}
+
+/** Generate event records – many events over several years. */
+function generateEventProgramData(count: number): EventProgramRecord[] {
+  const out: EventProgramRecord[] = []
+  for (let i = 0; i < count; i++) {
+    const city = CITIES[Math.floor(seededRandom(i * 53) * CITIES.length)]
+    const format = FORMATS[Math.floor(seededRandom(i * 59) * FORMATS.length)]
+    const audience = AUDIENCES[Math.floor(seededRandom(i * 61) * AUDIENCES.length)]
+    const daysAgo = Math.floor(seededRandom(i * 67) * 730)
+    const isSoldOut = seededRandom(i * 71) > 0.5
+    const attendees = Math.floor(80 + seededRandom(i * 73) * 280)
+    const ticketRevenue = Math.round(attendees * (90 + seededRandom(i * 79) * 150))
+    out.push({
+      eventDate: isoDateDaysAgo(daysAgo),
+      city,
+      format,
+      audience,
+      isSoldOut,
+      attendees,
+      ticketRevenue,
+    })
+  }
+  return out.sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
+}
+
 /** Recipe log columns: when you cooked, what, how long, how hard, how good. */
 export const recipeLogColumns = [
   columns.date<RecipeLogRecord>('cookedAt', {label: 'Date Cooked'}),
@@ -87,58 +187,21 @@ export const eventProgramColumns = [
 
 /**
  * Home cooking dataset – simple, relatable records.
- * Clearly named so anyone can understand: when you cooked what, how long it took, and how it rated.
+ * 500 data points over ~18 months to stress-test chart rendering.
  */
-export const recipeLogData: RecipeLogRecord[] = [
-  {cookedAt: isoDateDaysAgo(42), dish: 'Spaghetti Carbonara', cuisine: 'Italian', prepMinutes: 15, cookMinutes: 20, difficulty: 'Medium', rating: 5},
-  {cookedAt: isoDateDaysAgo(38), dish: 'Tacos al Pastor', cuisine: 'Mexican', prepMinutes: 30, cookMinutes: 25, difficulty: 'Medium', rating: 4},
-  {cookedAt: isoDateDaysAgo(35), dish: 'Fried Rice', cuisine: 'Asian', prepMinutes: 10, cookMinutes: 15, difficulty: 'Easy', rating: 4},
-  {cookedAt: isoDateDaysAgo(28), dish: 'Grilled Cheese', cuisine: 'American', prepMinutes: 2, cookMinutes: 5, difficulty: 'Easy', rating: 3},
-  {cookedAt: isoDateDaysAgo(21), dish: 'Risotto', cuisine: 'Italian', prepMinutes: 15, cookMinutes: 35, difficulty: 'Hard', rating: 5},
-  {cookedAt: isoDateDaysAgo(18), dish: 'Burrito Bowl', cuisine: 'Mexican', prepMinutes: 20, cookMinutes: 10, difficulty: 'Easy', rating: 4},
-  {cookedAt: isoDateDaysAgo(14), dish: 'Pad Thai', cuisine: 'Asian', prepMinutes: 25, cookMinutes: 15, difficulty: 'Medium', rating: 5},
-  {cookedAt: isoDateDaysAgo(10), dish: 'Mac and Cheese', cuisine: 'American', prepMinutes: 5, cookMinutes: 15, difficulty: 'Easy', rating: 4},
-  {cookedAt: isoDateDaysAgo(7), dish: 'Lasagna', cuisine: 'Italian', prepMinutes: 45, cookMinutes: 60, difficulty: 'Hard', rating: 5},
-  {cookedAt: isoDateDaysAgo(4), dish: 'Quesadilla', cuisine: 'Mexican', prepMinutes: 5, cookMinutes: 8, difficulty: 'Easy', rating: 4},
-  {cookedAt: isoDateDaysAgo(2), dish: 'Stir Fry', cuisine: 'Asian', prepMinutes: 20, cookMinutes: 10, difficulty: 'Medium', rating: 4},
-]
+export const recipeLogData: RecipeLogRecord[] = generateRecipeLogData(500)
 
 /**
  * Quarterly financials: revenue, net income, EBITDA, gross profit by segment.
- * Standard P&L metrics everyone recognizes.
+ * 72 data points (24 quarters × 3 segments) over 6 years to stress-test aggregations.
  */
-export const quarterlyFinancialData: QuarterlyFinancialRecord[] = [
-  {periodEnd: isoDateDaysAgo(273), segment: 'Product', revenue: 4200000, netIncome: 580000, ebitda: 920000, grossProfit: 2100000},
-  {periodEnd: isoDateDaysAgo(273), segment: 'Services', revenue: 1800000, netIncome: 320000, ebitda: 410000, grossProfit: 1080000},
-  {periodEnd: isoDateDaysAgo(273), segment: 'Licensing', revenue: 900000, netIncome: 280000, ebitda: 310000, grossProfit: 810000},
-  {periodEnd: isoDateDaysAgo(182), segment: 'Product', revenue: 5100000, netIncome: 720000, ebitda: 1100000, grossProfit: 2550000},
-  {periodEnd: isoDateDaysAgo(182), segment: 'Services', revenue: 2200000, netIncome: 410000, ebitda: 530000, grossProfit: 1320000},
-  {periodEnd: isoDateDaysAgo(182), segment: 'Licensing', revenue: 1100000, netIncome: 350000, ebitda: 390000, grossProfit: 990000},
-  {periodEnd: isoDateDaysAgo(91), segment: 'Product', revenue: 4800000, netIncome: 640000, ebitda: 980000, grossProfit: 2400000},
-  {periodEnd: isoDateDaysAgo(91), segment: 'Services', revenue: 2000000, netIncome: 360000, ebitda: 460000, grossProfit: 1200000},
-  {periodEnd: isoDateDaysAgo(91), segment: 'Licensing', revenue: 950000, netIncome: 290000, ebitda: 330000, grossProfit: 855000},
-  {periodEnd: isoDateDaysAgo(0), segment: 'Product', revenue: 5500000, netIncome: 780000, ebitda: 1180000, grossProfit: 2750000},
-  {periodEnd: isoDateDaysAgo(0), segment: 'Services', revenue: 2500000, netIncome: 470000, ebitda: 600000, grossProfit: 1500000},
-  {periodEnd: isoDateDaysAgo(0), segment: 'Licensing', revenue: 1200000, netIncome: 380000, ebitda: 420000, grossProfit: 1080000},
-]
+export const quarterlyFinancialData: QuarterlyFinancialRecord[] = generateQuarterlyFinancialData()
 
 /**
  * Event calendar: conferences and workshops with attendance and revenue.
+ * 250 data points over ~2 years to stress-test categorical bucketing.
  */
-export const eventProgramData: EventProgramRecord[] = [
-  {eventDate: isoDateDaysAgo(71), city: 'Lisbon', format: 'Workshop', audience: 'Developers', isSoldOut: false, attendees: 140, ticketRevenue: 18200},
-  {eventDate: isoDateDaysAgo(66), city: 'Montreal', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 320, ticketRevenue: 68400},
-  {eventDate: isoDateDaysAgo(61), city: 'Singapore', format: 'Roundtable', audience: 'Operators', isSoldOut: false, attendees: 88, ticketRevenue: 12100},
-  {eventDate: isoDateDaysAgo(55), city: 'Lisbon', format: 'Summit', audience: 'Developers', isSoldOut: true, attendees: 280, ticketRevenue: 55200},
-  {eventDate: isoDateDaysAgo(49), city: 'Montreal', format: 'Workshop', audience: 'Operators', isSoldOut: false, attendees: 116, ticketRevenue: 14900},
-  {eventDate: isoDateDaysAgo(44), city: 'Singapore', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 305, ticketRevenue: 70800},
-  {eventDate: isoDateDaysAgo(38), city: 'Lisbon', format: 'Roundtable', audience: 'Operators', isSoldOut: false, attendees: 74, ticketRevenue: 9800},
-  {eventDate: isoDateDaysAgo(30), city: 'Montreal', format: 'Workshop', audience: 'Developers', isSoldOut: false, attendees: 132, ticketRevenue: 17600},
-  {eventDate: isoDateDaysAgo(25), city: 'Singapore', format: 'Summit', audience: 'Operators', isSoldOut: true, attendees: 294, ticketRevenue: 66300},
-  {eventDate: isoDateDaysAgo(18), city: 'Lisbon', format: 'Workshop', audience: 'Executives', isSoldOut: false, attendees: 98, ticketRevenue: 15800},
-  {eventDate: isoDateDaysAgo(11), city: 'Montreal', format: 'Roundtable', audience: 'Developers', isSoldOut: false, attendees: 82, ticketRevenue: 11400},
-  {eventDate: isoDateDaysAgo(8), city: 'Singapore', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 338, ticketRevenue: 74100},
-]
+export const eventProgramData: EventProgramRecord[] = generateEventProgramData(250)
 
 /**
  * Source catalog used by the playground source switcher.
