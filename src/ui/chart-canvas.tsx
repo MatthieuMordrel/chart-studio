@@ -35,6 +35,7 @@ import {getSeriesColor} from '../core/colors.js'
 function formatAxisNumber(value: number): string {
   const abs = Math.abs(value)
   const sign = value < 0 ? '-' : ''
+  if (abs >= 1e12) return `${sign}${+(abs / 1e12).toPrecision(3)}T`
   if (abs >= 1e9) return `${sign}${+(abs / 1e9).toPrecision(3)}B`
   if (abs >= 1e6) return `${sign}${+(abs / 1e6).toPrecision(3)}M`
   if (abs >= 1e3) return `${sign}${+(abs / 1e3).toPrecision(3)}K`

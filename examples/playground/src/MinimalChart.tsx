@@ -1,6 +1,12 @@
-import {useChart} from '@matthieumordrel/chart-studio'
-import {Chart, ChartCanvas, ChartGroupBySelector, ChartTimeBucketSelector, ChartTypeSelector} from '@matthieumordrel/chart-studio/ui'
-import {recipeLogColumns, recipeLogData} from './mock-data'
+import { useChart } from '@matthieumordrel/chart-studio'
+import {
+  Chart,
+  ChartCanvas,
+  ChartGroupBySelector,
+  ChartTimeBucketSelector,
+  ChartTypeSelector,
+} from '@matthieumordrel/chart-studio/ui'
+import { recipeLogColumns, recipeLogData } from './mock-data'
 
 /**
  * Minimal chart composition: a canvas with only three controls.
