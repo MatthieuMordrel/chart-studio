@@ -145,12 +145,58 @@ export function JobsChartHeadless({data}: {data: Job[]}) {
 
 The headless core has no styling requirements.
 
+The `ui` layer is currently:
+
+- Tailwind-based
+- styled with semantic design tokens
+- compatible with shadcn-style theme variables
+
+This means `@matthieumordrel/chart-studio/ui` is **not** fully self-themed yet. It expects your app to provide Tailwind utilities plus a small semantic token contract.
+
 The UI layer assumes:
 
 - Tailwind utility classes are available
-- your app exposes shadcn-style design tokens such as `background`, `foreground`, `muted`, `border`, `popover`, `primary`, and `ring`
+- your app exposes semantic tokens such as `background`, `foreground`, `muted`, `muted-foreground`, `border`, `popover`, `popover-foreground`, `primary`, `primary-foreground`, and `ring`
 
 If that does not match your app, use the headless core and render your own controls.
+
+### Minimum UI theme contract
+
+You do not need shadcn itself, but you do need equivalent semantic variables if you want to use `@matthieumordrel/chart-studio/ui`.
+
+These are the tokens currently expected by the UI layer:
+
+| Token | Purpose |
+| --- | --- |
+| `background` | control backgrounds and input surfaces |
+| `foreground` | primary text |
+| `muted` | subtle backgrounds and hover states |
+| `muted-foreground` | secondary text and icons |
+| `border` | outlines and separators |
+| `popover` | dropdowns and floating panels |
+| `popover-foreground` | popover text color |
+| `primary` | selected and active states |
+| `primary-foreground` | text on filled primary surfaces |
+| `ring` | focus-visible ring color |
+
+Minimal example:
+
+```css
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --border: 214.3 31.8% 91.4%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 40% 98%;
+  --ring: 221.2 83.2% 53.3%;
+}
+```
+
+If your app already uses shadcn tokens, `ui` should fit in naturally without extra component rewrites.
 
 ## Compatibility
 

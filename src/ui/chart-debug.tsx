@@ -15,6 +15,45 @@ const TABS: Array<{id: Tab; label: string}> = [
   {id: 'state', label: 'State'},
 ]
 
+/**
+ * Resolve the currently selected debug payload.
+ */
+function getDebugContent(chart: ReturnType<typeof useChartContext>, activeTab: Tab) {
+  switch (activeTab) {
+    case 'raw':
+      return chart.rawData
+    case 'transformed':
+      return chart.transformedData
+    case 'series':
+      return chart.series
+    case 'state':
+      return {
+        activeSourceId: chart.activeSourceId,
+        chartType: chart.chartType,
+        xAxisId: chart.xAxisId,
+        groupById: chart.groupById,
+        metric: chart.metric,
+        timeBucket: chart.timeBucket,
+        isTimeSeries: chart.isTimeSeries,
+        filters: Object.fromEntries([...chart.filters.entries()].map(([k, v]) => [k, [...v]])),
+        sorting: chart.sorting,
+        availableChartTypes: chart.availableChartTypes,
+        availableGroupBys: chart.availableGroupBys,
+        availableMetrics: chart.availableMetrics,
+        availableFilters: chart.availableFilters.map((filter) => ({
+          ...filter,
+          options:
+            filter.options.length > 5
+              ? [
+                  ...filter.options.slice(0, 5),
+                  {value: '...', label: `+${filter.options.length - 5} more`, count: 0},
+                ]
+              : filter.options,
+        })),
+      }
+  }
+}
+
 /** Tab bar button. */
 function TabButton({
   tab,
@@ -28,10 +67,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 text-[11px] font-mono transition-colors ${
+      className={`border-b-2 px-3 py-1.5 text-[11px] font-mono transition-colors ${
         isActive
-          ? 'bg-orange-500/10 text-orange-500 border-b-2 border-orange-500'
-          : 'text-orange-400/60 hover:text-orange-400'
+          ? 'border-primary bg-primary/10 text-primary'
+          : 'border-transparent text-muted-foreground hover:text-foreground'
       }`}
     >
       {tab.label}
@@ -50,61 +89,28 @@ export function ChartDebug({
   const chart = useChartContext()
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const [activeTab, setActiveTab] = useState<Tab>('raw')
-
-  const content = () => {
-    switch (activeTab) {
-      case 'raw':
-        return chart.rawData
-      case 'transformed':
-        return chart.transformedData
-      case 'series':
-        return chart.series
-      case 'state':
-        return {
-          activeSourceId: chart.activeSourceId,
-          chartType: chart.chartType,
-          xAxisId: chart.xAxisId,
-          groupById: chart.groupById,
-          metric: chart.metric,
-          timeBucket: chart.timeBucket,
-          isTimeSeries: chart.isTimeSeries,
-          filters: Object.fromEntries([...chart.filters.entries()].map(([k, v]) => [k, [...v]])),
-          sorting: chart.sorting,
-          availableChartTypes: chart.availableChartTypes,
-          availableGroupBys: chart.availableGroupBys,
-          availableMetrics: chart.availableMetrics,
-          availableFilters: chart.availableFilters.map((f) => ({
-            ...f,
-            options:
-              f.options.length > 5
-                ? [
-                    ...f.options.slice(0, 5),
-                    {value: '...', label: `+${f.options.length - 5} more`, count: 0},
-                  ]
-                : f.options,
-          })),
-        }
-    }
-  }
+  const content = getDebugContent(chart, activeTab)
 
   return (
-    <div className={`border border-dashed border-orange-400/50 rounded-lg ${className ?? ''}`}>
+    <div
+      className={`overflow-hidden rounded-lg border border-dashed border-border bg-background ${className ?? ''}`}
+    >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-mono text-orange-500 hover:bg-orange-500/5"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-mono text-foreground transition-colors hover:bg-muted/50"
       >
         <span>{isOpen ? '▼' : '▶'}</span>
         <span>chart-studio debug</span>
-        <span className="text-orange-400/60">
+        <span className="text-muted-foreground">
           ({chart.rawData.length} raw, {chart.transformedData.length} points, {chart.series.length}{' '}
           series)
         </span>
       </button>
 
       {isOpen && (
-        <div className="border-t border-dashed border-orange-400/50">
+        <div className="border-t border-dashed border-border">
           {/* Tab bar */}
-          <div className="flex gap-0 border-b border-orange-400/30">
+          <div className="flex gap-0 border-b border-border bg-muted/20">
             {TABS.map((tab) => (
               <TabButton
                 key={tab.id}
@@ -117,10 +123,10 @@ export function ChartDebug({
 
           {/* Content */}
           <pre
-            className="max-h-64 overflow-auto p-3 text-[11px] leading-relaxed font-mono text-orange-300/80 bg-orange-950/20"
+            className="max-h-64 overflow-auto bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-foreground"
             onWheel={(e) => e.stopPropagation()}
           >
-            {JSON.stringify(content(), null, 2)}
+            {JSON.stringify(content, null, 2)}
           </pre>
         </div>
       )}
