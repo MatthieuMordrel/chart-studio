@@ -16,6 +16,17 @@ export type JobRecord = {
 }
 
 /**
+ * Named playground source with a short description for the demo inspector UI.
+ */
+export type PlaygroundSource = {
+  id: string
+  label: string
+  description: string
+  data: JobRecord[]
+  columns: typeof jobColumns
+}
+
+/**
  * Build a stable ISO date relative to "today" for demo charts.
  */
 function isoDateDaysAgo(daysAgo: number): string {
@@ -93,4 +104,67 @@ export const hiringPushData: JobRecord[] = [
   createJob(29, 'Drew', 'Hired', 'North America', false, 103000),
   createJob(18, 'Elliot', 'Offer', 'Europe', true, 109000),
   createJob(8, 'Frankie', 'Interview', 'APAC', true, 89000),
+]
+
+/**
+ * Higher-value search pipeline with more late-stage records.
+ */
+export const executiveSearchData: JobRecord[] = [
+  createJob(165, 'Harper', 'Interview', 'North America', true, 132000),
+  createJob(149, 'Indigo', 'Offer', 'Europe', true, 148000),
+  createJob(138, 'Gale', 'Interview', 'APAC', true, 136000),
+  createJob(124, 'Harper', 'Offer', 'North America', true, 154000),
+  createJob(109, 'Indigo', 'Hired', 'Europe', false, 151000),
+  createJob(95, 'Gale', 'Interview', 'APAC', true, 139000),
+  createJob(76, 'Harper', 'Offer', 'North America', true, 158000),
+  createJob(61, 'Indigo', 'Applied', 'Europe', true, 128000),
+  createJob(46, 'Gale', 'Offer', 'APAC', true, 145000),
+  createJob(30, 'Harper', 'Hired', 'North America', false, 162000),
+  createJob(17, 'Indigo', 'Interview', 'Europe', true, 141000),
+  createJob(6, 'Gale', 'Offer', 'APAC', true, 149000),
+]
+
+/**
+ * Recovery scenario with heavier top-of-funnel volume and regional spread.
+ */
+export const recoverySprintData: JobRecord[] = [
+  createJob(172, 'Jules', 'Applied', 'North America', true, 69000),
+  createJob(156, 'Kai', 'Applied', 'Europe', true, 72000),
+  createJob(140, 'Lane', 'Interview', 'APAC', true, 81000),
+  createJob(126, 'Jules', 'Applied', 'North America', true, 70000),
+  createJob(111, 'Kai', 'Interview', 'Europe', true, 85000),
+  createJob(93, 'Lane', 'Offer', 'APAC', true, 96000),
+  createJob(78, 'Jules', 'Interview', 'North America', true, 83000),
+  createJob(64, 'Kai', 'Applied', 'Europe', true, 74000),
+  createJob(49, 'Lane', 'Applied', 'APAC', true, 71000),
+  createJob(33, 'Jules', 'Offer', 'North America', true, 98000),
+  createJob(20, 'Kai', 'Hired', 'Europe', false, 102000),
+  createJob(9, 'Lane', 'Interview', 'APAC', true, 86000),
+]
+
+/**
+ * Source catalog used by the playground source picker and chart demo.
+ */
+export const playgroundSources: PlaygroundSource[] = [
+  {
+    id: 'hiring-push',
+    label: 'Quarterly hiring push',
+    description: 'Balanced pipeline growth with healthy regional coverage across the quarter.',
+    data: hiringPushData,
+    columns: jobColumns,
+  },
+  {
+    id: 'executive-search',
+    label: 'Executive search',
+    description: 'Higher salary ranges with more late-stage movement and closes.',
+    data: executiveSearchData,
+    columns: jobColumns,
+  },
+  {
+    id: 'recovery-sprint',
+    label: 'Recovery sprint',
+    description: 'Top-of-funnel heavy pipeline focused on refilling regional hiring gaps.',
+    data: recoverySprintData,
+    columns: jobColumns,
+  },
 ]

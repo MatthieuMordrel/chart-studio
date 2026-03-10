@@ -8,11 +8,12 @@ import {
   ChartFilters,
   ChartGroupBySelector,
   ChartMetricSelector,
-  ChartToolbar,
+  ChartSourceSwitcher,
+  ChartTimeBucketSelector,
   ChartTypeSelector,
   ChartXAxisSelector,
 } from '@matthieumordrel/chart-studio/ui'
-import {hiringPushData, jobColumns, jobsPlaygroundData} from './mock-data'
+import {hiringPushData, jobColumns} from './mock-data'
 
 type Theme = 'light' | 'dark'
 
@@ -94,37 +95,6 @@ function ThemeToggle() {
   )
 }
 
-/** Shows the default out-of-the-box toolbar and canvas experience. */
-function DefaultToolbarDemo() {
-  const chart = useChart({
-    data: jobsPlaygroundData,
-    columns: jobColumns,
-    sourceLabel: 'Hiring pipeline',
-  })
-
-  return (
-    <PlaygroundSection
-      title="Default Toolbar Demo"
-      description="Use this section to test the standard package experience: toolbar behavior, filters, grouping, date range, and chart rendering."
-    >
-      <Chart chart={chart} className="space-y-4">
-        {/* The stock toolbar is the fastest way to visually verify most UI changes. */}
-        <ChartToolbar pinned={['xAxis', 'chartType', 'groupBy', 'metric', 'filters']} />
-
-        {/* Keep the chart surface isolated so spacing and borders are easy to inspect. */}
-        <div className="rounded-2xl border border-border bg-background p-4">
-          <ChartCanvas height={340} />
-        </div>
-
-        {/* Debug output helps verify state transitions while interacting with the UI. */}
-        <div className="rounded-2xl border border-border bg-background p-4">
-          <ChartDebug />
-        </div>
-      </Chart>
-    </PlaygroundSection>
-  )
-}
-
 /**
  * Shows a more custom composition where controls are rendered individually.
  */
@@ -138,14 +108,16 @@ function ComposedControlsDemo() {
   return (
     <PlaygroundSection
       title="Composed Controls Demo"
-      description="Use this section to test individual controls in custom layouts without going through the default toolbar wrapper."
+      description="Use this section to test the fully expanded control surface with every available chart toggle rendered directly in the layout."
     >
       <Chart chart={chart} className="space-y-4">
-        {/* This layout mimics how a consumer might compose only the controls they want. */}
+        {/* This layout exposes every control directly so each interaction is easy to inspect. */}
         <div className="flex flex-wrap items-center gap-2">
+          <ChartSourceSwitcher />
           <ChartXAxisSelector />
           <ChartTypeSelector />
           <ChartGroupBySelector />
+          <ChartTimeBucketSelector />
           <ChartMetricSelector />
           <ChartFilters />
           <ChartDateRange />
@@ -154,6 +126,11 @@ function ComposedControlsDemo() {
         {/* A second dataset makes it easy to spot regressions across different distributions. */}
         <div className="rounded-2xl border border-border bg-background p-4">
           <ChartCanvas height={320} />
+        </div>
+
+        {/* Keep debug state nearby so control changes are easy to verify in this expanded layout. */}
+        <div className="rounded-2xl border border-border bg-background p-4">
+          <ChartDebug />
         </div>
       </Chart>
     </PlaygroundSection>
@@ -183,8 +160,6 @@ function App() {
           </p>
         </header>
 
-        {/* Two scenarios cover both the default package UX and a custom consumer composition. */}
-        <DefaultToolbarDemo />
         <ComposedControlsDemo />
       </div>
     </main>
