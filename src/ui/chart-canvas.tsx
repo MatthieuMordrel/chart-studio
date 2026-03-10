@@ -5,7 +5,7 @@
  * Automatically switches between chart types based on the chart instance state.
  */
 
-import {useEffect, useRef, useState} from 'react'
+import {type ComponentType, type ReactNode, useEffect, useRef, useState} from 'react'
 import {
   Area,
   AreaChart,
@@ -23,6 +23,43 @@ import {
 } from 'recharts'
 import {useChartContext} from './chart-context.js'
 import {getSeriesColor} from '../core/colors.js'
+
+/**
+ * Formats a numeric value into a compact, human-readable string.
+ * Uses at most 3 significant figures to keep labels concise.
+ *
+ * @example formatAxisNumber(12_000_000) → "12M"
+ * @example formatAxisNumber(1_500)      → "1.5K"
+ * @example formatAxisNumber(-4_200_000) → "-4.2M"
+ */
+function formatAxisNumber(value: number): string {
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '-' : ''
+  if (abs >= 1e9) return `${sign}${+(abs / 1e9).toPrecision(3)}B`
+  if (abs >= 1e6) return `${sign}${+(abs / 1e6).toPrecision(3)}M`
+  if (abs >= 1e3) return `${sign}${+(abs / 1e3).toPrecision(3)}K`
+  return String(value)
+}
+
+/**
+ * Estimates the pixel width the YAxis needs so no label is ever clipped.
+ * Finds the largest absolute value in the data, formats it, then multiplies
+ * character count by ~7 px (text-xs) and adds 8 px of padding.
+ */
+function estimateYAxisWidth(
+  data: Record<string, string | number>[],
+  series: Array<{dataKey: string}>,
+): number {
+  let maxAbs = 0
+  for (const point of data) {
+    for (const s of series) {
+      const v = point[s.dataKey]
+      if (typeof v === 'number' && Math.abs(v) > maxAbs) maxAbs = Math.abs(v)
+    }
+  }
+  const label = formatAxisNumber(maxAbs)
+  return Math.max(40, label.length * 7 + 8)
+}
 
 /**
  * Props for ChartCanvas.
@@ -119,22 +156,70 @@ export function ChartCanvas({height = 300, className}: ChartCanvasProps) {
 // Chart type renderers
 // ---------------------------------------------------------------------------
 
+type SeriesItem = {dataKey: string; label: string; color: string}
+
 type RendererProps = {
   data: Record<string, string | number>[]
-  series: Array<{dataKey: string; label: string; color: string}>
+  series: SeriesItem[]
   width: number
   height: number
 }
 
+/**
+ * Minimal interface covering the props we pass to any recharts Cartesian root
+ * (BarChart, LineChart, AreaChart). Keeps CartesianChartShell type-safe without
+ * coupling it to a specific chart component.
+ */
+type CartesianChartComponent = ComponentType<{
+  data: Record<string, string | number>[]
+  width: number
+  height: number
+  margin?: {top?: number; right?: number; bottom?: number; left?: number}
+  children?: ReactNode
+}>
+
+type CartesianShellProps = RendererProps & {
+  /** The recharts root component (BarChart, LineChart, AreaChart). */
+  Chart: CartesianChartComponent
+  /** Renders each series element (Bar, Line, Area, …) inside the chart. */
+  renderSeries: (s: SeriesItem) => ReactNode
+}
+
+/**
+ * Shared shell for all Cartesian chart types.
+ * Owns the grid, axes, tooltip, and legend — the only things that change
+ * per chart type are the root component and the series element.
+ */
+function CartesianChartShell({data, series, width, height, Chart, renderSeries}: CartesianShellProps) {
+  const yAxisWidth = estimateYAxisWidth(data, series)
+  return (
+    <Chart data={data} width={width} height={height} margin={{top: 4, right: 8, left: 0, bottom: 0}}>
+      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+      <XAxis dataKey="xLabel" tickLine={false} axisLine={false} tickMargin={8} interval="preserveStartEnd" />
+      <YAxis
+        tickLine={false}
+        axisLine={false}
+        tickMargin={4}
+        allowDecimals={false}
+        width={yAxisWidth}
+        tickFormatter={formatAxisNumber}
+      />
+      <Tooltip formatter={(value) => (typeof value === 'number' ? formatAxisNumber(value) : value)} />
+      {series.length > 1 && <Legend />}
+      {series.map(renderSeries)}
+    </Chart>
+  )
+}
+
 function BarChartRenderer({data, series, width, height}: RendererProps) {
   return (
-    <BarChart data={data} width={width} height={height}>
-      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-      <XAxis dataKey="xLabel" tickLine={false} axisLine={false} tickMargin={8} />
-      <YAxis tickLine={false} axisLine={false} tickMargin={4} allowDecimals={false} width={40} />
-      <Tooltip />
-      {series.length > 1 && <Legend />}
-      {series.map((s) => (
+    <CartesianChartShell
+      data={data}
+      series={series}
+      width={width}
+      height={height}
+      Chart={BarChart}
+      renderSeries={(s) => (
         <Bar
           key={s.dataKey}
           dataKey={s.dataKey}
@@ -143,20 +228,20 @@ function BarChartRenderer({data, series, width, height}: RendererProps) {
           radius={[4, 4, 0, 0]}
           stackId={series.length > 1 ? 'stack' : undefined}
         />
-      ))}
-    </BarChart>
+      )}
+    />
   )
 }
 
 function LineChartRenderer({data, series, width, height}: RendererProps) {
   return (
-    <LineChart data={data} width={width} height={height}>
-      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-      <XAxis dataKey="xLabel" tickLine={false} axisLine={false} tickMargin={8} />
-      <YAxis tickLine={false} axisLine={false} tickMargin={4} allowDecimals={false} width={40} />
-      <Tooltip />
-      {series.length > 1 && <Legend />}
-      {series.map((s) => (
+    <CartesianChartShell
+      data={data}
+      series={series}
+      width={width}
+      height={height}
+      Chart={LineChart}
+      renderSeries={(s) => (
         <Line
           key={s.dataKey}
           type="monotone"
@@ -167,20 +252,20 @@ function LineChartRenderer({data, series, width, height}: RendererProps) {
           dot={{r: 3}}
           activeDot={{r: 5}}
         />
-      ))}
-    </LineChart>
+      )}
+    />
   )
 }
 
 function AreaChartRenderer({data, series, width, height}: RendererProps) {
   return (
-    <AreaChart data={data} width={width} height={height}>
-      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-      <XAxis dataKey="xLabel" tickLine={false} axisLine={false} tickMargin={8} />
-      <YAxis tickLine={false} axisLine={false} tickMargin={4} allowDecimals={false} width={40} />
-      <Tooltip />
-      {series.length > 1 && <Legend />}
-      {series.map((s) => (
+    <CartesianChartShell
+      data={data}
+      series={series}
+      width={width}
+      height={height}
+      Chart={AreaChart}
+      renderSeries={(s) => (
         <Area
           key={s.dataKey}
           type="monotone"
@@ -191,8 +276,8 @@ function AreaChartRenderer({data, series, width, height}: RendererProps) {
           fillOpacity={0.3}
           stackId={series.length > 1 ? 'stack' : undefined}
         />
-      ))}
-    </AreaChart>
+      )}
+    />
   )
 }
 
@@ -210,7 +295,7 @@ function PieChartRenderer({data, series, innerRadius, width, height}: PieRendere
 
   return (
     <PieChart width={width} height={height}>
-      <Tooltip />
+      <Tooltip formatter={(value) => (typeof value === 'number' ? formatAxisNumber(value) : value)} />
       <Legend />
       <Pie
         data={pieData}
@@ -220,8 +305,8 @@ function PieChartRenderer({data, series, innerRadius, width, height}: PieRendere
         cy="50%"
         innerRadius={innerRadius ? '40%' : 0}
         outerRadius="80%"
-        label={({name, value}: {name?: string | number; value?: string | number}) =>
-          `${name}: ${value}`
+        label={({name, value}: {name?: string | number; value?: number}) =>
+          `${name}: ${typeof value === 'number' ? formatAxisNumber(value) : value}`
         }
         labelLine={false}
       />

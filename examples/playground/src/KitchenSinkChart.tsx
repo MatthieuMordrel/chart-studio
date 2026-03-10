@@ -15,17 +15,17 @@ import {
 import {playgroundSources} from './mock-data'
 
 /**
- * Main chart for the playground: full control surface with source switcher,
- * x-axis, type, group-by, time bucket, metric, filters, date range, and debug panel.
+ * Full chart composition: every UI control exposed in a flat toolbar for hands-on inspection.
+ * Uses multi-source mode — switch datasets live without losing chart type or groupBy state.
  */
-export function PlaygroundChart() {
+export function KitchenSinkChart() {
   const chart = useChart({
     sources: playgroundSources,
   })
 
   return (
     <Chart chart={chart} className="space-y-4">
-      {/* This layout exposes every control directly so each interaction is easy to inspect. */}
+      {/* Every control from @matthieumordrel/chart-studio/ui laid out flat so each interaction is easy to spot. */}
       <div className="flex flex-wrap items-center gap-2">
         <ChartSourceSwitcher />
         <ChartXAxisSelector />
@@ -37,12 +37,11 @@ export function PlaygroundChart() {
         <ChartDateRange />
       </div>
 
-      {/* A second dataset makes it easy to spot regressions across different distributions. */}
       <div className="rounded-2xl border border-border bg-background p-4">
         <ChartCanvas height={320} />
       </div>
 
-      {/* Keep debug state nearby so control changes are easy to verify in this expanded layout. */}
+      {/* Live state inspector — useful for verifying each control updates the right slice of state. */}
       <div className="rounded-2xl border border-border bg-background p-4">
         <ChartDebug />
       </div>

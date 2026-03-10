@@ -39,12 +39,12 @@ export function useChartContext(): ChartInstance<unknown> {
  * </Chart>
  * ```
  */
-export function Chart<T>({
+export function Chart<T, TColumnId extends string>({
   chart,
   children,
   className,
 }: {
-  chart: ChartInstance<T>
+  chart: ChartInstance<T, TColumnId>
   children: ReactNode
   className?: string
 }) {
