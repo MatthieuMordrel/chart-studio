@@ -7,7 +7,8 @@
  *
  * @example
  * ```tsx
- * import { useChart, columns, Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio'
+ * import { useChart, columns } from '@matthieumordrel/chart-studio'
+ * import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
  *
  * const jobColumns = [
  *   columns.date('dateAdded', { label: 'Date Added' }),
@@ -27,7 +28,7 @@
  * ```
  */
 
-// Core (headless)
+// Headless charting API.
 export {
   CHART_TYPE_CONFIG,
   columns,
@@ -67,25 +68,3 @@ export type {
   AvailableFilter,
   ChartInstance,
 } from './core/index.js'
-
-// UI (composable components)
-export {
-  Chart,
-  useChartContext,
-  ChartCanvas,
-  ChartToolbar,
-  ChartToolbarOverflow,
-  ChartSourceSwitcher,
-  ChartTypeSelector,
-  ChartGroupBySelector,
-  ChartTimeBucketSelector,
-  ChartMetricSelector,
-  ChartXAxisSelector,
-  ChartDateRange,
-  ChartFilters,
-  ChartDebug,
-  CONTROL_IDS,
-  CONTROL_REGISTRY,
-} from './ui/index.js'
-
-export type {ControlId} from './ui/index.js'

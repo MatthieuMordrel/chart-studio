@@ -37,6 +37,7 @@
   },
   "homepage": "https://github.com/MatthieuMordrel/chart-studio#readme",
   "author": "Matthieu Mordrel",
+  "license": "MIT",
   "keywords": [
     "react",
     "charts",
@@ -53,12 +54,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "release:check": "bun run ./scripts/release-package.ts --dry-run",
-    "release:publish": "bun run ./scripts/release-package.ts --publish"
+    "release:publish": "bun run ./scripts/release-package.ts --publish",
+    "prepublishOnly": "bun run release:check"
   },
   "peerDependencies": {
-    "lucide-react": "^0.577.0",
-    "react": "^19.2.3",
-    "recharts": "^2.15.4"
+    "lucide-react": ">=0.577.0 <1",
+    "react": ">=18.2.0 <20",
+    "recharts": ">=2.15.4 <3"
   },
   "peerDependenciesMeta": {
     "lucide-react": {
