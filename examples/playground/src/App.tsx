@@ -13,7 +13,7 @@ import {
   ChartTypeSelector,
   ChartXAxisSelector,
 } from '@matthieumordrel/chart-studio/ui'
-import {hiringPushData, jobColumns} from './mock-data'
+import {playgroundSources} from './mock-data'
 
 type Theme = 'light' | 'dark'
 
@@ -100,15 +100,13 @@ function ThemeToggle() {
  */
 function ComposedControlsDemo() {
   const chart = useChart({
-    data: hiringPushData,
-    columns: jobColumns,
-    sourceLabel: 'Quarterly hiring push',
+    sources: playgroundSources,
   })
 
   return (
     <PlaygroundSection
       title="Composed Controls Demo"
-      description="Use this section to test the fully expanded control surface with every available chart toggle rendered directly in the layout."
+      description="Use this section to test the fully expanded control surface against multiple unrelated datasets, each with its own schema and multiple date fields."
     >
       <Chart chart={chart} className="space-y-4">
         {/* This layout exposes every control directly so each interaction is easy to inspect. */}
@@ -144,20 +142,10 @@ function App() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-10">
-        {/* Intro copy explains the playground's purpose to future contributors. */}
         <header className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              Local UI playground
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <ThemeToggle />
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight">chart-studio playground</h1>
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            This app is isolated from the published package and resolves imports directly to the
-            local source files. Edit anything in <code>src/</code> and refresh the playground to
-            verify visual changes without polluting the main library surface.
-          </p>
         </header>
 
         <ComposedControlsDemo />

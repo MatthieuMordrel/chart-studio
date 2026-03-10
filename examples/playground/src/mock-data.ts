@@ -1,170 +1,310 @@
-import {columns} from '@matthieumordrel/chart-studio'
+import {columns, type ChartColumn} from '@matthieumordrel/chart-studio'
 
-export type JobStage = 'Applied' | 'Interview' | 'Offer' | 'Hired'
-export type JobRegion = 'North America' | 'Europe' | 'APAC'
+export type SupportTicketRecord = {
+  openedAt: string
+  firstResponseAt: string
+  resolvedAt: string
+  team: 'Platform' | 'Billing' | 'Security'
+  priority: 'Low' | 'Medium' | 'High' | 'Urgent'
+  intakeChannel: 'Email' | 'Chat' | 'Phone'
+  slaBreached: boolean
+  resolutionHours: number
+  csatScore: number
+}
 
-/**
- * Playground record used to visually exercise the chart UI.
- */
-export type JobRecord = {
-  dateAdded: string
-  ownerName: string
-  stage: JobStage
-  region: JobRegion
-  isOpen: boolean
-  salary: number
+export type ShipmentRecord = {
+  bookedAt: string
+  departedAt: string
+  deliveredAt: string
+  route: 'Berlin to Paris' | 'Osaka to Seoul' | 'Austin to Toronto'
+  carrier: 'Northstar' | 'BlueRail' | 'Atlas Air'
+  transportMode: 'Air' | 'Ground' | 'Rail'
+  isTemperatureControlled: boolean
+  palletCount: number
+  freightCost: number
+}
+
+export type EventProgramRecord = {
+  announcedAt: string
+  eventStartsAt: string
+  checkedInAt: string
+  city: 'Lisbon' | 'Montreal' | 'Singapore'
+  format: 'Workshop' | 'Summit' | 'Roundtable'
+  audience: 'Developers' | 'Operators' | 'Executives'
+  isSoldOut: boolean
+  attendees: number
+  ticketRevenue: number
 }
 
 /**
- * Named playground source with a short description for the demo inspector UI.
+ * Named playground source with its own schema and data shape.
  */
 export type PlaygroundSource = {
   id: string
   label: string
   description: string
-  data: JobRecord[]
-  columns: typeof jobColumns
+  data: readonly unknown[]
+  columns: readonly ChartColumn<never>[]
 }
 
 /**
  * Build a stable ISO date relative to "today" for demo charts.
  */
-function isoDateDaysAgo(daysAgo: number): string {
+function isoDateDaysAgo(daysAgo: number, hour = 12): string {
   const date = new Date()
   date.setDate(date.getDate() - daysAgo)
-  date.setHours(12, 0, 0, 0)
+  date.setHours(hour, 0, 0, 0)
   return date.toISOString()
 }
 
 /**
- * Small factory that keeps the demo dataset easy to scan.
+ * Create a support ticket record with multiple lifecycle dates.
  */
-function createJob(
-  daysAgo: number,
-  ownerName: string,
-  stage: JobStage,
-  region: JobRegion,
-  isOpen: boolean,
-  salary: number,
-): JobRecord {
+function createSupportTicket({
+  openedDaysAgo,
+  firstResponseDaysAgo,
+  resolvedDaysAgo,
+  team,
+  priority,
+  intakeChannel,
+  slaBreached,
+  resolutionHours,
+  csatScore,
+}: {
+  openedDaysAgo: number
+  firstResponseDaysAgo: number
+  resolvedDaysAgo: number
+  team: SupportTicketRecord['team']
+  priority: SupportTicketRecord['priority']
+  intakeChannel: SupportTicketRecord['intakeChannel']
+  slaBreached: boolean
+  resolutionHours: number
+  csatScore: number
+}): SupportTicketRecord {
   return {
-    dateAdded: isoDateDaysAgo(daysAgo),
-    ownerName,
-    stage,
-    region,
-    isOpen,
-    salary,
+    openedAt: isoDateDaysAgo(openedDaysAgo, 9),
+    firstResponseAt: isoDateDaysAgo(firstResponseDaysAgo, 10),
+    resolvedAt: isoDateDaysAgo(resolvedDaysAgo, 16),
+    team,
+    priority,
+    intakeChannel,
+    slaBreached,
+    resolutionHours,
+    csatScore,
   }
 }
 
 /**
- * Shared columns for all playground charts.
- * These intentionally cover every major capability: date, category, boolean, and metric.
+ * Create a shipment record with booking, departure, and delivery dates.
  */
-export const jobColumns = [
-  columns.date<JobRecord>('dateAdded', {label: 'Date Added'}),
-  columns.category<JobRecord>('ownerName', {label: 'Owner'}),
-  columns.category<JobRecord>('stage', {label: 'Stage'}),
-  columns.category<JobRecord>('region', {label: 'Region'}),
-  columns.boolean<JobRecord>('isOpen', {trueLabel: 'Open', falseLabel: 'Closed'}),
-  columns.number<JobRecord>('salary', {label: 'Salary'}),
+function createShipment({
+  bookedDaysAgo,
+  departedDaysAgo,
+  deliveredDaysAgo,
+  route,
+  carrier,
+  transportMode,
+  isTemperatureControlled,
+  palletCount,
+  freightCost,
+}: {
+  bookedDaysAgo: number
+  departedDaysAgo: number
+  deliveredDaysAgo: number
+  route: ShipmentRecord['route']
+  carrier: ShipmentRecord['carrier']
+  transportMode: ShipmentRecord['transportMode']
+  isTemperatureControlled: boolean
+  palletCount: number
+  freightCost: number
+}): ShipmentRecord {
+  return {
+    bookedAt: isoDateDaysAgo(bookedDaysAgo, 8),
+    departedAt: isoDateDaysAgo(departedDaysAgo, 13),
+    deliveredAt: isoDateDaysAgo(deliveredDaysAgo, 18),
+    route,
+    carrier,
+    transportMode,
+    isTemperatureControlled,
+    palletCount,
+    freightCost,
+  }
+}
+
+/**
+ * Create an event program record with planning and attendance dates.
+ */
+function createEventProgram({
+  announcedDaysAgo,
+  eventStartsDaysAgo,
+  checkedInDaysAgo,
+  city,
+  format,
+  audience,
+  isSoldOut,
+  attendees,
+  ticketRevenue,
+}: {
+  announcedDaysAgo: number
+  eventStartsDaysAgo: number
+  checkedInDaysAgo: number
+  city: EventProgramRecord['city']
+  format: EventProgramRecord['format']
+  audience: EventProgramRecord['audience']
+  isSoldOut: boolean
+  attendees: number
+  ticketRevenue: number
+}): EventProgramRecord {
+  return {
+    announcedAt: isoDateDaysAgo(announcedDaysAgo, 11),
+    eventStartsAt: isoDateDaysAgo(eventStartsDaysAgo, 9),
+    checkedInAt: isoDateDaysAgo(checkedInDaysAgo, 10),
+    city,
+    format,
+    audience,
+    isSoldOut,
+    attendees,
+    ticketRevenue,
+  }
+}
+
+/**
+ * Support desk schema with lifecycle dates and operational metrics.
+ */
+export const supportTicketColumns = [
+  columns.date<SupportTicketRecord>('openedAt', {label: 'Opened At'}),
+  columns.date<SupportTicketRecord>('firstResponseAt', {label: 'First Response'}),
+  columns.date<SupportTicketRecord>('resolvedAt', {label: 'Resolved At'}),
+  columns.category<SupportTicketRecord>('team', {label: 'Team'}),
+  columns.category<SupportTicketRecord>('priority', {label: 'Priority'}),
+  columns.category<SupportTicketRecord>('intakeChannel', {label: 'Channel'}),
+  columns.boolean<SupportTicketRecord>('slaBreached', {
+    label: 'SLA',
+    trueLabel: 'Breached',
+    falseLabel: 'Within SLA',
+  }),
+  columns.number<SupportTicketRecord>('resolutionHours', {label: 'Resolution Hours'}),
+  columns.number<SupportTicketRecord>('csatScore', {label: 'CSAT Score'}),
 ]
 
 /**
- * Mixed dataset for testing the full default toolbar experience.
+ * Freight operations schema with route, carrier, and shipment metrics.
  */
-export const jobsPlaygroundData: JobRecord[] = [
-  createJob(190, 'Avery', 'Applied', 'North America', true, 82000),
-  createJob(176, 'Blair', 'Interview', 'Europe', true, 91000),
-  createJob(160, 'Casey', 'Offer', 'APAC', true, 105000),
-  createJob(148, 'Avery', 'Hired', 'North America', false, 98000),
-  createJob(133, 'Blair', 'Interview', 'Europe', true, 87000),
-  createJob(119, 'Casey', 'Applied', 'APAC', true, 76000),
-  createJob(102, 'Avery', 'Offer', 'North America', true, 112000),
-  createJob(88, 'Blair', 'Hired', 'Europe', false, 99000),
-  createJob(71, 'Casey', 'Interview', 'APAC', true, 94000),
-  createJob(54, 'Avery', 'Applied', 'North America', true, 81000),
-  createJob(37, 'Blair', 'Offer', 'Europe', true, 108000),
-  createJob(21, 'Casey', 'Hired', 'APAC', false, 101000),
+export const shipmentColumns = [
+  columns.date<ShipmentRecord>('bookedAt', {label: 'Booked At'}),
+  columns.date<ShipmentRecord>('departedAt', {label: 'Departed At'}),
+  columns.date<ShipmentRecord>('deliveredAt', {label: 'Delivered At'}),
+  columns.category<ShipmentRecord>('route', {label: 'Route'}),
+  columns.category<ShipmentRecord>('carrier', {label: 'Carrier'}),
+  columns.category<ShipmentRecord>('transportMode', {label: 'Mode'}),
+  columns.boolean<ShipmentRecord>('isTemperatureControlled', {
+    label: 'Temperature',
+    trueLabel: 'Controlled',
+    falseLabel: 'Ambient',
+  }),
+  columns.number<ShipmentRecord>('palletCount', {label: 'Pallets'}),
+  columns.number<ShipmentRecord>('freightCost', {label: 'Freight Cost'}),
 ]
 
 /**
- * Slightly different distribution for testing alternate visual states in a second chart.
+ * Events program schema with planning dates and attendance metrics.
  */
-export const hiringPushData: JobRecord[] = [
-  createJob(150, 'Drew', 'Applied', 'North America', true, 74000),
-  createJob(136, 'Drew', 'Interview', 'North America', true, 86000),
-  createJob(128, 'Elliot', 'Applied', 'Europe', true, 79000),
-  createJob(112, 'Elliot', 'Offer', 'Europe', true, 110000),
-  createJob(96, 'Frankie', 'Interview', 'APAC', true, 92000),
-  createJob(82, 'Frankie', 'Hired', 'APAC', false, 97000),
-  createJob(67, 'Drew', 'Offer', 'North America', true, 114000),
-  createJob(58, 'Elliot', 'Interview', 'Europe', true, 95000),
-  createJob(43, 'Frankie', 'Applied', 'APAC', true, 73000),
-  createJob(29, 'Drew', 'Hired', 'North America', false, 103000),
-  createJob(18, 'Elliot', 'Offer', 'Europe', true, 109000),
-  createJob(8, 'Frankie', 'Interview', 'APAC', true, 89000),
+export const eventProgramColumns = [
+  columns.date<EventProgramRecord>('announcedAt', {label: 'Announced At'}),
+  columns.date<EventProgramRecord>('eventStartsAt', {label: 'Event Starts'}),
+  columns.date<EventProgramRecord>('checkedInAt', {label: 'Check-in Date'}),
+  columns.category<EventProgramRecord>('city', {label: 'City'}),
+  columns.category<EventProgramRecord>('format', {label: 'Format'}),
+  columns.category<EventProgramRecord>('audience', {label: 'Audience'}),
+  columns.boolean<EventProgramRecord>('isSoldOut', {
+    label: 'Inventory',
+    trueLabel: 'Sold Out',
+    falseLabel: 'Available',
+  }),
+  columns.number<EventProgramRecord>('attendees', {label: 'Attendees'}),
+  columns.number<EventProgramRecord>('ticketRevenue', {label: 'Ticket Revenue'}),
 ]
 
 /**
- * Higher-value search pipeline with more late-stage records.
+ * Support desk dataset with a mix of urgent escalations and normal tickets.
  */
-export const executiveSearchData: JobRecord[] = [
-  createJob(165, 'Harper', 'Interview', 'North America', true, 132000),
-  createJob(149, 'Indigo', 'Offer', 'Europe', true, 148000),
-  createJob(138, 'Gale', 'Interview', 'APAC', true, 136000),
-  createJob(124, 'Harper', 'Offer', 'North America', true, 154000),
-  createJob(109, 'Indigo', 'Hired', 'Europe', false, 151000),
-  createJob(95, 'Gale', 'Interview', 'APAC', true, 139000),
-  createJob(76, 'Harper', 'Offer', 'North America', true, 158000),
-  createJob(61, 'Indigo', 'Applied', 'Europe', true, 128000),
-  createJob(46, 'Gale', 'Offer', 'APAC', true, 145000),
-  createJob(30, 'Harper', 'Hired', 'North America', false, 162000),
-  createJob(17, 'Indigo', 'Interview', 'Europe', true, 141000),
-  createJob(6, 'Gale', 'Offer', 'APAC', true, 149000),
+export const supportTicketData: SupportTicketRecord[] = [
+  createSupportTicket({openedDaysAgo: 176, firstResponseDaysAgo: 175, resolvedDaysAgo: 171, team: 'Platform', priority: 'High', intakeChannel: 'Email', slaBreached: false, resolutionHours: 18, csatScore: 4.7}),
+  createSupportTicket({openedDaysAgo: 169, firstResponseDaysAgo: 168, resolvedDaysAgo: 164, team: 'Platform', priority: 'Medium', intakeChannel: 'Phone', slaBreached: false, resolutionHours: 15, csatScore: 4.2}),
+  createSupportTicket({openedDaysAgo: 161, firstResponseDaysAgo: 160, resolvedDaysAgo: 156, team: 'Billing', priority: 'Medium', intakeChannel: 'Chat', slaBreached: false, resolutionHours: 9, csatScore: 4.4}),
+  createSupportTicket({openedDaysAgo: 149, firstResponseDaysAgo: 148, resolvedDaysAgo: 142, team: 'Security', priority: 'Urgent', intakeChannel: 'Phone', slaBreached: true, resolutionHours: 31, csatScore: 3.8}),
+  createSupportTicket({openedDaysAgo: 136, firstResponseDaysAgo: 135, resolvedDaysAgo: 132, team: 'Platform', priority: 'Low', intakeChannel: 'Chat', slaBreached: false, resolutionHours: 5, csatScore: 4.9}),
+  createSupportTicket({openedDaysAgo: 122, firstResponseDaysAgo: 121, resolvedDaysAgo: 118, team: 'Billing', priority: 'High', intakeChannel: 'Email', slaBreached: false, resolutionHours: 14, csatScore: 4.5}),
+  createSupportTicket({openedDaysAgo: 109, firstResponseDaysAgo: 108, resolvedDaysAgo: 101, team: 'Security', priority: 'Urgent', intakeChannel: 'Phone', slaBreached: true, resolutionHours: 42, csatScore: 3.6}),
+  createSupportTicket({openedDaysAgo: 101, firstResponseDaysAgo: 100, resolvedDaysAgo: 95, team: 'Billing', priority: 'Low', intakeChannel: 'Email', slaBreached: false, resolutionHours: 7, csatScore: 4.8}),
+  createSupportTicket({openedDaysAgo: 92, firstResponseDaysAgo: 91, resolvedDaysAgo: 88, team: 'Platform', priority: 'Medium', intakeChannel: 'Email', slaBreached: false, resolutionHours: 11, csatScore: 4.8}),
+  createSupportTicket({openedDaysAgo: 77, firstResponseDaysAgo: 76, resolvedDaysAgo: 72, team: 'Billing', priority: 'Low', intakeChannel: 'Chat', slaBreached: false, resolutionHours: 6, csatScore: 4.6}),
+  createSupportTicket({openedDaysAgo: 63, firstResponseDaysAgo: 62, resolvedDaysAgo: 58, team: 'Security', priority: 'High', intakeChannel: 'Phone', slaBreached: true, resolutionHours: 27, csatScore: 4.0}),
+  createSupportTicket({openedDaysAgo: 45, firstResponseDaysAgo: 44, resolvedDaysAgo: 40, team: 'Platform', priority: 'Medium', intakeChannel: 'Email', slaBreached: false, resolutionHours: 12, csatScore: 4.7}),
+  createSupportTicket({openedDaysAgo: 36, firstResponseDaysAgo: 35, resolvedDaysAgo: 30, team: 'Platform', priority: 'Urgent', intakeChannel: 'Chat', slaBreached: true, resolutionHours: 29, csatScore: 3.9}),
+  createSupportTicket({openedDaysAgo: 28, firstResponseDaysAgo: 27, resolvedDaysAgo: 23, team: 'Billing', priority: 'High', intakeChannel: 'Phone', slaBreached: true, resolutionHours: 24, csatScore: 4.1}),
+  createSupportTicket({openedDaysAgo: 14, firstResponseDaysAgo: 13, resolvedDaysAgo: 10, team: 'Security', priority: 'Medium', intakeChannel: 'Chat', slaBreached: false, resolutionHours: 8, csatScore: 4.3}),
+  createSupportTicket({openedDaysAgo: 6, firstResponseDaysAgo: 5, resolvedDaysAgo: 2, team: 'Billing', priority: 'Low', intakeChannel: 'Email', slaBreached: false, resolutionHours: 4, csatScore: 4.9}),
 ]
 
 /**
- * Recovery scenario with heavier top-of-funnel volume and regional spread.
+ * Freight dataset covering multiple carriers and transport modes.
  */
-export const recoverySprintData: JobRecord[] = [
-  createJob(172, 'Jules', 'Applied', 'North America', true, 69000),
-  createJob(156, 'Kai', 'Applied', 'Europe', true, 72000),
-  createJob(140, 'Lane', 'Interview', 'APAC', true, 81000),
-  createJob(126, 'Jules', 'Applied', 'North America', true, 70000),
-  createJob(111, 'Kai', 'Interview', 'Europe', true, 85000),
-  createJob(93, 'Lane', 'Offer', 'APAC', true, 96000),
-  createJob(78, 'Jules', 'Interview', 'North America', true, 83000),
-  createJob(64, 'Kai', 'Applied', 'Europe', true, 74000),
-  createJob(49, 'Lane', 'Applied', 'APAC', true, 71000),
-  createJob(33, 'Jules', 'Offer', 'North America', true, 98000),
-  createJob(20, 'Kai', 'Hired', 'Europe', false, 102000),
-  createJob(9, 'Lane', 'Interview', 'APAC', true, 86000),
+export const shipmentData: ShipmentRecord[] = [
+  createShipment({bookedDaysAgo: 412, departedDaysAgo: 408, deliveredDaysAgo: 401, route: 'Berlin to Paris', carrier: 'BlueRail', transportMode: 'Rail', isTemperatureControlled: false, palletCount: 14, freightCost: 12400}),
+  createShipment({bookedDaysAgo: 358, departedDaysAgo: 355, deliveredDaysAgo: 349, route: 'Osaka to Seoul', carrier: 'Atlas Air', transportMode: 'Air', isTemperatureControlled: true, palletCount: 8, freightCost: 21300}),
+  createShipment({bookedDaysAgo: 307, departedDaysAgo: 304, deliveredDaysAgo: 298, route: 'Austin to Toronto', carrier: 'Northstar', transportMode: 'Ground', isTemperatureControlled: false, palletCount: 18, freightCost: 9800}),
+  createShipment({bookedDaysAgo: 241, departedDaysAgo: 238, deliveredDaysAgo: 232, route: 'Berlin to Paris', carrier: 'BlueRail', transportMode: 'Rail', isTemperatureControlled: true, palletCount: 11, freightCost: 14100}),
+  createShipment({bookedDaysAgo: 187, departedDaysAgo: 184, deliveredDaysAgo: 179, route: 'Osaka to Seoul', carrier: 'Atlas Air', transportMode: 'Air', isTemperatureControlled: true, palletCount: 6, freightCost: 22800}),
+  createShipment({bookedDaysAgo: 126, departedDaysAgo: 123, deliveredDaysAgo: 118, route: 'Austin to Toronto', carrier: 'Northstar', transportMode: 'Ground', isTemperatureControlled: false, palletCount: 21, freightCost: 11200}),
+  createShipment({bookedDaysAgo: 73, departedDaysAgo: 70, deliveredDaysAgo: 64, route: 'Berlin to Paris', carrier: 'BlueRail', transportMode: 'Rail', isTemperatureControlled: false, palletCount: 13, freightCost: 13600}),
+  createShipment({bookedDaysAgo: 17, departedDaysAgo: 14, deliveredDaysAgo: 9, route: 'Osaka to Seoul', carrier: 'Atlas Air', transportMode: 'Air', isTemperatureControlled: true, palletCount: 9, freightCost: 21900}),
 ]
 
 /**
- * Source catalog used by the playground source picker and chart demo.
+ * Events dataset with different formats, audiences, and commercial outcomes.
  */
-export const playgroundSources: PlaygroundSource[] = [
+export const eventProgramData: EventProgramRecord[] = [
+  createEventProgram({announcedDaysAgo: 71, eventStartsDaysAgo: 58, checkedInDaysAgo: 58, city: 'Lisbon', format: 'Workshop', audience: 'Developers', isSoldOut: false, attendees: 140, ticketRevenue: 18200}),
+  createEventProgram({announcedDaysAgo: 66, eventStartsDaysAgo: 54, checkedInDaysAgo: 54, city: 'Montreal', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 320, ticketRevenue: 68400}),
+  createEventProgram({announcedDaysAgo: 61, eventStartsDaysAgo: 49, checkedInDaysAgo: 49, city: 'Singapore', format: 'Roundtable', audience: 'Operators', isSoldOut: false, attendees: 88, ticketRevenue: 12100}),
+  createEventProgram({announcedDaysAgo: 55, eventStartsDaysAgo: 43, checkedInDaysAgo: 43, city: 'Lisbon', format: 'Summit', audience: 'Developers', isSoldOut: true, attendees: 280, ticketRevenue: 55200}),
+  createEventProgram({announcedDaysAgo: 49, eventStartsDaysAgo: 37, checkedInDaysAgo: 37, city: 'Montreal', format: 'Workshop', audience: 'Operators', isSoldOut: false, attendees: 116, ticketRevenue: 14900}),
+  createEventProgram({announcedDaysAgo: 44, eventStartsDaysAgo: 32, checkedInDaysAgo: 32, city: 'Singapore', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 305, ticketRevenue: 70800}),
+  createEventProgram({announcedDaysAgo: 38, eventStartsDaysAgo: 27, checkedInDaysAgo: 27, city: 'Lisbon', format: 'Roundtable', audience: 'Operators', isSoldOut: false, attendees: 74, ticketRevenue: 9800}),
+  createEventProgram({announcedDaysAgo: 30, eventStartsDaysAgo: 21, checkedInDaysAgo: 21, city: 'Montreal', format: 'Workshop', audience: 'Developers', isSoldOut: false, attendees: 132, ticketRevenue: 17600}),
+  createEventProgram({announcedDaysAgo: 25, eventStartsDaysAgo: 15, checkedInDaysAgo: 15, city: 'Singapore', format: 'Summit', audience: 'Operators', isSoldOut: true, attendees: 294, ticketRevenue: 66300}),
+  createEventProgram({announcedDaysAgo: 18, eventStartsDaysAgo: 10, checkedInDaysAgo: 10, city: 'Lisbon', format: 'Workshop', audience: 'Executives', isSoldOut: false, attendees: 98, ticketRevenue: 15800}),
+  createEventProgram({announcedDaysAgo: 11, eventStartsDaysAgo: 4, checkedInDaysAgo: 4, city: 'Montreal', format: 'Roundtable', audience: 'Developers', isSoldOut: false, attendees: 82, ticketRevenue: 11400}),
+  createEventProgram({announcedDaysAgo: 8, eventStartsDaysAgo: 1, checkedInDaysAgo: 1, city: 'Singapore', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 338, ticketRevenue: 74100}),
+  createEventProgram({announcedDaysAgo: 6, eventStartsDaysAgo: 0, checkedInDaysAgo: 0, city: 'Lisbon', format: 'Workshop', audience: 'Operators', isSoldOut: false, attendees: 104, ticketRevenue: 13600}),
+  createEventProgram({announcedDaysAgo: 3, eventStartsDaysAgo: 0, checkedInDaysAgo: 0, city: 'Singapore', format: 'Roundtable', audience: 'Developers', isSoldOut: false, attendees: 67, ticketRevenue: 9100}),
+]
+
+/**
+ * Source catalog used by the playground source switcher.
+ * Each source intentionally uses a different schema so source changes stress-test state resets.
+ */
+export const playgroundSources = [
   {
-    id: 'hiring-push',
-    label: 'Quarterly hiring push',
-    description: 'Balanced pipeline growth with healthy regional coverage across the quarter.',
-    data: hiringPushData,
-    columns: jobColumns,
+    id: 'support-desk',
+    label: 'Support desk',
+    description: 'Ticket operations with response timing, SLA performance, and satisfaction scores.',
+    data: supportTicketData,
+    columns: supportTicketColumns,
   },
   {
-    id: 'executive-search',
-    label: 'Executive search',
-    description: 'Higher salary ranges with more late-stage movement and closes.',
-    data: executiveSearchData,
-    columns: jobColumns,
+    id: 'shipment-ops',
+    label: 'Shipment ops',
+    description: 'Freight movement across carriers, routes, and transport modes.',
+    data: shipmentData,
+    columns: shipmentColumns,
   },
   {
-    id: 'recovery-sprint',
-    label: 'Recovery sprint',
-    description: 'Top-of-funnel heavy pipeline focused on refilling regional hiring gaps.',
-    data: recoverySprintData,
-    columns: jobColumns,
+    id: 'events-program',
+    label: 'Events program',
+    description: 'Commercial event performance with planning, attendance, and sell-through signals.',
+    data: eventProgramData,
+    columns: eventProgramColumns,
   },
-]
+] satisfies PlaygroundSource[]
