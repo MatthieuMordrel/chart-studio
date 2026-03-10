@@ -22,6 +22,7 @@
       "import": "./dist/ui/index.js",
       "default": "./dist/ui/index.js"
     },
+    "./ui/theme.css": "./dist/ui/theme.css",
     "./package.json": "./package.json"
   },
   "files": [

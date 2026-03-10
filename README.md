@@ -52,6 +52,13 @@ Install:
 bun add @matthieumordrel/chart-studio react recharts lucide-react
 ```
 
+Then import the package theme once in your app stylesheet:
+
+```css
+@import "tailwindcss";
+@import "@matthieumordrel/chart-studio/ui/theme.css";
+```
+
 Import from:
 
 ```tsx
@@ -148,21 +155,42 @@ The headless core has no styling requirements.
 The `ui` layer is currently:
 
 - Tailwind-based
+- shipped with a small default theme file
 - styled with semantic design tokens
 - compatible with shadcn-style theme variables
 
-This means `@matthieumordrel/chart-studio/ui` is **not** fully self-themed yet. It expects your app to provide Tailwind utilities plus a small semantic token contract.
+The recommended setup is:
+
+```css
+@import "tailwindcss";
+@import "@matthieumordrel/chart-studio/ui/theme.css";
+```
+
+This gives you:
+
+- Tailwind utilities for the package components
+- automatic scanning of the package UI classes
+- sensible built-in fallback colors and surfaces
+- automatic theme adoption if your app already defines shadcn-style tokens
+
+This means `@matthieumordrel/chart-studio/ui` now has a usable default look, while still letting host apps take over by defining the same semantic variables.
 
 The UI layer assumes:
 
 - Tailwind utility classes are available
-- your app exposes semantic tokens such as `background`, `foreground`, `muted`, `muted-foreground`, `border`, `popover`, `popover-foreground`, `primary`, `primary-foreground`, and `ring`
+- your app may optionally expose semantic tokens such as `background`, `foreground`, `muted`, `muted-foreground`, `border`, `popover`, `popover-foreground`, `primary`, `primary-foreground`, and `ring`
 
 If that does not match your app, use the headless core and render your own controls.
 
 ### Minimum UI theme contract
 
-You do not need shadcn itself, but you do need equivalent semantic variables if you want to use `@matthieumordrel/chart-studio/ui`.
+You do not need shadcn itself to use `@matthieumordrel/chart-studio/ui`.
+
+If you import `@matthieumordrel/chart-studio/ui/theme.css`, the package provides fallback defaults automatically.
+
+If your app already defines shadcn-style tokens, those values take over automatically.
+
+If you are not using shadcn, you can still customize the UI by defining the same semantic variables in your own theme.
 
 These are the tokens currently expected by the UI layer:
 
@@ -196,7 +224,12 @@ Minimal example:
 }
 ```
 
-If your app already uses shadcn tokens, `ui` should fit in naturally without extra component rewrites.
+How this works:
+
+- if your app defines `--background`, `--foreground`, `--primary`, etc., `chart-studio/ui` uses them
+- if your app does not define them, `ui/theme.css` falls back to built-in defaults
+
+That makes the package usable out of the box while still staying easy to theme.
 
 ### Optional chart color tokens
 
@@ -212,7 +245,9 @@ Chart series colors also support shadcn-style chart variables:
 
 These are **recommended but not required**.
 
-If they are not defined, `chart-studio` falls back to a built-in OKLCH palette. That is why you may now see blue, rose, cyan, or other fallback colors in charts when your app does not provide `--chart-1` through `--chart-5`.
+If your app defines `--chart-1` through `--chart-5`, those colors are used automatically.
+
+If they are not defined, `chart-studio` falls back to a built-in OKLCH palette. That is why you may see blue, rose, cyan, or other fallback colors in charts when your app does not provide chart variables.
 
 Minimal example:
 
@@ -271,18 +306,18 @@ const chart = useChart({
 
 ### The UI looks mostly unstyled
 
-If the components render but look plain, compressed, or layout incorrectly, the most common cause is that Tailwind is not scanning the files from `@matthieumordrel/chart-studio/ui`.
+If the components render but look plain, compressed, or layout incorrectly, the most common cause is that the package theme file is not imported.
 
-This usually happens in local playgrounds, monorepos, or alias-based setups where your app imports the package source from outside the app folder.
-
-For Tailwind v4, make sure your stylesheet includes the package source as a scan target:
+Start with:
 
 ```css
 @import "tailwindcss";
-@source "../path-to-chart-studio/src";
+@import "@matthieumordrel/chart-studio/ui/theme.css";
 ```
 
-If your app already uses shadcn-style tokens, also make sure tokens such as `background`, `foreground`, `muted`, `border`, `popover`, `primary`, and `ring` are defined in your theme.
+If you are importing the package source directly in a local playground or monorepo, make sure Tailwind is scanning those source files too.
+
+If your app already uses shadcn-style tokens, also make sure tokens such as `background`, `foreground`, `muted`, `border`, `popover`, `primary`, `ring`, and optionally `chart-1` through `chart-5` are defined in your theme.
 
 ## Release
 
