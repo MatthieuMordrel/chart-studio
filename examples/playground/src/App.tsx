@@ -6,9 +6,11 @@ import {KitchenSinkChart} from './KitchenSinkChart'
 import kitchenSinkSource from './KitchenSinkChart.tsx?raw'
 import {MinimalChart} from './MinimalChart'
 import minimalSource from './MinimalChart.tsx?raw'
+import {OverflowToolbarChart} from './OverflowToolbarChart'
+import overflowToolbarSource from './OverflowToolbarChart.tsx?raw'
 import {ThemeToggle} from './ThemeToggle'
 
-type ScenarioId = 'kitchen-sink' | 'minimal' | 'headless'
+type ScenarioId = 'kitchen-sink' | 'overflow-toolbar' | 'minimal' | 'headless'
 
 const SCENARIOS = [
   {
@@ -19,11 +21,18 @@ const SCENARIOS = [
       'Multi-source mode — switch datasets live. Includes ChartDebug to inspect live state.',
   },
   {
+    id: 'overflow-toolbar' as const,
+    label: 'Overflow Toolbar',
+    description:
+      'Uses ChartToolbar with its default configuration so every control stays inside the ellipsis menu. ' +
+      'Multi-source mode with ChartDebug included to inspect state changes.',
+  },
+  {
     id: 'minimal' as const,
     label: 'Minimal Embed',
     description:
-      'Single source passed directly to useChart. Only three UI controls composed: ' +
-      'ChartTypeSelector, ChartTimeBucketSelector, ChartGroupBySelector.',
+      'Single source passed directly to useChart. Uses ChartToolbar with three pinned controls ' +
+      'so chart type, time bucket, and group by stay visible while the rest remain in overflow.',
   },
   {
     id: 'headless' as const,
@@ -37,13 +46,14 @@ const SCENARIOS = [
 /** Map each scenario id to its raw source string for the code panel. */
 const SCENARIO_SOURCE: Record<ScenarioId, string> = {
   'kitchen-sink': kitchenSinkSource,
+  'overflow-toolbar': overflowToolbarSource,
   minimal: minimalSource,
   headless: headlessSource,
 }
 
 /**
  * Root application for visually testing chart-studio.
- * Tab navigation switches between three scenarios — one chart per screen.
+ * Tab navigation switches between playground scenarios — one chart per screen.
  */
 function App() {
   const [scenarioId, setScenarioId] = useState<ScenarioId>('kitchen-sink')
@@ -80,6 +90,7 @@ function App() {
         </header>
 
         {scenarioId === 'kitchen-sink' && <KitchenSinkChart />}
+        {scenarioId === 'overflow-toolbar' && <OverflowToolbarChart />}
         {scenarioId === 'minimal' && <MinimalChart />}
         {scenarioId === 'headless' && <HeadlessChart />}
 
