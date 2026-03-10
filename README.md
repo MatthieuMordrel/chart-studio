@@ -152,45 +152,48 @@ export function JobsChartHeadless({data}: {data: Job[]}) {
 
 The headless core has no styling requirements.
 
-The `ui` layer is currently:
+The `ui` layer is Tailwind-based and uses semantic classes such as:
 
-- Tailwind-based
-- shipped with a small default theme file
-- styled with semantic design tokens
-- compatible with shadcn-style theme variables
+- `bg-background`
+- `text-foreground`
+- `border-border`
+- `bg-popover`
+- `text-muted-foreground`
 
-The recommended setup is:
+For those classes to render correctly, Tailwind needs real values behind tokens like `background`, `foreground`, `border`, and `popover`.
+
+You can use `ui` in two ways:
+
+### 1. Recommended: import the built-in theme
+
+This is the easiest setup:
 
 ```css
 @import "tailwindcss";
 @import "@matthieumordrel/chart-studio/ui/theme.css";
 ```
 
-This gives you:
+This does three things for you:
 
 - Tailwind utilities for the package components
 - automatic scanning of the package UI classes
-- sensible built-in fallback colors and surfaces
-- automatic theme adoption if your app already defines shadcn-style tokens
+- default fallback values for all semantic UI tokens
 
-This means `@matthieumordrel/chart-studio/ui` now has a usable default look, while still letting host apps take over by defining the same semantic variables.
+If your app already defines matching shadcn-style variables, those values take over automatically. If not, the built-in defaults are used.
 
-The UI layer assumes:
+### 2. Advanced: define everything yourself
 
-- Tailwind utility classes are available
-- your app may optionally expose semantic tokens such as `background`, `foreground`, `muted`, `muted-foreground`, `border`, `popover`, `popover-foreground`, `primary`, `primary-foreground`, and `ring`
+If you do not want to import `@matthieumordrel/chart-studio/ui/theme.css`, you can provide all the required semantic tokens yourself in your app theme.
 
-If that does not match your app, use the headless core and render your own controls.
+If neither of those is true, use the headless core and render your own controls.
 
 ### Minimum UI theme contract
 
 You do not need shadcn itself to use `@matthieumordrel/chart-studio/ui`.
 
-If you import `@matthieumordrel/chart-studio/ui/theme.css`, the package provides fallback defaults automatically.
+If you import `@matthieumordrel/chart-studio/ui/theme.css`, every token below gets a built-in fallback automatically.
 
-If your app already defines shadcn-style tokens, those values take over automatically.
-
-If you are not using shadcn, you can still customize the UI by defining the same semantic variables in your own theme.
+If your app already defines some of these variables, your values override the defaults for those specific tokens only. Missing ones still fall back to the package defaults.
 
 These are the tokens currently expected by the UI layer:
 
@@ -224,12 +227,13 @@ Minimal example:
 }
 ```
 
-How this works:
+How this works in practice:
 
-- if your app defines `--background`, `--foreground`, `--primary`, etc., `chart-studio/ui` uses them
-- if your app does not define them, `ui/theme.css` falls back to built-in defaults
+- import `ui/theme.css` and do nothing else: the package uses its own defaults
+- import `ui/theme.css` and define only a few variables: your values win for those variables, defaults cover the rest
+- skip `ui/theme.css`: you must define the whole token contract yourself
 
-That makes the package usable out of the box while still staying easy to theme.
+That makes the package usable out of the box while still being easy to theme.
 
 ### Optional chart color tokens
 
@@ -243,7 +247,7 @@ Chart series colors also support shadcn-style chart variables:
 | `chart-4` | fourth series color |
 | `chart-5` | fifth series color |
 
-These are **recommended but not required**.
+These are also optional when you import `ui/theme.css`.
 
 If your app defines `--chart-1` through `--chart-5`, those colors are used automatically.
 
