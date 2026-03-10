@@ -5,19 +5,7 @@
  * Falls back to a built-in OKLCH palette when CSS variables are not available.
  */
 
-/** Shadcn chart CSS variables (5 colors). */
-const SHADCN_CHART_COLORS = [
-  'var(--chart-1)',
-  'var(--chart-2)',
-  'var(--chart-3)',
-  'var(--chart-4)',
-  'var(--chart-5)',
-] as const
-
-/**
- * Fallback palette using OKLCH for perceptually uniform colors.
- * Used when shadcn theme is not available.
- */
+/** Fallback palette using OKLCH for perceptually uniform colors. */
 const FALLBACK_COLORS = [
   'oklch(0.65 0.15 250)', // blue
   'oklch(0.65 0.15 350)', // rose
@@ -29,6 +17,15 @@ const FALLBACK_COLORS = [
   'oklch(0.65 0.15 120)', // green
   'oklch(0.65 0.12 170)', // mint
   'oklch(0.65 0.12 220)', // slate blue
+] as const
+
+/** Shadcn chart CSS variables (5 colors) with safe fallbacks. */
+const SHADCN_CHART_COLORS = [
+  `var(--chart-1, ${FALLBACK_COLORS[0]})`,
+  `var(--chart-2, ${FALLBACK_COLORS[1]})`,
+  `var(--chart-3, ${FALLBACK_COLORS[2]})`,
+  `var(--chart-4, ${FALLBACK_COLORS[3]})`,
+  `var(--chart-5, ${FALLBACK_COLORS[4]})`,
 ] as const
 
 /**

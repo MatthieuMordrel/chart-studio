@@ -198,6 +198,34 @@ Minimal example:
 
 If your app already uses shadcn tokens, `ui` should fit in naturally without extra component rewrites.
 
+### Optional chart color tokens
+
+Chart series colors also support shadcn-style chart variables:
+
+| Token | Purpose |
+| --- | --- |
+| `chart-1` | first series color |
+| `chart-2` | second series color |
+| `chart-3` | third series color |
+| `chart-4` | fourth series color |
+| `chart-5` | fifth series color |
+
+These are **recommended but not required**.
+
+If they are not defined, `chart-studio` falls back to a built-in OKLCH palette. That is why you may now see blue, rose, cyan, or other fallback colors in charts when your app does not provide `--chart-1` through `--chart-5`.
+
+Minimal example:
+
+```css
+:root {
+  --chart-1: 221.2 83.2% 53.3%;
+  --chart-2: 262.1 83.3% 57.8%;
+  --chart-3: 24.6 95% 53.1%;
+  --chart-4: 142.1 76.2% 36.3%;
+  --chart-5: 346.8 77.2% 49.8%;
+}
+```
+
 ## Compatibility
 
 - `react`: `>=18.2.0 <20`

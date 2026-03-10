@@ -3,7 +3,7 @@
  * Clicking reveals a popover wrapping ChartFiltersPanel.
  */
 
-import {useState} from 'react'
+import {useRef, useState} from 'react'
 import {Filter} from 'lucide-react'
 import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
@@ -16,6 +16,7 @@ import {ChartFiltersPanel} from './chart-filters-panel.js'
 export function ChartFilters({className}: {className?: string}) {
   const {availableFilters, filters} = useChartContext()
   const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   if (availableFilters.length === 0) return null
 
@@ -23,9 +24,10 @@ export function ChartFilters({className}: {className?: string}) {
   const isActive = activeCount > 0
 
   return (
-    <div className={`relative ${className ?? ''}`}>
+    <div className={className}>
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
         className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 ${
           isActive
@@ -46,6 +48,7 @@ export function ChartFilters({className}: {className?: string}) {
       <ChartDropdownPanel
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
+        triggerRef={triggerRef}
         width={288}
         className="max-h-[420px] overflow-y-auto overscroll-contain p-3"
       >

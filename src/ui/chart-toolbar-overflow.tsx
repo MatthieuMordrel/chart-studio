@@ -10,6 +10,7 @@
 import {useRef, useState} from 'react'
 import {ArrowLeft, ChevronRight, Ellipsis, Eraser} from 'lucide-react'
 import {useChartContext} from './chart-context.js'
+import {ChartDropdownPanel} from './chart-dropdown.js'
 import {ChartDateRangePanel, resolvePresetLabel} from './chart-date-range-panel.js'
 import {ChartFiltersPanel} from './chart-filters-panel.js'
 import {ChartMetricPanel} from './chart-metric-panel.js'
@@ -42,7 +43,6 @@ export function ChartToolbarOverflow({pinned, hidden, className}: ChartToolbarOv
   /** null = main menu, ControlId = detail page for that control */
   const [activePage, setActivePage] = useState<ControlId | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const [position, setPosition] = useState<{top: number; left: number} | null>(null)
 
   // Collect overflow controls (not pinned, not hidden) grouped by section
   const sectionGroups = SECTIONS.map((section) => {
@@ -58,38 +58,12 @@ export function ChartToolbarOverflow({pinned, hidden, className}: ChartToolbarOv
   const handleClose = () => {
     setIsOpen(false)
     setActivePage(null)
-    setPosition(null)
   }
 
   const handleToggle = () => {
     if (isOpen) {
       handleClose()
       return
-    }
-    // Measure trigger position and decide where to place the panel
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      const panelWidth = 320
-      const panelEstimatedHeight = 340
-      const gap = 6
-
-      // Horizontal: align right edge of panel to right edge of trigger
-      let left = rect.right - panelWidth
-      // If it would go offscreen left, push it right
-      if (left < 8) left = 8
-
-      // Vertical: prefer below, flip above if not enough space
-      const spaceBelow = window.innerHeight - rect.bottom
-      let top: number
-      if (spaceBelow >= panelEstimatedHeight + gap) {
-        top = rect.bottom + gap
-      } else {
-        top = rect.top - panelEstimatedHeight - gap
-        // If flipping above would go offscreen, just open below
-        if (top < 8) top = rect.bottom + gap
-      }
-
-      setPosition({top, left})
     }
     setIsOpen(true)
   }
@@ -111,29 +85,21 @@ export function ChartToolbarOverflow({pinned, hidden, className}: ChartToolbarOv
       </button>
 
       {/* Popover panel — fixed position to escape any parent overflow/clipping */}
-      {isOpen && position && (
-        <>
-          {/* Backdrop — click closes, but allows scroll-through */}
-          <div className="fixed inset-0 z-40" onClick={handleClose} onWheel={handleClose} />
-
-          <div
-            className="fixed z-50 flex flex-col rounded-xl border border-border/50 bg-popover shadow-[0_8px_30px_-6px_rgba(0,0,0,0.12),0_2px_8px_-2px_rgba(0,0,0,0.05)]"
-            style={{
-              width: 320,
-              minHeight: 280,
-              maxHeight: 'min(480px, 80vh)',
-              top: position.top,
-              left: position.left,
-            }}
-          >
-            {activePage === null ? (
-              <MainMenu sectionGroups={sectionGroups} onNavigate={setActivePage} />
-            ) : (
-              <DetailPage controlId={activePage} onBack={() => setActivePage(null)} />
-            )}
-          </div>
-        </>
-      )}
+      <ChartDropdownPanel
+        isOpen={isOpen}
+        onClose={handleClose}
+        triggerRef={triggerRef}
+        align="right"
+        width={320}
+        repositionKey={activePage ?? 'main'}
+        className="flex min-h-[280px] max-h-[min(480px,80vh)] flex-col"
+      >
+        {activePage === null ? (
+          <MainMenu sectionGroups={sectionGroups} onNavigate={setActivePage} />
+        ) : (
+          <DetailPage controlId={activePage} onBack={() => setActivePage(null)} />
+        )}
+      </ChartDropdownPanel>
     </div>
   )
 }

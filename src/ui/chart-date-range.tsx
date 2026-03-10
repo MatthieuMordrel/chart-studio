@@ -5,7 +5,7 @@
  * Acts as both a display and a filter control for the reference date column.
  */
 
-import {useState} from 'react'
+import {useRef, useState} from 'react'
 import {Calendar} from 'lucide-react'
 import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
@@ -27,6 +27,7 @@ function formatDate(date: Date): string {
 export function ChartDateRange({className}: {className?: string}) {
   const {dateRange, dateRangeFilter, availableDateColumns} = useChartContext()
   const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   if (availableDateColumns.length === 0) return null
 
@@ -35,9 +36,10 @@ export function ChartDateRange({className}: {className?: string}) {
   const hasRange = dateRange?.min && dateRange?.max
 
   return (
-    <div className={`relative ${className ?? ''}`}>
+    <div className={className}>
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
         className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 ${
           isFiltered
@@ -61,6 +63,7 @@ export function ChartDateRange({className}: {className?: string}) {
       <ChartDropdownPanel
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
+        triggerRef={triggerRef}
         align="right"
         width={288}
         className="p-3"

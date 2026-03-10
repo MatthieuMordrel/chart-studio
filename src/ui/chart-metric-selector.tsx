@@ -4,7 +4,7 @@
  * Follows the same dropdown pattern as ChartFilters / ChartDateRange.
  */
 
-import {useState} from 'react'
+import {useRef, useState} from 'react'
 import {ChevronDown, TrendingUpDown} from 'lucide-react'
 import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
@@ -14,6 +14,7 @@ import {ChartMetricPanel} from './chart-metric-panel.js'
 export function ChartMetricSelector({className}: {className?: string}) {
   const {metric, availableMetrics} = useChartContext()
   const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   if (availableMetrics.length <= 1) return null
 
@@ -22,9 +23,10 @@ export function ChartMetricSelector({className}: {className?: string}) {
   const includeZeros = metric.includeZeros ?? true
 
   return (
-    <div className={`relative ${className ?? ''}`}>
+    <div className={className}>
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
         className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 ${
           isActive
@@ -49,6 +51,7 @@ export function ChartMetricSelector({className}: {className?: string}) {
       <ChartDropdownPanel
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
+        triggerRef={triggerRef}
         width={288}
         className="p-4"
       >
