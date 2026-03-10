@@ -1,18 +1,33 @@
-import type {AggregateFunction, ChartColumn, Metric, NumberColumn} from './types.js'
+import type {
+  AggregateMetric,
+  CountMetric,
+  ChartColumn,
+  Metric,
+  NumberColumn,
+  NumericAggregateFunction,
+} from './types.js'
 
 /**
  * Default metric used when no numeric aggregation is selected.
  */
-export const DEFAULT_METRIC: Metric = {columnId: null, aggregate: 'count', label: 'Count'}
+export const DEFAULT_METRIC: CountMetric = {kind: 'count'}
 
 /**
- * Human-readable label for a metric.
+ * Type guard for aggregate metrics.
  */
-export function getMetricLabel(columnLabel: string | null, aggregate: AggregateFunction): string {
-  if (aggregate === 'count' || columnLabel === null) {
-    return 'Count'
-  }
+export function isAggregateMetric<TColumnId extends string>(
+  metric: Metric<TColumnId>,
+): metric is AggregateMetric<TColumnId> {
+  return metric.kind === 'aggregate'
+}
 
+/**
+ * Human-readable label for a numeric aggregate.
+ */
+export function getAggregateMetricLabel(
+  columnLabel: string,
+  aggregate: NumericAggregateFunction,
+): string {
   switch (aggregate) {
     case 'sum':
       return `Sum of ${columnLabel}`
@@ -26,20 +41,44 @@ export function getMetricLabel(columnLabel: string | null, aggregate: AggregateF
 }
 
 /**
+ * Human-readable label for a metric.
+ */
+export function getMetricLabel<T, TColumnId extends string>(
+  metric: Metric<TColumnId>,
+  columns: readonly ChartColumn<T, TColumnId>[],
+): string {
+  if (!isAggregateMetric(metric)) {
+    return 'Count'
+  }
+
+  const column = columns.find(
+    (candidate): candidate is NumberColumn<T, TColumnId> =>
+      candidate.type === 'number' && candidate.id === metric.columnId,
+  )
+  if (!column) {
+    return 'Count'
+  }
+
+  return getAggregateMetricLabel(column.label, metric.aggregate)
+}
+
+/**
  * Build the metric options available for a set of columns.
  */
-export function buildAvailableMetrics<T>(columns: ChartColumn<T>[]): Metric[] {
-  const metrics: Metric[] = [DEFAULT_METRIC]
+export function buildAvailableMetrics<T, TColumnId extends string>(
+  columns: readonly ChartColumn<T, TColumnId>[],
+): Metric<TColumnId>[] {
+  const metrics: Metric<TColumnId>[] = [DEFAULT_METRIC]
   const numberColumns = columns.filter(
-    (column): column is NumberColumn<T> => column.type === 'number',
+    (column): column is NumberColumn<T, TColumnId> => column.type === 'number',
   )
 
   for (const column of numberColumns) {
     metrics.push(
-      {columnId: column.id, aggregate: 'sum', label: getMetricLabel(column.label, 'sum')},
-      {columnId: column.id, aggregate: 'avg', label: getMetricLabel(column.label, 'avg')},
-      {columnId: column.id, aggregate: 'min', label: getMetricLabel(column.label, 'min')},
-      {columnId: column.id, aggregate: 'max', label: getMetricLabel(column.label, 'max')},
+      {kind: 'aggregate', columnId: column.id, aggregate: 'sum'},
+      {kind: 'aggregate', columnId: column.id, aggregate: 'avg'},
+      {kind: 'aggregate', columnId: column.id, aggregate: 'min'},
+      {kind: 'aggregate', columnId: column.id, aggregate: 'max'},
     )
   }
 
@@ -47,19 +86,18 @@ export function buildAvailableMetrics<T>(columns: ChartColumn<T>[]): Metric[] {
 }
 
 /**
- * Validate a metric against the active source and normalize its label.
+ * Validate a metric against the active source.
  */
-export function resolveMetric<T>(metric: Metric, columns: ChartColumn<T>[]): Metric {
-  if (metric.columnId === null) {
-    return DEFAULT_METRIC
-  }
-
-  if (metric.aggregate === 'count') {
+export function resolveMetric<T, TColumnId extends string>(
+  metric: Metric<TColumnId>,
+  columns: readonly ChartColumn<T, TColumnId>[],
+): Metric<TColumnId> {
+  if (!isAggregateMetric(metric)) {
     return DEFAULT_METRIC
   }
 
   const column = columns.find(
-    (candidate): candidate is NumberColumn<T> =>
+    (candidate): candidate is NumberColumn<T, TColumnId> =>
       candidate.type === 'number' && candidate.id === metric.columnId,
   )
 
@@ -67,8 +105,5 @@ export function resolveMetric<T>(metric: Metric, columns: ChartColumn<T>[]): Met
     return DEFAULT_METRIC
   }
 
-  return {
-    ...metric,
-    label: getMetricLabel(column.label, metric.aggregate),
-  }
+  return metric
 }

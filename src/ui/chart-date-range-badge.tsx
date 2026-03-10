@@ -1,7 +1,7 @@
 /**
  * Read-only badge that always displays the current date range in the toolbar.
  *
- * Shows the preset label (e.g. "Automatic") and the computed min–max range.
+ * Shows the preset label (e.g. "All time") and the computed min–max range.
  * Non-interactive — purely informational so users always know the date window.
  */
 

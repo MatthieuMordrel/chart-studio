@@ -1,36 +1,32 @@
-import {columns, type ChartColumn} from '@matthieumordrel/chart-studio'
+import {columns, type DataSource} from '@matthieumordrel/chart-studio'
 
-export type SupportTicketRecord = {
-  openedAt: string
-  firstResponseAt: string
-  resolvedAt: string
-  team: 'Platform' | 'Billing' | 'Security'
-  priority: 'Low' | 'Medium' | 'High' | 'Urgent'
-  intakeChannel: 'Email' | 'Chat' | 'Phone'
-  slaBreached: boolean
-  resolutionHours: number
-  csatScore: number
+/** Record for home cooking log – familiar topic everyone understands. */
+export type RecipeLogRecord = {
+  cookedAt: string
+  dish: string
+  cuisine: 'Italian' | 'Mexican' | 'Asian' | 'American'
+  prepMinutes: number
+  cookMinutes: number
+  difficulty: 'Easy' | 'Medium' | 'Hard'
+  rating: number
 }
 
-export type ShipmentRecord = {
-  bookedAt: string
-  departedAt: string
-  deliveredAt: string
-  route: 'Berlin to Paris' | 'Osaka to Seoul' | 'Austin to Toronto'
-  carrier: 'Northstar' | 'BlueRail' | 'Atlas Air'
-  transportMode: 'Air' | 'Ground' | 'Rail'
-  isTemperatureControlled: boolean
-  palletCount: number
-  freightCost: number
+/** Record for quarterly financial performance. */
+export type QuarterlyFinancialRecord = {
+  periodEnd: string
+  segment: 'Product' | 'Services' | 'Licensing'
+  revenue: number
+  netIncome: number
+  ebitda: number
+  grossProfit: number
 }
 
+/** Record for conference and event programs. */
 export type EventProgramRecord = {
-  announcedAt: string
-  eventStartsAt: string
-  checkedInAt: string
-  city: 'Lisbon' | 'Montreal' | 'Singapore'
+  eventDate: string
+  city: string
   format: 'Workshop' | 'Summit' | 'Roundtable'
-  audience: 'Developers' | 'Operators' | 'Executives'
+  audience: string
   isSoldOut: boolean
   attendees: number
   ticketRevenue: number
@@ -40,179 +36,43 @@ export type EventProgramRecord = {
  * Named playground source with its own schema and data shape.
  */
 export type PlaygroundSource = {
-  id: string
-  label: string
   description: string
-  data: readonly unknown[]
-  columns: readonly ChartColumn<never>[]
-}
+} & DataSource<any>
 
 /**
  * Build a stable ISO date relative to "today" for demo charts.
  */
-function isoDateDaysAgo(daysAgo: number, hour = 12): string {
+function isoDateDaysAgo(daysAgo: number): string {
   const date = new Date()
   date.setDate(date.getDate() - daysAgo)
-  date.setHours(hour, 0, 0, 0)
+  date.setHours(12, 0, 0, 0)
   return date.toISOString()
 }
 
-/**
- * Create a support ticket record with multiple lifecycle dates.
- */
-function createSupportTicket({
-  openedDaysAgo,
-  firstResponseDaysAgo,
-  resolvedDaysAgo,
-  team,
-  priority,
-  intakeChannel,
-  slaBreached,
-  resolutionHours,
-  csatScore,
-}: {
-  openedDaysAgo: number
-  firstResponseDaysAgo: number
-  resolvedDaysAgo: number
-  team: SupportTicketRecord['team']
-  priority: SupportTicketRecord['priority']
-  intakeChannel: SupportTicketRecord['intakeChannel']
-  slaBreached: boolean
-  resolutionHours: number
-  csatScore: number
-}): SupportTicketRecord {
-  return {
-    openedAt: isoDateDaysAgo(openedDaysAgo, 9),
-    firstResponseAt: isoDateDaysAgo(firstResponseDaysAgo, 10),
-    resolvedAt: isoDateDaysAgo(resolvedDaysAgo, 16),
-    team,
-    priority,
-    intakeChannel,
-    slaBreached,
-    resolutionHours,
-    csatScore,
-  }
-}
-
-/**
- * Create a shipment record with booking, departure, and delivery dates.
- */
-function createShipment({
-  bookedDaysAgo,
-  departedDaysAgo,
-  deliveredDaysAgo,
-  route,
-  carrier,
-  transportMode,
-  isTemperatureControlled,
-  palletCount,
-  freightCost,
-}: {
-  bookedDaysAgo: number
-  departedDaysAgo: number
-  deliveredDaysAgo: number
-  route: ShipmentRecord['route']
-  carrier: ShipmentRecord['carrier']
-  transportMode: ShipmentRecord['transportMode']
-  isTemperatureControlled: boolean
-  palletCount: number
-  freightCost: number
-}): ShipmentRecord {
-  return {
-    bookedAt: isoDateDaysAgo(bookedDaysAgo, 8),
-    departedAt: isoDateDaysAgo(departedDaysAgo, 13),
-    deliveredAt: isoDateDaysAgo(deliveredDaysAgo, 18),
-    route,
-    carrier,
-    transportMode,
-    isTemperatureControlled,
-    palletCount,
-    freightCost,
-  }
-}
-
-/**
- * Create an event program record with planning and attendance dates.
- */
-function createEventProgram({
-  announcedDaysAgo,
-  eventStartsDaysAgo,
-  checkedInDaysAgo,
-  city,
-  format,
-  audience,
-  isSoldOut,
-  attendees,
-  ticketRevenue,
-}: {
-  announcedDaysAgo: number
-  eventStartsDaysAgo: number
-  checkedInDaysAgo: number
-  city: EventProgramRecord['city']
-  format: EventProgramRecord['format']
-  audience: EventProgramRecord['audience']
-  isSoldOut: boolean
-  attendees: number
-  ticketRevenue: number
-}): EventProgramRecord {
-  return {
-    announcedAt: isoDateDaysAgo(announcedDaysAgo, 11),
-    eventStartsAt: isoDateDaysAgo(eventStartsDaysAgo, 9),
-    checkedInAt: isoDateDaysAgo(checkedInDaysAgo, 10),
-    city,
-    format,
-    audience,
-    isSoldOut,
-    attendees,
-    ticketRevenue,
-  }
-}
-
-/**
- * Support desk schema with lifecycle dates and operational metrics.
- */
-export const supportTicketColumns = [
-  columns.date<SupportTicketRecord>('openedAt', {label: 'Opened At'}),
-  columns.date<SupportTicketRecord>('firstResponseAt', {label: 'First Response'}),
-  columns.date<SupportTicketRecord>('resolvedAt', {label: 'Resolved At'}),
-  columns.category<SupportTicketRecord>('team', {label: 'Team'}),
-  columns.category<SupportTicketRecord>('priority', {label: 'Priority'}),
-  columns.category<SupportTicketRecord>('intakeChannel', {label: 'Channel'}),
-  columns.boolean<SupportTicketRecord>('slaBreached', {
-    label: 'SLA',
-    trueLabel: 'Breached',
-    falseLabel: 'Within SLA',
-  }),
-  columns.number<SupportTicketRecord>('resolutionHours', {label: 'Resolution Hours'}),
-  columns.number<SupportTicketRecord>('csatScore', {label: 'CSAT Score'}),
+/** Recipe log columns: when you cooked, what, how long, how hard, how good. */
+export const recipeLogColumns = [
+  columns.date<RecipeLogRecord>('cookedAt', {label: 'Date Cooked'}),
+  columns.category<RecipeLogRecord>('dish', {label: 'Dish'}),
+  columns.category<RecipeLogRecord>('cuisine', {label: 'Cuisine'}),
+  columns.number<RecipeLogRecord>('prepMinutes', {label: 'Prep (min)'}),
+  columns.number<RecipeLogRecord>('cookMinutes', {label: 'Cook (min)'}),
+  columns.category<RecipeLogRecord>('difficulty', {label: 'Difficulty'}),
+  columns.number<RecipeLogRecord>('rating', {label: 'Rating'}),
 ]
 
-/**
- * Freight operations schema with route, carrier, and shipment metrics.
- */
-export const shipmentColumns = [
-  columns.date<ShipmentRecord>('bookedAt', {label: 'Booked At'}),
-  columns.date<ShipmentRecord>('departedAt', {label: 'Departed At'}),
-  columns.date<ShipmentRecord>('deliveredAt', {label: 'Delivered At'}),
-  columns.category<ShipmentRecord>('route', {label: 'Route'}),
-  columns.category<ShipmentRecord>('carrier', {label: 'Carrier'}),
-  columns.category<ShipmentRecord>('transportMode', {label: 'Mode'}),
-  columns.boolean<ShipmentRecord>('isTemperatureControlled', {
-    label: 'Temperature',
-    trueLabel: 'Controlled',
-    falseLabel: 'Ambient',
-  }),
-  columns.number<ShipmentRecord>('palletCount', {label: 'Pallets'}),
-  columns.number<ShipmentRecord>('freightCost', {label: 'Freight Cost'}),
+/** Financial columns: revenue, net income, EBITDA, gross profit by period and segment. */
+export const quarterlyFinancialColumns = [
+  columns.date<QuarterlyFinancialRecord>('periodEnd', {label: 'Period End'}),
+  columns.category<QuarterlyFinancialRecord>('segment', {label: 'Segment'}),
+  columns.number<QuarterlyFinancialRecord>('revenue', {label: 'Revenue'}),
+  columns.number<QuarterlyFinancialRecord>('netIncome', {label: 'Net Income'}),
+  columns.number<QuarterlyFinancialRecord>('ebitda', {label: 'EBITDA'}),
+  columns.number<QuarterlyFinancialRecord>('grossProfit', {label: 'Gross Profit'}),
 ]
 
-/**
- * Events program schema with planning dates and attendance metrics.
- */
+/** Event columns: date, location, format, audience, sell-through, revenue. */
 export const eventProgramColumns = [
-  columns.date<EventProgramRecord>('announcedAt', {label: 'Announced At'}),
-  columns.date<EventProgramRecord>('eventStartsAt', {label: 'Event Starts'}),
-  columns.date<EventProgramRecord>('checkedInAt', {label: 'Check-in Date'}),
+  columns.date<EventProgramRecord>('eventDate', {label: 'Event Date'}),
   columns.category<EventProgramRecord>('city', {label: 'City'}),
   columns.category<EventProgramRecord>('format', {label: 'Format'}),
   columns.category<EventProgramRecord>('audience', {label: 'Audience'}),
@@ -226,59 +86,58 @@ export const eventProgramColumns = [
 ]
 
 /**
- * Support desk dataset with a mix of urgent escalations and normal tickets.
+ * Home cooking dataset – simple, relatable records.
+ * Clearly named so anyone can understand: when you cooked what, how long it took, and how it rated.
  */
-export const supportTicketData: SupportTicketRecord[] = [
-  createSupportTicket({openedDaysAgo: 176, firstResponseDaysAgo: 175, resolvedDaysAgo: 171, team: 'Platform', priority: 'High', intakeChannel: 'Email', slaBreached: false, resolutionHours: 18, csatScore: 4.7}),
-  createSupportTicket({openedDaysAgo: 169, firstResponseDaysAgo: 168, resolvedDaysAgo: 164, team: 'Platform', priority: 'Medium', intakeChannel: 'Phone', slaBreached: false, resolutionHours: 15, csatScore: 4.2}),
-  createSupportTicket({openedDaysAgo: 161, firstResponseDaysAgo: 160, resolvedDaysAgo: 156, team: 'Billing', priority: 'Medium', intakeChannel: 'Chat', slaBreached: false, resolutionHours: 9, csatScore: 4.4}),
-  createSupportTicket({openedDaysAgo: 149, firstResponseDaysAgo: 148, resolvedDaysAgo: 142, team: 'Security', priority: 'Urgent', intakeChannel: 'Phone', slaBreached: true, resolutionHours: 31, csatScore: 3.8}),
-  createSupportTicket({openedDaysAgo: 136, firstResponseDaysAgo: 135, resolvedDaysAgo: 132, team: 'Platform', priority: 'Low', intakeChannel: 'Chat', slaBreached: false, resolutionHours: 5, csatScore: 4.9}),
-  createSupportTicket({openedDaysAgo: 122, firstResponseDaysAgo: 121, resolvedDaysAgo: 118, team: 'Billing', priority: 'High', intakeChannel: 'Email', slaBreached: false, resolutionHours: 14, csatScore: 4.5}),
-  createSupportTicket({openedDaysAgo: 109, firstResponseDaysAgo: 108, resolvedDaysAgo: 101, team: 'Security', priority: 'Urgent', intakeChannel: 'Phone', slaBreached: true, resolutionHours: 42, csatScore: 3.6}),
-  createSupportTicket({openedDaysAgo: 101, firstResponseDaysAgo: 100, resolvedDaysAgo: 95, team: 'Billing', priority: 'Low', intakeChannel: 'Email', slaBreached: false, resolutionHours: 7, csatScore: 4.8}),
-  createSupportTicket({openedDaysAgo: 92, firstResponseDaysAgo: 91, resolvedDaysAgo: 88, team: 'Platform', priority: 'Medium', intakeChannel: 'Email', slaBreached: false, resolutionHours: 11, csatScore: 4.8}),
-  createSupportTicket({openedDaysAgo: 77, firstResponseDaysAgo: 76, resolvedDaysAgo: 72, team: 'Billing', priority: 'Low', intakeChannel: 'Chat', slaBreached: false, resolutionHours: 6, csatScore: 4.6}),
-  createSupportTicket({openedDaysAgo: 63, firstResponseDaysAgo: 62, resolvedDaysAgo: 58, team: 'Security', priority: 'High', intakeChannel: 'Phone', slaBreached: true, resolutionHours: 27, csatScore: 4.0}),
-  createSupportTicket({openedDaysAgo: 45, firstResponseDaysAgo: 44, resolvedDaysAgo: 40, team: 'Platform', priority: 'Medium', intakeChannel: 'Email', slaBreached: false, resolutionHours: 12, csatScore: 4.7}),
-  createSupportTicket({openedDaysAgo: 36, firstResponseDaysAgo: 35, resolvedDaysAgo: 30, team: 'Platform', priority: 'Urgent', intakeChannel: 'Chat', slaBreached: true, resolutionHours: 29, csatScore: 3.9}),
-  createSupportTicket({openedDaysAgo: 28, firstResponseDaysAgo: 27, resolvedDaysAgo: 23, team: 'Billing', priority: 'High', intakeChannel: 'Phone', slaBreached: true, resolutionHours: 24, csatScore: 4.1}),
-  createSupportTicket({openedDaysAgo: 14, firstResponseDaysAgo: 13, resolvedDaysAgo: 10, team: 'Security', priority: 'Medium', intakeChannel: 'Chat', slaBreached: false, resolutionHours: 8, csatScore: 4.3}),
-  createSupportTicket({openedDaysAgo: 6, firstResponseDaysAgo: 5, resolvedDaysAgo: 2, team: 'Billing', priority: 'Low', intakeChannel: 'Email', slaBreached: false, resolutionHours: 4, csatScore: 4.9}),
+export const recipeLogData: RecipeLogRecord[] = [
+  {cookedAt: isoDateDaysAgo(42), dish: 'Spaghetti Carbonara', cuisine: 'Italian', prepMinutes: 15, cookMinutes: 20, difficulty: 'Medium', rating: 5},
+  {cookedAt: isoDateDaysAgo(38), dish: 'Tacos al Pastor', cuisine: 'Mexican', prepMinutes: 30, cookMinutes: 25, difficulty: 'Medium', rating: 4},
+  {cookedAt: isoDateDaysAgo(35), dish: 'Fried Rice', cuisine: 'Asian', prepMinutes: 10, cookMinutes: 15, difficulty: 'Easy', rating: 4},
+  {cookedAt: isoDateDaysAgo(28), dish: 'Grilled Cheese', cuisine: 'American', prepMinutes: 2, cookMinutes: 5, difficulty: 'Easy', rating: 3},
+  {cookedAt: isoDateDaysAgo(21), dish: 'Risotto', cuisine: 'Italian', prepMinutes: 15, cookMinutes: 35, difficulty: 'Hard', rating: 5},
+  {cookedAt: isoDateDaysAgo(18), dish: 'Burrito Bowl', cuisine: 'Mexican', prepMinutes: 20, cookMinutes: 10, difficulty: 'Easy', rating: 4},
+  {cookedAt: isoDateDaysAgo(14), dish: 'Pad Thai', cuisine: 'Asian', prepMinutes: 25, cookMinutes: 15, difficulty: 'Medium', rating: 5},
+  {cookedAt: isoDateDaysAgo(10), dish: 'Mac and Cheese', cuisine: 'American', prepMinutes: 5, cookMinutes: 15, difficulty: 'Easy', rating: 4},
+  {cookedAt: isoDateDaysAgo(7), dish: 'Lasagna', cuisine: 'Italian', prepMinutes: 45, cookMinutes: 60, difficulty: 'Hard', rating: 5},
+  {cookedAt: isoDateDaysAgo(4), dish: 'Quesadilla', cuisine: 'Mexican', prepMinutes: 5, cookMinutes: 8, difficulty: 'Easy', rating: 4},
+  {cookedAt: isoDateDaysAgo(2), dish: 'Stir Fry', cuisine: 'Asian', prepMinutes: 20, cookMinutes: 10, difficulty: 'Medium', rating: 4},
 ]
 
 /**
- * Freight dataset covering multiple carriers and transport modes.
+ * Quarterly financials: revenue, net income, EBITDA, gross profit by segment.
+ * Standard P&L metrics everyone recognizes.
  */
-export const shipmentData: ShipmentRecord[] = [
-  createShipment({bookedDaysAgo: 412, departedDaysAgo: 408, deliveredDaysAgo: 401, route: 'Berlin to Paris', carrier: 'BlueRail', transportMode: 'Rail', isTemperatureControlled: false, palletCount: 14, freightCost: 12400}),
-  createShipment({bookedDaysAgo: 358, departedDaysAgo: 355, deliveredDaysAgo: 349, route: 'Osaka to Seoul', carrier: 'Atlas Air', transportMode: 'Air', isTemperatureControlled: true, palletCount: 8, freightCost: 21300}),
-  createShipment({bookedDaysAgo: 307, departedDaysAgo: 304, deliveredDaysAgo: 298, route: 'Austin to Toronto', carrier: 'Northstar', transportMode: 'Ground', isTemperatureControlled: false, palletCount: 18, freightCost: 9800}),
-  createShipment({bookedDaysAgo: 241, departedDaysAgo: 238, deliveredDaysAgo: 232, route: 'Berlin to Paris', carrier: 'BlueRail', transportMode: 'Rail', isTemperatureControlled: true, palletCount: 11, freightCost: 14100}),
-  createShipment({bookedDaysAgo: 187, departedDaysAgo: 184, deliveredDaysAgo: 179, route: 'Osaka to Seoul', carrier: 'Atlas Air', transportMode: 'Air', isTemperatureControlled: true, palletCount: 6, freightCost: 22800}),
-  createShipment({bookedDaysAgo: 126, departedDaysAgo: 123, deliveredDaysAgo: 118, route: 'Austin to Toronto', carrier: 'Northstar', transportMode: 'Ground', isTemperatureControlled: false, palletCount: 21, freightCost: 11200}),
-  createShipment({bookedDaysAgo: 73, departedDaysAgo: 70, deliveredDaysAgo: 64, route: 'Berlin to Paris', carrier: 'BlueRail', transportMode: 'Rail', isTemperatureControlled: false, palletCount: 13, freightCost: 13600}),
-  createShipment({bookedDaysAgo: 17, departedDaysAgo: 14, deliveredDaysAgo: 9, route: 'Osaka to Seoul', carrier: 'Atlas Air', transportMode: 'Air', isTemperatureControlled: true, palletCount: 9, freightCost: 21900}),
+export const quarterlyFinancialData: QuarterlyFinancialRecord[] = [
+  {periodEnd: isoDateDaysAgo(273), segment: 'Product', revenue: 4200000, netIncome: 580000, ebitda: 920000, grossProfit: 2100000},
+  {periodEnd: isoDateDaysAgo(273), segment: 'Services', revenue: 1800000, netIncome: 320000, ebitda: 410000, grossProfit: 1080000},
+  {periodEnd: isoDateDaysAgo(273), segment: 'Licensing', revenue: 900000, netIncome: 280000, ebitda: 310000, grossProfit: 810000},
+  {periodEnd: isoDateDaysAgo(182), segment: 'Product', revenue: 5100000, netIncome: 720000, ebitda: 1100000, grossProfit: 2550000},
+  {periodEnd: isoDateDaysAgo(182), segment: 'Services', revenue: 2200000, netIncome: 410000, ebitda: 530000, grossProfit: 1320000},
+  {periodEnd: isoDateDaysAgo(182), segment: 'Licensing', revenue: 1100000, netIncome: 350000, ebitda: 390000, grossProfit: 990000},
+  {periodEnd: isoDateDaysAgo(91), segment: 'Product', revenue: 4800000, netIncome: 640000, ebitda: 980000, grossProfit: 2400000},
+  {periodEnd: isoDateDaysAgo(91), segment: 'Services', revenue: 2000000, netIncome: 360000, ebitda: 460000, grossProfit: 1200000},
+  {periodEnd: isoDateDaysAgo(91), segment: 'Licensing', revenue: 950000, netIncome: 290000, ebitda: 330000, grossProfit: 855000},
+  {periodEnd: isoDateDaysAgo(0), segment: 'Product', revenue: 5500000, netIncome: 780000, ebitda: 1180000, grossProfit: 2750000},
+  {periodEnd: isoDateDaysAgo(0), segment: 'Services', revenue: 2500000, netIncome: 470000, ebitda: 600000, grossProfit: 1500000},
+  {periodEnd: isoDateDaysAgo(0), segment: 'Licensing', revenue: 1200000, netIncome: 380000, ebitda: 420000, grossProfit: 1080000},
 ]
 
 /**
- * Events dataset with different formats, audiences, and commercial outcomes.
+ * Event calendar: conferences and workshops with attendance and revenue.
  */
 export const eventProgramData: EventProgramRecord[] = [
-  createEventProgram({announcedDaysAgo: 71, eventStartsDaysAgo: 58, checkedInDaysAgo: 58, city: 'Lisbon', format: 'Workshop', audience: 'Developers', isSoldOut: false, attendees: 140, ticketRevenue: 18200}),
-  createEventProgram({announcedDaysAgo: 66, eventStartsDaysAgo: 54, checkedInDaysAgo: 54, city: 'Montreal', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 320, ticketRevenue: 68400}),
-  createEventProgram({announcedDaysAgo: 61, eventStartsDaysAgo: 49, checkedInDaysAgo: 49, city: 'Singapore', format: 'Roundtable', audience: 'Operators', isSoldOut: false, attendees: 88, ticketRevenue: 12100}),
-  createEventProgram({announcedDaysAgo: 55, eventStartsDaysAgo: 43, checkedInDaysAgo: 43, city: 'Lisbon', format: 'Summit', audience: 'Developers', isSoldOut: true, attendees: 280, ticketRevenue: 55200}),
-  createEventProgram({announcedDaysAgo: 49, eventStartsDaysAgo: 37, checkedInDaysAgo: 37, city: 'Montreal', format: 'Workshop', audience: 'Operators', isSoldOut: false, attendees: 116, ticketRevenue: 14900}),
-  createEventProgram({announcedDaysAgo: 44, eventStartsDaysAgo: 32, checkedInDaysAgo: 32, city: 'Singapore', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 305, ticketRevenue: 70800}),
-  createEventProgram({announcedDaysAgo: 38, eventStartsDaysAgo: 27, checkedInDaysAgo: 27, city: 'Lisbon', format: 'Roundtable', audience: 'Operators', isSoldOut: false, attendees: 74, ticketRevenue: 9800}),
-  createEventProgram({announcedDaysAgo: 30, eventStartsDaysAgo: 21, checkedInDaysAgo: 21, city: 'Montreal', format: 'Workshop', audience: 'Developers', isSoldOut: false, attendees: 132, ticketRevenue: 17600}),
-  createEventProgram({announcedDaysAgo: 25, eventStartsDaysAgo: 15, checkedInDaysAgo: 15, city: 'Singapore', format: 'Summit', audience: 'Operators', isSoldOut: true, attendees: 294, ticketRevenue: 66300}),
-  createEventProgram({announcedDaysAgo: 18, eventStartsDaysAgo: 10, checkedInDaysAgo: 10, city: 'Lisbon', format: 'Workshop', audience: 'Executives', isSoldOut: false, attendees: 98, ticketRevenue: 15800}),
-  createEventProgram({announcedDaysAgo: 11, eventStartsDaysAgo: 4, checkedInDaysAgo: 4, city: 'Montreal', format: 'Roundtable', audience: 'Developers', isSoldOut: false, attendees: 82, ticketRevenue: 11400}),
-  createEventProgram({announcedDaysAgo: 8, eventStartsDaysAgo: 1, checkedInDaysAgo: 1, city: 'Singapore', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 338, ticketRevenue: 74100}),
-  createEventProgram({announcedDaysAgo: 6, eventStartsDaysAgo: 0, checkedInDaysAgo: 0, city: 'Lisbon', format: 'Workshop', audience: 'Operators', isSoldOut: false, attendees: 104, ticketRevenue: 13600}),
-  createEventProgram({announcedDaysAgo: 3, eventStartsDaysAgo: 0, checkedInDaysAgo: 0, city: 'Singapore', format: 'Roundtable', audience: 'Developers', isSoldOut: false, attendees: 67, ticketRevenue: 9100}),
+  {eventDate: isoDateDaysAgo(71), city: 'Lisbon', format: 'Workshop', audience: 'Developers', isSoldOut: false, attendees: 140, ticketRevenue: 18200},
+  {eventDate: isoDateDaysAgo(66), city: 'Montreal', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 320, ticketRevenue: 68400},
+  {eventDate: isoDateDaysAgo(61), city: 'Singapore', format: 'Roundtable', audience: 'Operators', isSoldOut: false, attendees: 88, ticketRevenue: 12100},
+  {eventDate: isoDateDaysAgo(55), city: 'Lisbon', format: 'Summit', audience: 'Developers', isSoldOut: true, attendees: 280, ticketRevenue: 55200},
+  {eventDate: isoDateDaysAgo(49), city: 'Montreal', format: 'Workshop', audience: 'Operators', isSoldOut: false, attendees: 116, ticketRevenue: 14900},
+  {eventDate: isoDateDaysAgo(44), city: 'Singapore', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 305, ticketRevenue: 70800},
+  {eventDate: isoDateDaysAgo(38), city: 'Lisbon', format: 'Roundtable', audience: 'Operators', isSoldOut: false, attendees: 74, ticketRevenue: 9800},
+  {eventDate: isoDateDaysAgo(30), city: 'Montreal', format: 'Workshop', audience: 'Developers', isSoldOut: false, attendees: 132, ticketRevenue: 17600},
+  {eventDate: isoDateDaysAgo(25), city: 'Singapore', format: 'Summit', audience: 'Operators', isSoldOut: true, attendees: 294, ticketRevenue: 66300},
+  {eventDate: isoDateDaysAgo(18), city: 'Lisbon', format: 'Workshop', audience: 'Executives', isSoldOut: false, attendees: 98, ticketRevenue: 15800},
+  {eventDate: isoDateDaysAgo(11), city: 'Montreal', format: 'Roundtable', audience: 'Developers', isSoldOut: false, attendees: 82, ticketRevenue: 11400},
+  {eventDate: isoDateDaysAgo(8), city: 'Singapore', format: 'Summit', audience: 'Executives', isSoldOut: true, attendees: 338, ticketRevenue: 74100},
 ]
 
 /**
@@ -287,24 +146,24 @@ export const eventProgramData: EventProgramRecord[] = [
  */
 export const playgroundSources = [
   {
-    id: 'support-desk',
-    label: 'Support desk',
-    description: 'Ticket operations with response timing, SLA performance, and satisfaction scores.',
-    data: supportTicketData,
-    columns: supportTicketColumns,
+    id: 'recipe-log',
+    label: 'Home cooking',
+    description: 'Simple recipe log: when you cooked what, prep/cook time, difficulty, and rating.',
+    data: recipeLogData,
+    columns: recipeLogColumns,
   },
   {
-    id: 'shipment-ops',
-    label: 'Shipment ops',
-    description: 'Freight movement across carriers, routes, and transport modes.',
-    data: shipmentData,
-    columns: shipmentColumns,
+    id: 'quarterly-financials',
+    label: 'Quarterly financials',
+    description: 'Revenue, net income, EBITDA, and gross profit by segment and period.',
+    data: quarterlyFinancialData,
+    columns: quarterlyFinancialColumns,
   },
   {
-    id: 'events-program',
-    label: 'Events program',
-    description: 'Commercial event performance with planning, attendance, and sell-through signals.',
+    id: 'event-calendar',
+    label: 'Event calendar',
+    description: 'Conferences and workshops: format, audience, attendance, ticket revenue.',
     data: eventProgramData,
     columns: eventProgramColumns,
   },
-] satisfies PlaygroundSource[]
+] satisfies readonly [PlaygroundSource, ...PlaygroundSource[]]

@@ -40,6 +40,7 @@ export {
   applyFilters,
   extractAvailableFilters,
   buildAvailableMetrics,
+  getMetricLabel,
 } from './core/index.js'
 
 export type {
@@ -58,6 +59,9 @@ export type {
   CategoricalChartType,
   TimeBucket,
   AggregateFunction,
+  NumericAggregateFunction,
+  CountMetric,
+  AggregateMetric,
   Metric,
   FilterState,
   SortDirection,

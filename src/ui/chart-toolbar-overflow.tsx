@@ -9,6 +9,7 @@
 
 import {useRef, useState} from 'react'
 import {ArrowLeft, ChevronRight, Ellipsis, Eraser} from 'lucide-react'
+import {getMetricLabel} from '../core/metric-utils.js'
 import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
 import {ChartDateRangePanel, resolvePresetLabel} from './chart-date-range-panel.js'
@@ -269,11 +270,11 @@ function ComplexControlRow({
 
 /** Summary text for a complex control in the main menu. */
 function ControlSummary({controlId}: {controlId: ControlId}) {
-  const {metric, filters, dateRangeFilter} = useChartContext()
+  const {metric, columns, filters, dateRangeFilter} = useChartContext()
 
   switch (controlId) {
     case 'metric':
-      return <span>{metric.label}</span>
+      return <span>{getMetricLabel(metric, columns)}</span>
     case 'filters': {
       const count = [...filters.values()].reduce((sum, set) => sum + set.size, 0)
       return <span>{count > 0 ? `${count} active` : 'None'}</span>

@@ -5,6 +5,7 @@ import {buildAvailableMetrics, resolveMetric, DEFAULT_METRIC} from './metric-uti
 import {applyFilters, extractAvailableFilters, runPipeline} from './pipeline.js'
 import type {
   ChartColumn,
+  ColumnIdFromColumns,
   ChartInstance,
   ChartType,
   DateColumn,
@@ -27,11 +28,17 @@ import {resolveReferenceDateId, resolveXAxisId, sanitizeFilters} from './use-cha
 /**
  * Headless chart hook that manages chart state and derived data.
  */
-export function useChart<T>(options: SingleSourceOptions<T>): ChartInstance<T>
+export function useChart<T, const TColumns extends readonly ChartColumn<T, string>[]>(
+  options: SingleSourceOptions<T, TColumns>,
+): ChartInstance<T, ColumnIdFromColumns<TColumns>>
 export function useChart(options: MultiSourceOptions): ChartInstance<unknown>
-export function useChart<T>(
-  options: UseChartOptions<T>,
-): ChartInstance<T> | ChartInstance<unknown> {
+export function useChart<T, const TColumns extends readonly ChartColumn<T, string>[]>(
+  options: UseChartOptions<T, TColumns>,
+): ChartInstance<T, ColumnIdFromColumns<TColumns>> | ChartInstance<unknown> {
+  if (options.sources && options.sources.length === 0) {
+    throw new Error('useChart requires at least one source')
+  }
+
   const sources = (options.sources ?? [
     {
       id: 'default',
@@ -39,26 +46,33 @@ export function useChart<T>(
       data: options.data,
       columns: options.columns,
     },
-  ]) as DataSource<T>[]
+  ]) as unknown as DataSource<T, ColumnIdFromColumns<TColumns>>[]
   const hasMultipleSources = sources.length > 1
 
   const [activeSourceId, setActiveSource] = useState(sources[0]?.id ?? 'default')
   const [chartType, setChartTypeRaw] = useState<ChartType>('bar')
-  const [xAxisId, setXAxisRaw] = useState<string | null>(null)
-  const [groupById, setGroupBy] = useState<string | null>(null)
-  const [metric, setMetric] = useState<Metric>(DEFAULT_METRIC)
+  const [xAxisId, setXAxisRaw] = useState<ColumnIdFromColumns<TColumns> | null>(null)
+  const [groupById, setGroupBy] = useState<ColumnIdFromColumns<TColumns> | null>(null)
+  const [metric, setMetric] = useState<Metric<ColumnIdFromColumns<TColumns>>>(DEFAULT_METRIC)
   const [timeBucket, setTimeBucket] = useState<TimeBucket>(DEFAULT_TIME_BUCKET)
-  const [filters, setFilters] = useState<FilterState>(() => new Map())
+  const [filters, setFilters] = useState<FilterState<ColumnIdFromColumns<TColumns>>>(() => new Map())
   const [sorting, setSorting] = useState<SortConfig | null>(null)
-  const [referenceDateIdRaw, setReferenceDateId] = useState<string | null>(null)
+  const [referenceDateIdRaw, setReferenceDateId] = useState<ColumnIdFromColumns<TColumns> | null>(
+    null,
+  )
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter | null>(null)
 
   const activeSource = sources.find((s) => s.id === activeSourceId) ?? sources[0]!
-  const activeColumns: ChartColumn<T>[] = activeSource.columns
-  const rawData: T[] = activeSource.data
+  const activeColumns: readonly ChartColumn<T, ColumnIdFromColumns<TColumns>>[] = activeSource.columns
+  const rawData: readonly T[] = activeSource.data
 
   const dateColumns = useMemo(
-    () => activeColumns.filter((column): column is DateColumn<T> => column.type === 'date'),
+    () =>
+      activeColumns.filter(
+        (
+          column,
+        ): column is DateColumn<T, ColumnIdFromColumns<TColumns>> => column.type === 'date',
+      ),
     [activeColumns],
   )
 
@@ -80,15 +94,12 @@ export function useChart<T>(
     [referenceDateIdRaw, dateColumns, resolvedXAxisId, isTimeSeries],
   )
 
-  const effectiveData: T[] = useMemo(() => {
+  const effectiveData: readonly T[] = useMemo(() => {
     const column = dateColumns.find((candidate) => candidate.id === referenceDateId)
     if (!column) return rawData
 
     if (dateRangeFilter === null) {
-      const from = new Date()
-      from.setMonth(from.getMonth() - 12)
-      from.setHours(0, 0, 0, 0)
-      return filterByDateRange(rawData, column, {from, to: null})
+      return rawData
     }
 
     return filterByDateRange(rawData, column, dateRangeFilter)
@@ -167,7 +178,7 @@ export function useChart<T>(
     sorting,
   ])
 
-  const dateRange: DateRange | null = useMemo(() => {
+  const dateRange: DateRange<ColumnIdFromColumns<TColumns>> | null = useMemo(() => {
     const column = dateColumns.find((candidate) => candidate.id === referenceDateId)
     if (!column) return null
 
@@ -182,14 +193,14 @@ export function useChart<T>(
     }
   }
 
-  const setXAxis = (columnId: string) => {
+  const setXAxis = (columnId: ColumnIdFromColumns<TColumns>) => {
     setXAxisRaw(columnId)
     if (resolvedGroupById === columnId) {
       setGroupBy(null)
     }
   }
 
-  const toggleFilter = (columnId: string, value: string) => {
+  const toggleFilter = (columnId: ColumnIdFromColumns<TColumns>, value: string) => {
     setFilters((prev) => {
       const next = new Map(prev)
       const current = next.get(columnId) ?? new Set<string>()
@@ -211,7 +222,7 @@ export function useChart<T>(
     })
   }
 
-  const clearFilter = (columnId: string) => {
+  const clearFilter = (columnId: ColumnIdFromColumns<TColumns>) => {
     setFilters((prev) => {
       const next = new Map(prev)
       next.delete(columnId)

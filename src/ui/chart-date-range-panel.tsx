@@ -2,7 +2,7 @@
  * Date range panel content — reusable by both ChartDateRange (inside a popover)
  * and ChartToolbarOverflow (rendered inline).
  *
- * Shows preset buttons (Automatic, Last 7 days, etc.), a reference date
+ * Shows preset buttons (All time, Last 7 days, etc.), a reference date
  * column picker, and custom date inputs.
  */
 
@@ -22,14 +22,12 @@ type Preset = {
 /**
  * Build the list of date range presets relative to "now".
  *
- * "Automatic" → null (hook applies default 12-month window)
- * "All time" → { from: null, to: null } (explicit no-bounds, shows everything)
+ * "All time" → null (no date filtering)
  * Other presets → { from: Date, to: null } (bounded filter)
  */
 function getPresets(): Preset[] {
   return [
-    {label: 'Automatic', buildFilter: () => null},
-    {label: 'All time', buildFilter: () => ({from: null, to: null})},
+    {label: 'All time', buildFilter: () => null},
     {label: 'Last 7 days', buildFilter: () => ({from: daysAgo(7), to: null})},
     {label: 'Last 30 days', buildFilter: () => ({from: daysAgo(30), to: null})},
     {label: 'Last 3 months', buildFilter: () => ({from: monthsAgo(3), to: null})},
@@ -80,12 +78,11 @@ function fromInputValue(value: string): Date | null {
 
 /**
  * Determine which preset label matches the current filter, or "Custom".
- * null → "Automatic" (no filter, chart default window)
- * { from: null, to: null } → "All time" (explicit no-bounds filter)
+ * null → "All time" (no date filtering)
  * Compares dates at day-level precision.
  */
 export function resolvePresetLabel(filter: DateRangeFilter | null): string {
-  if (filter === null) return 'Automatic'
+  if (filter === null) return 'All time'
 
   const presets = getPresets()
   for (const preset of presets) {

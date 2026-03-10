@@ -2,6 +2,7 @@
  * Bucket and aggregation steps for the chart transformation pipeline.
  */
 
+import {isAggregateMetric} from './metric-utils.js'
 import {aggregate, dateBucketKey, dateBucketLabel, getStringValue} from './pipeline-helpers.js'
 import type {
   ChartColumn,
@@ -34,12 +35,12 @@ type DataPointResult = {
  * @param timeBucket - Time bucket used for date X-axes
  * @returns Aggregated chart data points and group labels
  */
-export function buildDataPoints<T>(
+export function buildDataPoints<T, TColumnId extends string>(
   items: T[],
-  xColumn: ChartColumn<T>,
-  groupByColumn: ChartColumn<T> | null,
-  metric: Metric,
-  numberColumns: NumberColumn<T>[],
+  xColumn: ChartColumn<T, TColumnId>,
+  groupByColumn: ChartColumn<T, TColumnId> | null,
+  metric: Metric<TColumnId>,
+  numberColumns: NumberColumn<T, TColumnId>[],
   timeBucket: TimeBucket,
 ): DataPointResult {
   const groupSet = new Set<string>()
@@ -50,7 +51,7 @@ export function buildDataPoints<T>(
   }
 
   const groups = groupByColumn ? [...groupSet].toSorted() : ['value']
-  const metricColumn = metric.columnId
+  const metricColumn = isAggregateMetric(metric)
     ? (numberColumns.find((column) => column.id === metric.columnId) ?? null)
     : null
 
@@ -70,9 +71,9 @@ export function buildDataPoints<T>(
  * @param bucket - Time bucket granularity
  * @returns Every bucket between the first and last date in the dataset
  */
-function generateBucketsFromData<T>(
+function generateBucketsFromData<T, TColumnId extends string>(
   items: T[],
-  xColumn: DateColumn<T>,
+  xColumn: DateColumn<T, TColumnId>,
   bucket: TimeBucket,
 ): BucketDefinition[] {
   let min: Date | null = null
@@ -179,13 +180,13 @@ function advanceBucketCursor(cursor: Date, bucket: TimeBucket) {
  * @param timeBucket - Time bucket granularity
  * @returns Aggregated date-bucketed data points
  */
-function buildTimeBuckets<T>(
+function buildTimeBuckets<T, TColumnId extends string>(
   items: T[],
-  xColumn: DateColumn<T>,
-  groupByColumn: ChartColumn<T> | null,
+  xColumn: DateColumn<T, TColumnId>,
+  groupByColumn: ChartColumn<T, TColumnId> | null,
   groups: string[],
-  metric: Metric,
-  metricColumn: NumberColumn<T> | null,
+  metric: Metric<TColumnId>,
+  metricColumn: NumberColumn<T, TColumnId> | null,
   timeBucket: TimeBucket,
 ): DataPointResult {
   const allBuckets = generateBucketsFromData(items, xColumn, timeBucket)
@@ -227,8 +228,8 @@ function buildTimeBuckets<T>(
     for (const group of groups) {
       point[group] = aggregate(
         groupMap.get(group) ?? [],
-        metric.aggregate,
-        metric.includeZeros ?? true,
+        metric.kind === 'aggregate' ? metric.aggregate : 'count',
+        metric.kind === 'aggregate' ? (metric.includeZeros ?? true) : true,
       )
     }
 
@@ -249,13 +250,13 @@ function buildTimeBuckets<T>(
  * @param metricColumn - Resolved numeric metric column
  * @returns Aggregated category-bucketed data points
  */
-function buildCategoryBuckets<T>(
+function buildCategoryBuckets<T, TColumnId extends string>(
   items: T[],
-  xColumn: ChartColumn<T>,
-  groupByColumn: ChartColumn<T> | null,
+  xColumn: ChartColumn<T, TColumnId>,
+  groupByColumn: ChartColumn<T, TColumnId> | null,
   groups: string[],
-  metric: Metric,
-  metricColumn: NumberColumn<T> | null,
+  metric: Metric<TColumnId>,
+  metricColumn: NumberColumn<T, TColumnId> | null,
 ): DataPointResult {
   const xValues = new Set<string>()
   for (const item of items) {
@@ -295,8 +296,8 @@ function buildCategoryBuckets<T>(
     for (const group of groups) {
       point[group] = aggregate(
         groupMap.get(group) ?? [],
-        metric.aggregate,
-        metric.includeZeros ?? true,
+        metric.kind === 'aggregate' ? metric.aggregate : 'count',
+        metric.kind === 'aggregate' ? (metric.includeZeros ?? true) : true,
       )
     }
 

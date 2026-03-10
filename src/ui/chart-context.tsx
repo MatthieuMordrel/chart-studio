@@ -7,11 +7,11 @@ import type {ChartColumn, ChartInstance} from '../core/types.js'
 
 /**
  * Type-erased chart instance stored in React context.
- * The runtime value keeps its full generic shape, while consumers can recover
- * their expected item type through `useChartContext<T>()`.
+ * The UI layer does not preserve row typing through React context, so the
+ * public hook intentionally returns `ChartInstance<unknown>`.
  */
 type ChartContextValue = Omit<ChartInstance<unknown>, 'columns'> & {
-  columns: ChartColumn<never>[]
+  columns: ChartColumn<any>[]
 }
 
 const ChartContext = createContext<ChartContextValue | null>(null)
@@ -20,12 +20,12 @@ const ChartContext = createContext<ChartContextValue | null>(null)
  * Hook to access the chart instance from context.
  * Must be used within a `<Chart>` provider.
  */
-export function useChartContext<T = unknown>(): ChartInstance<T> {
+export function useChartContext(): ChartInstance<unknown> {
   const ctx = useContext(ChartContext)
   if (!ctx) {
     throw new Error('useChartContext must be used within a <Chart> provider')
   }
-  return ctx as unknown as ChartInstance<T>
+  return ctx
 }
 
 /**

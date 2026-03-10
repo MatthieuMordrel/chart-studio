@@ -106,12 +106,12 @@ function humanize(key: string): string {
 function dateColumn<T, TKey extends DateColumnKey<T> = DateColumnKey<T>>(
   key: TKey,
   options?: DateColumnOptions<T>,
-): DateColumn<T> {
+): DateColumn<T, TKey> {
   return {
     id: key,
     type: 'date',
     label: options?.label ?? humanize(key),
-    accessor: options?.accessor ?? (defaultAccessor(key) as DateColumn<T>['accessor']),
+    accessor: options?.accessor ?? (defaultAccessor(key) as DateColumn<T, TKey>['accessor']),
   }
 }
 
@@ -119,12 +119,13 @@ function dateColumn<T, TKey extends DateColumnKey<T> = DateColumnKey<T>>(
 function categoryColumn<T, TKey extends CategoryColumnKey<T> = CategoryColumnKey<T>>(
   key: TKey,
   options?: CategoryColumnOptions<T>,
-): CategoryColumn<T> {
+): CategoryColumn<T, TKey> {
   return {
     id: key,
     type: 'category',
     label: options?.label ?? humanize(key),
-    accessor: options?.accessor ?? (defaultAccessor(key) as CategoryColumn<T>['accessor']),
+    accessor:
+      options?.accessor ?? (defaultAccessor(key) as CategoryColumn<T, TKey>['accessor']),
   }
 }
 
@@ -132,12 +133,12 @@ function categoryColumn<T, TKey extends CategoryColumnKey<T> = CategoryColumnKey
 function booleanColumn<T, TKey extends BooleanColumnKey<T> = BooleanColumnKey<T>>(
   key: TKey,
   options: BooleanColumnOptions<T>,
-): BooleanColumn<T> {
+): BooleanColumn<T, TKey> {
   return {
     id: key,
     type: 'boolean',
     label: options.label ?? humanize(key),
-    accessor: options.accessor ?? (defaultAccessor(key) as BooleanColumn<T>['accessor']),
+    accessor: options.accessor ?? (defaultAccessor(key) as BooleanColumn<T, TKey>['accessor']),
     trueLabel: options.trueLabel,
     falseLabel: options.falseLabel,
   }
@@ -147,12 +148,12 @@ function booleanColumn<T, TKey extends BooleanColumnKey<T> = BooleanColumnKey<T>
 function numberColumn<T, TKey extends NumberColumnKey<T> = NumberColumnKey<T>>(
   key: TKey,
   options?: NumberColumnOptions<T>,
-): NumberColumn<T> {
+): NumberColumn<T, TKey> {
   return {
     id: key,
     type: 'number',
     label: options?.label ?? humanize(key),
-    accessor: options?.accessor ?? (defaultAccessor(key) as NumberColumn<T>['accessor']),
+    accessor: options?.accessor ?? (defaultAccessor(key) as NumberColumn<T, TKey>['accessor']),
   }
 }
 
@@ -189,6 +190,11 @@ export const columns = {
  * ])
  * ```
  */
-export function defineColumns<T>(cols: ChartColumn<T>[]): ChartColumn<T>[] {
+export function defineColumns<
+  T,
+  const TColumns extends readonly ChartColumn<T, string>[] = readonly ChartColumn<T, string>[],
+>(
+  cols: TColumns,
+): TColumns {
   return cols
 }

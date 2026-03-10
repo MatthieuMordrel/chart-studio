@@ -17,9 +17,9 @@
 // ---------------------------------------------------------------------------
 
 /** Base properties shared by all column types. */
-type ColumnBase = {
+type ColumnBase<TId extends string> = {
   /** Unique identifier — typically the field key in the data object. */
-  id: string
+  id: TId
   /** Human-readable label for the UI. */
   label: string
 }
@@ -29,7 +29,7 @@ type ColumnBase = {
  *
  * @property accessor - Extracts a date value from a data item
  */
-export type DateColumn<T> = ColumnBase & {
+export type DateColumn<T, TId extends string = string> = ColumnBase<TId> & {
   type: 'date'
   accessor: (item: T) => string | number | Date | null | undefined
 }
@@ -39,7 +39,7 @@ export type DateColumn<T> = ColumnBase & {
  *
  * @property accessor - Extracts a string category value from a data item
  */
-export type CategoryColumn<T> = ColumnBase & {
+export type CategoryColumn<T, TId extends string = string> = ColumnBase<TId> & {
   type: 'category'
   accessor: (item: T) => string | null | undefined
 }
@@ -51,7 +51,7 @@ export type CategoryColumn<T> = ColumnBase & {
  * @property trueLabel - Label for the `true` group (e.g. "Open")
  * @property falseLabel - Label for the `false` group (e.g. "Closed")
  */
-export type BooleanColumn<T> = ColumnBase & {
+export type BooleanColumn<T, TId extends string = string> = ColumnBase<TId> & {
   type: 'boolean'
   accessor: (item: T) => boolean | null | undefined
   trueLabel: string
@@ -63,13 +63,21 @@ export type BooleanColumn<T> = ColumnBase & {
  *
  * @property accessor - Extracts a numeric value from a data item
  */
-export type NumberColumn<T> = ColumnBase & {
+export type NumberColumn<T, TId extends string = string> = ColumnBase<TId> & {
   type: 'number'
   accessor: (item: T) => number | null | undefined
 }
 
 /** Union of all column types. */
-export type ChartColumn<T> = DateColumn<T> | CategoryColumn<T> | BooleanColumn<T> | NumberColumn<T>
+export type ChartColumn<T, TId extends string = string> =
+  | DateColumn<T, TId>
+  | CategoryColumn<T, TId>
+  | BooleanColumn<T, TId>
+  | NumberColumn<T, TId>
+
+/** Extract the union of IDs from a readonly column tuple. */
+export type ColumnIdFromColumns<TColumns extends readonly ChartColumn<any, string>[]> =
+  TColumns[number]['id']
 
 // ---------------------------------------------------------------------------
 // Chart type
@@ -98,20 +106,35 @@ export type TimeBucket = 'day' | 'week' | 'month' | 'quarter' | 'year'
 /** Aggregation functions for the Y-axis metric. */
 export type AggregateFunction = 'count' | 'sum' | 'avg' | 'min' | 'max'
 
+/** Numeric aggregation functions that operate on number columns. */
+export type NumericAggregateFunction = Exclude<AggregateFunction, 'count'>
+
 /**
  * A metric definition — what the Y-axis measures.
  *
- * @property columnId - The number column to aggregate (null = count of items)
- * @property aggregate - The aggregation function to apply
- * @property label - Display label (auto-generated if not provided)
- * @property includeZeros - Whether zero values are included in aggregation (default: true). Only affects avg/min/max — sum always includes zeros.
+ * `count` represents item count.
+ * `aggregate` represents a numeric column aggregation.
  */
-export type Metric = {
-  columnId: string | null
-  aggregate: AggregateFunction
-  label: string
+export type CountMetric = {
+  kind: 'count'
+}
+
+/**
+ * A numeric aggregation metric.
+ *
+ * @property columnId - The number column to aggregate
+ * @property aggregate - The numeric aggregation function to apply
+ * @property includeZeros - Whether zero values are included in aggregation
+ */
+export type AggregateMetric<TColumnId extends string = string> = {
+  kind: 'aggregate'
+  columnId: TColumnId
+  aggregate: NumericAggregateFunction
   includeZeros?: boolean
 }
+
+/** Metric union returned by the chart hook. */
+export type Metric<TColumnId extends string = string> = CountMetric | AggregateMetric<TColumnId>
 
 // ---------------------------------------------------------------------------
 // Filter state
@@ -122,7 +145,7 @@ export type Metric = {
  * - For category columns: Set of selected values (empty = no filter = show all)
  * - For boolean columns: true/false/null (null = no filter)
  */
-export type FilterState = Map<string, Set<string>>
+export type FilterState<TColumnId extends string = string> = Map<TColumnId, Set<string>>
 
 // ---------------------------------------------------------------------------
 // Sorting
@@ -154,11 +177,11 @@ export type SortConfig = {
  * @property data - Array of raw data items
  * @property columns - Column definitions for this source
  */
-export type DataSource<T> = {
+export type DataSource<T, TColumnId extends string = string> = {
   id: string
   label: string
-  data: T[]
-  columns: ChartColumn<T>[]
+  data: readonly T[]
+  columns: readonly ChartColumn<T, TColumnId>[]
 }
 
 // ---------------------------------------------------------------------------
@@ -192,8 +215,8 @@ export type TransformedDataPoint = Record<string, string | number>
  * @property type - Column type (category or boolean)
  * @property options - Available values with counts
  */
-export type AvailableFilter = {
-  columnId: string
+export type AvailableFilter<TColumnId extends string = string> = {
+  columnId: TColumnId
   label: string
   type: 'category' | 'boolean'
   options: Array<{value: string; label: string; count: number}>
@@ -207,8 +230,8 @@ export type AvailableFilter = {
  * @property min - Earliest date in the data (null if no valid dates)
  * @property max - Latest date in the data (null if no valid dates)
  */
-export type DateRange = {
-  columnId: string
+export type DateRange<TColumnId extends string = string> = {
+  columnId: TColumnId
   label: string
   min: Date | null
   max: Date | null
@@ -230,7 +253,7 @@ export type DateRangeFilter = {
  * Full chart state returned by the useChart hook.
  * Contains both controlled state and derived computations.
  */
-export type ChartInstance<T> = {
+export type ChartInstance<T, TColumnId extends string = string> = {
   // -- Source --
   /** Active source ID (only relevant for multi-source). */
   activeSourceId: string
@@ -251,27 +274,27 @@ export type ChartInstance<T> = {
 
   // -- X-axis --
   /** Current X-axis column ID. */
-  xAxisId: string | null
+  xAxisId: TColumnId | null
   /** Change the X-axis column. */
-  setXAxis: (columnId: string) => void
+  setXAxis: (columnId: TColumnId) => void
   /** Columns eligible for X-axis (date + category). */
-  availableXAxes: Array<{id: string; label: string; type: 'date' | 'category' | 'boolean'}>
+  availableXAxes: Array<{id: TColumnId; label: string; type: 'date' | 'category' | 'boolean'}>
 
   // -- Group by --
   /** Current groupBy column ID (null = no grouping). */
-  groupById: string | null
+  groupById: TColumnId | null
   /** Change the groupBy column. */
-  setGroupBy: (columnId: string | null) => void
+  setGroupBy: (columnId: TColumnId | null) => void
   /** Columns eligible for groupBy (category + boolean, excluding current X-axis). */
-  availableGroupBys: Array<{id: string; label: string}>
+  availableGroupBys: Array<{id: TColumnId; label: string}>
 
   // -- Metric --
   /** Current metric (what the Y-axis measures). */
-  metric: Metric
+  metric: Metric<TColumnId>
   /** Change the metric. */
-  setMetric: (metric: Metric) => void
+  setMetric: (metric: Metric<TColumnId>) => void
   /** Available metrics (count + one per number column with sum/avg/min/max). */
-  availableMetrics: Metric[]
+  availableMetrics: Metric<TColumnId>[]
 
   // -- Time bucket --
   /** Current time bucket (only relevant when X-axis is date). */
@@ -283,15 +306,15 @@ export type ChartInstance<T> = {
 
   // -- Filters --
   /** Active filter values per column. */
-  filters: FilterState
+  filters: FilterState<TColumnId>
   /** Toggle a specific filter value on/off for a column. */
-  toggleFilter: (columnId: string, value: string) => void
+  toggleFilter: (columnId: TColumnId, value: string) => void
   /** Clear all filters for a column. */
-  clearFilter: (columnId: string) => void
+  clearFilter: (columnId: TColumnId) => void
   /** Clear all filters. */
   clearAllFilters: () => void
   /** Available filter options extracted from the data. */
-  availableFilters: AvailableFilter[]
+  availableFilters: AvailableFilter<TColumnId>[]
 
   // -- Sorting --
   /** Current sort configuration (null = default order). */
@@ -301,13 +324,13 @@ export type ChartInstance<T> = {
 
   // -- Date range --
   /** Date range for the active reference date column (computed from filtered data). */
-  dateRange: DateRange | null
+  dateRange: DateRange<TColumnId> | null
   /** Which date column provides the visible date range context. */
-  referenceDateId: string | null
+  referenceDateId: TColumnId | null
   /** Change the reference date column. */
-  setReferenceDateId: (columnId: string) => void
+  setReferenceDateId: (columnId: TColumnId) => void
   /** All date columns available as reference dates. */
-  availableDateColumns: Array<{id: string; label: string}>
+  availableDateColumns: Array<{id: TColumnId; label: string}>
   /** Active date range filter (null = all time). */
   dateRangeFilter: DateRangeFilter | null
   /** Set the date range filter. Pass null to clear (show all time). */
@@ -319,9 +342,9 @@ export type ChartInstance<T> = {
   /** Auto-generated series definitions for recharts. */
   series: ChartSeries[]
   /** Active columns for the current source. */
-  columns: ChartColumn<T>[]
+  columns: readonly ChartColumn<T, TColumnId>[]
   /** Raw data for the active source. */
-  rawData: T[]
+  rawData: readonly T[]
   /** Total number of records in the active source (before filtering). */
   recordCount: number
 }

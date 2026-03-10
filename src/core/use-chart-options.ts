@@ -1,4 +1,13 @@
-import type {ChartColumn} from './types.js'
+import type {ChartColumn, DataSource} from './types.js'
+
+/**
+ * Multi-source charts require at least one source so the hook always has a
+ * valid active source.
+ */
+type NonEmptyDataSources = readonly [
+  DataSource<any>,
+  ...DataSource<any>[],
+]
 
 /**
  * Single-source options for useChart.
@@ -7,9 +16,12 @@ import type {ChartColumn} from './types.js'
  * @property columns - Column definitions describing the data shape
  * @property sourceLabel - Human-readable label for the data source (e.g. "Jobs", "Placements"). Defaults to "Unnamed Source".
  */
-export type SingleSourceOptions<T> = {
-  data: T[]
-  columns: ChartColumn<T>[]
+export type SingleSourceOptions<
+  T,
+  TColumns extends readonly ChartColumn<T, string>[] = readonly ChartColumn<T, string>[],
+> = {
+  data: readonly T[]
+  columns: TColumns
   sourceLabel?: string
   sources?: never
 }
@@ -22,18 +34,16 @@ export type SingleSourceOptions<T> = {
 export type MultiSourceOptions = {
   data?: never
   columns?: never
-  sources: ReadonlyArray<{
-    id: string
-    label: string
-    data: readonly unknown[]
-    columns: readonly ChartColumn<never>[]
-  }>
+  sources: NonEmptyDataSources
 }
 
 /**
  * Options for the useChart hook.
  */
-export type UseChartOptions<T> = SingleSourceOptions<T> | MultiSourceOptions
+export type UseChartOptions<
+  T,
+  TColumns extends readonly ChartColumn<T, string>[] = readonly ChartColumn<T, string>[],
+> = SingleSourceOptions<T, TColumns> | MultiSourceOptions
 
 /**
  * Default time bucket used for date charts.

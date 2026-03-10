@@ -17,12 +17,12 @@ import type {DateColumn, DateRangeFilter} from './types.js'
  * @returns Filtered data items within the date range
  */
 export function filterByDateRange<T>(
-  data: T[],
+  data: readonly T[],
   dateColumn: DateColumn<T>,
   filter: DateRangeFilter,
 ): T[] {
   const {from, to} = filter
-  if (!from && !to) return data
+  if (!from && !to) return [...data]
 
   const toEnd = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999) : null
 
@@ -45,7 +45,7 @@ export function filterByDateRange<T>(
  * @returns Object with min and max dates (both null if no valid dates)
  */
 export function computeDateRange<T>(
-  data: T[],
+  data: readonly T[],
   dateColumn: DateColumn<T>,
 ): {min: Date | null; max: Date | null} {
   let min: Date | null = null

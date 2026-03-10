@@ -43,10 +43,6 @@ export default defineConfig({
         replacement: fileURLToPath(new URL('../../src/ui/index.ts', import.meta.url)),
       },
       {
-        find: '@matthieumordrel/chart-studio/core',
-        replacement: fileURLToPath(new URL('../../src/core/index.ts', import.meta.url)),
-      },
-      {
         find: '@matthieumordrel/chart-studio',
         replacement: fileURLToPath(new URL('../../src/index.ts', import.meta.url)),
       },

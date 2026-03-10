@@ -284,7 +284,6 @@ Minimal example:
 
 - Use `@matthieumordrel/chart-studio` for the headless core.
 - Use `@matthieumordrel/chart-studio/ui` for the optional UI components.
-- Use `@matthieumordrel/chart-studio/core` only if you prefer an explicit headless-only subpath.
 
 ### Do I need Recharts?
 

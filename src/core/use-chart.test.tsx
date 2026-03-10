@@ -75,7 +75,7 @@ describe('useChart', () => {
 
     act(() => {
       result.current.setGroupBy('ownerName')
-      result.current.setMetric({columnId: 'salary', aggregate: 'sum', label: 'Sum of Salary'})
+      result.current.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
       result.current.toggleFilter('ownerName', 'Alice')
       result.current.setActiveSource('candidates')
     })
@@ -84,7 +84,7 @@ describe('useChart', () => {
     expect(result.current.rawData).toEqual(candidateData)
     expect(result.current.xAxisId).toBe('stage')
     expect(result.current.groupById).toBeNull()
-    expect(result.current.metric).toEqual({columnId: null, aggregate: 'count', label: 'Count'})
+    expect(result.current.metric).toEqual({kind: 'count'})
     expect(result.current.filters.size).toBe(0)
     expect(result.current.transformedData).toEqual([
       expect.objectContaining({xKey: 'Screen', value: 1}),
@@ -92,5 +92,64 @@ describe('useChart', () => {
     ])
     expect(result.current.availableChartTypes).toEqual(['bar', 'pie', 'donut'])
     expect(result.current.availableDateColumns).toEqual([])
+  })
+
+  it('treats a null date range filter as all time', () => {
+    const datedData = [
+      {dateAdded: '2024-01-10', ownerName: 'Alice', isOpen: true, salary: 100},
+      ...jobData,
+    ]
+    const {result} = renderHook(() => useChart({data: datedData, columns: jobColumns}))
+
+    expect(result.current.transformedData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({xKey: '2024-01', value: 1}),
+        expect.objectContaining({xKey: '2026-01', value: 2}),
+        expect.objectContaining({xKey: '2026-03', value: 1}),
+      ]),
+    )
+
+    act(() => {
+      result.current.setDateRangeFilter({from: new Date('2026-01-01T00:00:00Z'), to: null})
+    })
+
+    expect(result.current.transformedData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({xKey: '2026-01', value: 2}),
+        expect.objectContaining({xKey: '2026-03', value: 1}),
+      ]),
+    )
+    expect(result.current.transformedData).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({xKey: '2024-01'})]),
+    )
+
+    act(() => {
+      result.current.setDateRangeFilter(null)
+    })
+
+    expect(result.current.transformedData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({xKey: '2024-01', value: 1}),
+        expect.objectContaining({xKey: '2026-01', value: 2}),
+        expect.objectContaining({xKey: '2026-03', value: 1}),
+      ]),
+    )
+  })
+
+  it('throws when multi-source charts are created without sources', () => {
+    expect(() =>
+      renderHook(() =>
+        useChart({
+          sources: [] as unknown as [
+            {
+              id: string
+              label: string
+              data: typeof jobData
+              columns: typeof jobColumns
+            },
+          ],
+        }),
+      ),
+    ).toThrow('useChart requires at least one source')
   })
 })

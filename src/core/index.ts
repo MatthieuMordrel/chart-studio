@@ -5,19 +5,9 @@
  */
 
 export {columns, defineColumns} from './columns.js'
-export {
-  CHART_TYPE_CONFIG,
-  getAvailableChartTypes,
-  isChartTypeAvailable,
-} from './chart-capabilities.js'
+export {CHART_TYPE_CONFIG} from './chart-capabilities.js'
 export {getSeriesColor, buildColorMap} from './colors.js'
-export {filterByDateRange, computeDateRange} from './date-utils.js'
-export {
-  buildAvailableMetrics,
-  DEFAULT_METRIC,
-  getMetricLabel,
-  resolveMetric,
-} from './metric-utils.js'
+export {buildAvailableMetrics, getMetricLabel} from './metric-utils.js'
 export {runPipeline, applyFilters, extractAvailableFilters} from './pipeline.js'
 export type {PipelineInput, PipelineOutput} from './pipeline.js'
 export {useChart} from './use-chart.js'
@@ -35,6 +25,9 @@ export type {
   CategoricalChartType,
   TimeBucket,
   AggregateFunction,
+  NumericAggregateFunction,
+  CountMetric,
+  AggregateMetric,
   Metric,
   FilterState,
   SortDirection,

@@ -6,21 +6,23 @@
 
 import {useRef, useState} from 'react'
 import {ChevronDown, TrendingUpDown} from 'lucide-react'
+import {getMetricLabel, isAggregateMetric} from '../core/metric-utils.js'
 import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
 import {ChartMetricPanel} from './chart-metric-panel.js'
 
 /** Styled popover to select the Y-axis metric with grouped aggregate buttons. */
 export function ChartMetricSelector({className}: {className?: string}) {
-  const {metric, availableMetrics} = useChartContext()
+  const {metric, availableMetrics, columns} = useChartContext()
   const [isOpen, setIsOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
   if (availableMetrics.length <= 1) return null
 
-  const isCount = metric.columnId === null
+  const isCount = metric.kind === 'count'
   const isActive = !isCount
-  const includeZeros = metric.includeZeros ?? true
+  const includeZeros = isAggregateMetric(metric) ? (metric.includeZeros ?? true) : true
+  const label = getMetricLabel(metric, columns)
 
   return (
     <div className={className}>
@@ -36,7 +38,7 @@ export function ChartMetricSelector({className}: {className?: string}) {
         aria-label="Metric"
       >
         <TrendingUpDown className="h-3 w-3" />
-        <span>{metric.label}</span>
+        <span>{label}</span>
         {isActive && !includeZeros && (
           <span className="rounded bg-muted px-1 py-px text-[9px] font-normal text-muted-foreground">
             excl. 0

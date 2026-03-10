@@ -9,7 +9,8 @@
 import type {ReactNode} from 'react'
 import {useMemo} from 'react'
 import {ArrowDownToLine, ArrowUpToLine, Divide, Hash, Sigma} from 'lucide-react'
-import type {AggregateFunction, Metric} from '../core/types.js'
+import {DEFAULT_METRIC, isAggregateMetric} from '../core/metric-utils.js'
+import type {ChartColumn, NumericAggregateFunction, NumberColumn} from '../core/types.js'
 import {useChartContext} from './chart-context.js'
 
 // ---------------------------------------------------------------------------
@@ -17,7 +18,7 @@ import {useChartContext} from './chart-context.js'
 // ---------------------------------------------------------------------------
 
 type AggregateOption = {
-  fn: AggregateFunction
+  fn: NumericAggregateFunction
   label: string
   shortLabel: string
   icon: ReactNode
@@ -46,51 +47,17 @@ const AGGREGATE_OPTIONS: AggregateOption[] = [
 ]
 
 /** Aggregates where the "Exclude zeros" toggle is relevant */
-const ZERO_TOGGLE_AGGREGATES = new Set<AggregateFunction>(['avg', 'min', 'max'])
+const ZERO_TOGGLE_AGGREGATES = new Set<NumericAggregateFunction>(['avg', 'min', 'max'])
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Groups available metrics by number column.
- * Returns an array of { columnId, label, metrics[] } for each number column.
+ * Extract number columns from the chart column list.
  */
-function groupMetricsByColumn(availableMetrics: Metric[]): Array<{
-  columnId: string
-  label: string
-  metrics: Map<AggregateFunction, Metric>
-}> {
-  const columnMap = new Map<string, {label: string; metrics: Map<AggregateFunction, Metric>}>()
-
-  for (const m of availableMetrics) {
-    if (m.columnId === null) continue
-
-    const existing = columnMap.get(m.columnId)
-    if (existing) {
-      existing.metrics.set(m.aggregate, m)
-    } else {
-      columnMap.set(m.columnId, {
-        label: extractColumnLabel(m),
-        metrics: new Map([[m.aggregate, m]]),
-      })
-    }
-  }
-
-  return [...columnMap.entries()].map(([columnId, {label, metrics}]) => ({
-    columnId,
-    label,
-    metrics,
-  }))
-}
-
-/** Extract the base column label from a metric label like "Sum of Salary" → "Salary" */
-function extractColumnLabel(m: Metric): string {
-  const prefixes = ['Sum of ', 'Avg ', 'Min ', 'Max ']
-  for (const prefix of prefixes) {
-    if (m.label.startsWith(prefix)) return m.label.slice(prefix.length)
-  }
-  return m.label
+function getNumberColumns(columns: readonly ChartColumn<unknown>[]): NumberColumn<unknown>[] {
+  return columns.filter((column): column is NumberColumn<unknown> => column.type === 'number')
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +75,9 @@ function MetricColumnGroup({
 }: {
   group: {columnId: string; label: string}
   isActiveColumn: boolean
-  activeAggregate: AggregateFunction | null
+  activeAggregate: NumericAggregateFunction | null
   includeZeros: boolean
-  onSelectAggregate: (fn: AggregateFunction) => void
+  onSelectAggregate: (fn: NumericAggregateFunction) => void
   onToggleZeros: () => void
 }) {
   const isZeroToggleEnabled =
@@ -207,36 +174,31 @@ function MetricColumnGroup({
  * @property className - Additional CSS classes
  */
 export function ChartMetricPanel({onClose, className}: {onClose?: () => void; className?: string}) {
-  const {metric, setMetric, availableMetrics} = useChartContext()
-  const columnGroups = useMemo(() => groupMetricsByColumn(availableMetrics), [availableMetrics])
+  const {metric, setMetric, columns} = useChartContext()
+  const numberColumns = useMemo(() => getNumberColumns(columns), [columns])
 
-  const isCount = metric.columnId === null
-  const includeZeros = metric.includeZeros ?? true
+  const isCount = metric.kind === 'count'
+  const includeZeros = isAggregateMetric(metric) ? (metric.includeZeros ?? true) : true
 
   const handleSelectCount = () => {
-    setMetric({columnId: null, aggregate: 'count', label: 'Count'})
+    setMetric(DEFAULT_METRIC)
     onClose?.()
   }
 
-  const handleSelectAggregate = (columnId: string, fn: AggregateFunction, columnLabel: string) => {
-    const label =
-      fn === 'sum'
-        ? `Sum of ${columnLabel}`
-        : fn === 'avg'
-          ? `Avg ${columnLabel}`
-          : fn === 'min'
-            ? `Min ${columnLabel}`
-            : `Max ${columnLabel}`
-
+  const handleSelectAggregate = (columnId: string, fn: NumericAggregateFunction) => {
     setMetric({
+      kind: 'aggregate',
       columnId,
       aggregate: fn,
-      label,
-      includeZeros: metric.columnId === columnId ? includeZeros : true,
+      includeZeros: isAggregateMetric(metric) && metric.columnId === columnId ? includeZeros : true,
     })
   }
 
   const handleToggleZeros = () => {
+    if (!isAggregateMetric(metric)) {
+      return
+    }
+
     setMetric({...metric, includeZeros: !includeZeros})
   }
 
@@ -263,18 +225,20 @@ export function ChartMetricPanel({onClose, className}: {onClose?: () => void; cl
       </button>
 
       {/* Separator */}
-      {columnGroups.length > 0 && <div className="my-4 border-t border-border" />}
+      {numberColumns.length > 0 && <div className="my-4 border-t border-border" />}
 
       {/* Number column groups */}
       <div className="space-y-4">
-        {columnGroups.map((group) => (
+        {numberColumns.map((group) => (
           <MetricColumnGroup
-            key={group.columnId}
-            group={group}
-            isActiveColumn={metric.columnId === group.columnId}
-            activeAggregate={metric.columnId === group.columnId ? metric.aggregate : null}
+            key={group.id}
+            group={{columnId: group.id, label: group.label}}
+            isActiveColumn={isAggregateMetric(metric) && metric.columnId === group.id}
+            activeAggregate={
+              isAggregateMetric(metric) && metric.columnId === group.id ? metric.aggregate : null
+            }
             includeZeros={includeZeros}
-            onSelectAggregate={(fn) => handleSelectAggregate(group.columnId, fn, group.label)}
+            onSelectAggregate={(fn) => handleSelectAggregate(group.id, fn)}
             onToggleZeros={handleToggleZeros}
           />
         ))}

@@ -6,6 +6,7 @@
  */
 
 import {getSeriesColor} from './colors.js'
+import {getMetricLabel} from './metric-utils.js'
 import {buildDataPoints} from './pipeline-data-points.js'
 import {getStringValue} from './pipeline-helpers.js'
 import type {
@@ -34,14 +35,14 @@ import type {
  * @property filters - Active filter state
  * @property sorting - Sort configuration
  */
-export type PipelineInput<T> = {
-  data: T[]
-  columns: ChartColumn<T>[]
-  xAxisId: string
-  groupById: string | null
-  metric: Metric
+export type PipelineInput<T, TColumnId extends string = string> = {
+  data: readonly T[]
+  columns: readonly ChartColumn<T, TColumnId>[]
+  xAxisId: TColumnId
+  groupById: TColumnId | null
+  metric: Metric<TColumnId>
   timeBucket: TimeBucket
-  filters: FilterState
+  filters: FilterState<TColumnId>
   sorting: SortConfig | null
 }
 
@@ -67,8 +68,12 @@ export type PipelineOutput = {
  * @param filters - Active filter state
  * @returns Filtered data items
  */
-export function applyFilters<T>(data: T[], columns: ChartColumn<T>[], filters: FilterState): T[] {
-  if (filters.size === 0) return data
+export function applyFilters<T, TColumnId extends string>(
+  data: readonly T[],
+  columns: readonly ChartColumn<T, TColumnId>[],
+  filters: FilterState<TColumnId>,
+): T[] {
+  if (filters.size === 0) return [...data]
 
   return data.filter((item) => {
     for (const [columnId, activeValues] of filters) {
@@ -156,7 +161,9 @@ function buildSeries(groups: string[], metricLabel: string, useShadcn = true): C
  * @param input - Pipeline configuration and source data
  * @returns Transformed data, series metadata, and group labels
  */
-export function runPipeline<T>(input: PipelineInput<T>): PipelineOutput {
+export function runPipeline<T, TColumnId extends string>(
+  input: PipelineInput<T, TColumnId>,
+): PipelineOutput {
   const {data, columns, xAxisId, groupById, metric, timeBucket, filters, sorting} = input
 
   const xColumn = columns.find((column) => column.id === xAxisId)
@@ -166,7 +173,7 @@ export function runPipeline<T>(input: PipelineInput<T>): PipelineOutput {
     ? (columns.find((column) => column.id === groupById) ?? null)
     : null
   const numberColumns = columns.filter(
-    (column): column is NumberColumn<T> => column.type === 'number',
+    (column): column is NumberColumn<T, TColumnId> => column.type === 'number',
   )
   const filtered = applyFilters(data, columns, filters)
   const {data: points, groups} = buildDataPoints(
@@ -180,7 +187,7 @@ export function runPipeline<T>(input: PipelineInput<T>): PipelineOutput {
 
   return {
     data: applySorting(points, sorting, xColumn.type === 'date'),
-    series: buildSeries(groups, metric.label),
+    series: buildSeries(groups, getMetricLabel(metric, columns)),
     groups,
   }
 }
@@ -193,12 +200,12 @@ export function runPipeline<T>(input: PipelineInput<T>): PipelineOutput {
  * @param columns - Column definitions
  * @returns Filter metadata and option counts per filterable column
  */
-export function extractAvailableFilters<T>(
-  data: T[],
-  columns: ChartColumn<T>[],
-): AvailableFilter[] {
+export function extractAvailableFilters<T, TColumnId extends string>(
+  data: readonly T[],
+  columns: readonly ChartColumn<T, TColumnId>[],
+): AvailableFilter<TColumnId>[] {
   const filterableColumns = columns.filter(
-    (column): column is CategoryColumn<T> | BooleanColumn<T> =>
+    (column): column is CategoryColumn<T, TColumnId> | BooleanColumn<T, TColumnId> =>
       column.type === 'category' || column.type === 'boolean',
   )
 

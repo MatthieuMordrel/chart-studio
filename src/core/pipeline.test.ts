@@ -32,7 +32,7 @@ describe('runPipeline', () => {
       columns.number('salary', {label: 'Salary'}),
     ])
 
-    const metric: Metric = {columnId: 'salary', aggregate: 'sum', label: 'Sum of Salary'}
+    const metric: Metric = {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'}
     const result = runPipeline({
       data,
       columns: chartColumns,
@@ -74,10 +74,10 @@ describe('runPipeline', () => {
     ])
 
     const metric: Metric = {
+      kind: 'aggregate',
       columnId: 'score',
       aggregate: 'avg',
       includeZeros: false,
-      label: 'Average Score',
     }
 
     const result = runPipeline({
@@ -92,7 +92,7 @@ describe('runPipeline', () => {
     })
 
     expect(result.series).toEqual([
-      expect.objectContaining({dataKey: 'value', label: 'Average Score'}),
+      expect.objectContaining({dataKey: 'value', label: 'Avg Score'}),
     ])
     expect(result.data).toEqual([
       expect.objectContaining({xKey: 'A', value: 10}),

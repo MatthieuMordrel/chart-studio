@@ -26,7 +26,6 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@matthieumordrel/chart-studio": ["../../src/index.ts"],
-      "@matthieumordrel/chart-studio/core": ["../../src/core/index.ts"],
       "@matthieumordrel/chart-studio/ui": ["../../src/ui/index.ts"]
     }
   },
