@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react'
+import {useEffect, useState, type ReactNode} from 'react'
 import {useChart} from '@matthieumordrel/chart-studio'
 import {
   Chart,
@@ -14,10 +14,32 @@ import {
 } from '@matthieumordrel/chart-studio/ui'
 import {hiringPushData, jobColumns, jobsPlaygroundData} from './mock-data'
 
+type Theme = 'light' | 'dark'
+
 type PlaygroundSectionProps = {
   title: string
   description: string
   children: ReactNode
+}
+
+/**
+ * Read the persisted playground theme from localStorage.
+ */
+function getStoredTheme(): Theme {
+  if (typeof window === 'undefined') {
+    return 'light'
+  }
+
+  const storedTheme = window.localStorage.getItem('chart-studio-playground-theme')
+  return storedTheme === 'dark' ? 'dark' : 'light'
+}
+
+/**
+ * Apply the current theme to the document root so CSS tokens can react to it.
+ */
+function applyTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme
+  window.localStorage.setItem('chart-studio-playground-theme', theme)
 }
 
 /**
@@ -32,6 +54,44 @@ function PlaygroundSection({title, description, children}: PlaygroundSectionProp
       </div>
       {children}
     </section>
+  )
+}
+
+/**
+ * Small theme toggle used to compare the package UI in both color schemes.
+ */
+function ThemeToggle() {
+  const [theme, setTheme] = useState<Theme>(() => getStoredTheme())
+
+  useEffect(() => {
+    applyTheme(theme)
+  }, [theme])
+
+  return (
+    <div className="inline-flex items-center rounded-full border border-border bg-card p-1 shadow-sm">
+      <button
+        type="button"
+        onClick={() => setTheme('light')}
+        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+          theme === 'light'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        Light
+      </button>
+      <button
+        type="button"
+        onClick={() => setTheme('dark')}
+        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+          theme === 'dark'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        Dark
+      </button>
+    </div>
   )
 }
 
@@ -111,9 +171,12 @@ function App() {
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-10">
         {/* Intro copy explains the playground's purpose to future contributors. */}
-        <header className="space-y-3">
-          <div className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-            Local UI playground
+        <header className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+              Local UI playground
+            </div>
+            <ThemeToggle />
           </div>
           <h1 className="text-4xl font-semibold tracking-tight">chart-studio playground</h1>
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">

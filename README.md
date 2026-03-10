@@ -193,6 +193,23 @@ const chart = useChart({
 - category or boolean X-axis: `bar`, `pie`, `donut`
 - `pie` and `donut` do not support `groupBy`
 
+## Troubleshooting
+
+### The UI looks mostly unstyled
+
+If the components render but look plain, compressed, or layout incorrectly, the most common cause is that Tailwind is not scanning the files from `@matthieumordrel/chart-studio/ui`.
+
+This usually happens in local playgrounds, monorepos, or alias-based setups where your app imports the package source from outside the app folder.
+
+For Tailwind v4, make sure your stylesheet includes the package source as a scan target:
+
+```css
+@import "tailwindcss";
+@source "../path-to-chart-studio/src";
+```
+
+If your app already uses shadcn-style tokens, also make sure tokens such as `background`, `foreground`, `muted`, `border`, `popover`, `primary`, and `ring` are defined in your theme.
+
 ## Release
 
 - `bun run release:check`
