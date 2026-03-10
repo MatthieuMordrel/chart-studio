@@ -5,6 +5,7 @@
  */
 
 import {useLayoutEffect, useRef, useState, type ReactNode, type RefObject} from 'react'
+import {createPortal} from 'react-dom'
 
 type PanelPosition = {
   top: number
@@ -99,7 +100,11 @@ export function ChartDropdownPanel({
 
   if (!isOpen) return null
 
-  return (
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  return createPortal(
     <>
       {/* Transparent backdrop — click anywhere outside to close */}
       <div className="fixed inset-0 z-40" onClick={onClose} />
@@ -119,6 +124,7 @@ export function ChartDropdownPanel({
       >
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   )
 }
