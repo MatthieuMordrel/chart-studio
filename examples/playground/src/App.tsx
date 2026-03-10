@@ -17,8 +17,8 @@ const SCENARIOS = [
     id: 'kitchen-sink' as const,
     label: 'Kitchen Sink',
     description:
-      'Every UI control from @matthieumordrel/chart-studio/ui in a flat layout. ' +
-      'Multi-source mode — switch datasets live. Includes ChartDebug to inspect live state.',
+      'Interactive ChartToolbar documentation inside the playground. Toggle each control between ' +
+      'pinned, ellipsis, and hidden to understand the full API and the available controls.',
   },
   {
     id: 'overflow-toolbar' as const,

@@ -11,6 +11,11 @@ body,
   min-height: 100%;
 }
 
+html {
+  /* Reserve vertical scrollbar space to prevent page width shifts. */
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   min-width: 320px;
