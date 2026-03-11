@@ -35,20 +35,115 @@ import type {ChartColumn} from '../core/types.js'
 
 /**
  * Estimates the pixel width the YAxis needs so no label is ever clipped.
- * Finds the largest absolute value in the data, formats it, then multiplies
- * character count by ~7 px (text-xs) and adds 8 px of padding.
+ * Considers both the visible range and the likely "nice" axis boundary Recharts
+ * may choose above it, then measures the widest formatted label and adds a
+ * small gutter for tick spacing.
  */
 function estimateYAxisWidth(
   numericRange: NumericRange | null,
   valueColumn: Pick<ChartColumn<any>, 'type' | 'format'>,
 ): number {
-  const maxAbs = numericRange ? Math.max(Math.abs(numericRange.min), Math.abs(numericRange.max)) : 0
-  const label = formatChartValue(maxAbs, {
-    column: valueColumn,
-    surface: 'axis',
-    numericRange,
-  })
-  return Math.max(40, label.length * 7 + 8)
+  const labels = getYAxisLabelCandidates(numericRange, valueColumn)
+  const widestLabel = labels.reduce((maxWidth, label) => Math.max(maxWidth, measureAxisLabelWidth(label)), 0)
+  return Math.max(MIN_Y_AXIS_WIDTH, Math.ceil(widestLabel + Y_AXIS_WIDTH_GUTTER))
+}
+
+/**
+ * Font used by the shared chart axis ticks (`text-xs` in the default theme).
+ */
+const AXIS_TICK_FONT = '12px system-ui, sans-serif'
+
+/**
+ * Canvas measurement can be unavailable in some environments, so keep a
+ * slightly generous character-width fallback.
+ */
+const FALLBACK_AXIS_CHARACTER_WIDTH = 8
+
+/**
+ * Minimum width so short numeric axes still have breathing room.
+ */
+const MIN_Y_AXIS_WIDTH = 48
+
+/**
+ * Extra space for tick margin plus a small anti-clipping buffer.
+ */
+const Y_AXIS_WIDTH_GUTTER = 18
+
+/**
+ * Build a small set of realistic axis labels and size for the widest one.
+ * This catches cases where the chart data tops out below the rounded axis
+ * tick, such as `950` minutes producing a `1000` minute top tick.
+ */
+function getYAxisLabelCandidates(
+  numericRange: NumericRange | null,
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format'>,
+): string[] {
+  const candidates = getYAxisCandidateValues(numericRange)
+  return candidates.map((value) =>
+    formatChartValue(value, {
+      column: valueColumn,
+      surface: 'axis',
+      numericRange,
+    }),
+  )
+}
+
+/**
+ * Include the visible extrema plus rounded axis boundaries so the width
+ * estimate matches what the axis is likely to render.
+ */
+function getYAxisCandidateValues(numericRange: NumericRange | null): number[] {
+  if (!numericRange) {
+    return [0]
+  }
+
+  const maxAbs = Math.max(Math.abs(numericRange.min), Math.abs(numericRange.max))
+  const niceMaxAbs = getNiceAxisBoundary(maxAbs)
+  const values = new Set<number>([0, numericRange.min, numericRange.max, maxAbs, niceMaxAbs])
+
+  if (numericRange.min < 0) {
+    values.add(-niceMaxAbs)
+  }
+
+  return Array.from(values)
+}
+
+/**
+ * Approximate the rounded outer tick value chart libraries tend to choose for
+ * a human-friendly numeric axis.
+ */
+function getNiceAxisBoundary(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0
+  }
+
+  const exponent = Math.floor(Math.log10(value))
+  const magnitude = 10 ** exponent
+  const fraction = value / magnitude
+
+  if (fraction <= 1) return magnitude
+  if (fraction <= 2) return 2 * magnitude
+  if (fraction <= 5) return 5 * magnitude
+  return 10 * magnitude
+}
+
+/**
+ * Measure axis text width in the browser and fall back to a safe character
+ * estimate in non-DOM environments.
+ */
+function measureAxisLabelWidth(label: string): number {
+  if (typeof document === 'undefined') {
+    return label.length * FALLBACK_AXIS_CHARACTER_WIDTH
+  }
+
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (!context) {
+    return label.length * FALLBACK_AXIS_CHARACTER_WIDTH
+  }
+
+  context.font = AXIS_TICK_FONT
+  return context.measureText(label).width
 }
 
 /**
