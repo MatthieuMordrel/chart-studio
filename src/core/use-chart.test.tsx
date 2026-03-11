@@ -347,6 +347,98 @@ describe('useChart', () => {
     expect(result.current.timeBucket).toBe('quarter')
   })
 
+  it('uses allowed order as the fallback default when explicit defaults are absent', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        columnHints: {
+          dateAdded: {type: 'date'},
+          ownerName: {type: 'category'},
+          isOpen: {type: 'boolean'},
+          salary: {type: 'number'},
+        } as const,
+        config: {
+          xAxis: {
+            allowed: ['ownerName', 'dateAdded'],
+          },
+          groupBy: {
+            allowed: ['isOpen', 'ownerName'],
+          },
+          filters: {
+            allowed: ['isOpen', 'ownerName'],
+          },
+          metric: {
+            allowed: [
+              {kind: 'aggregate', columnId: 'salary', aggregate: ['max', 'sum']},
+            ],
+          },
+          chartType: {
+            allowed: ['area', 'line'],
+          },
+          timeBucket: {
+            allowed: ['year', 'quarter'],
+          },
+        },
+      }),
+    )
+
+    expect(result.current.xAxisId).toBe('ownerName')
+    expect(result.current.groupById).toBeNull()
+    expect(result.current.availableGroupBys).toEqual([{id: 'isOpen', label: 'Is Open'}])
+    expect(result.current.availableFilters.map(filter => filter.columnId)).toEqual(['isOpen', 'ownerName'])
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'max'})
+    expect(result.current.availableMetrics).toEqual([
+      {kind: 'aggregate', columnId: 'salary', aggregate: 'max'},
+      {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+    ])
+
+    act(() => {
+      result.current.setXAxis('dateAdded')
+    })
+
+    expect(result.current.availableChartTypes).toEqual(['area', 'line'])
+    expect(result.current.chartType).toBe('area')
+    expect(result.current.availableTimeBuckets).toEqual(['year', 'quarter'])
+    expect(result.current.timeBucket).toBe('year')
+  })
+
+  it('keeps time buckets unavailable when the active runtime state cannot support them', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        columnHints: {
+          dateAdded: {type: 'date'},
+          ownerName: {type: 'category'},
+          isOpen: {type: 'boolean'},
+          salary: {type: 'number'},
+        } as const,
+        config: {
+          xAxis: {
+            allowed: ['dateAdded', 'ownerName'],
+            default: 'dateAdded',
+          },
+          chartType: {
+            allowed: ['bar', 'pie'],
+          },
+          timeBucket: {
+            allowed: ['year'],
+          },
+        },
+      }),
+    )
+
+    expect(result.current.availableTimeBuckets).toEqual(['year'])
+    expect(result.current.timeBucket).toBe('year')
+
+    act(() => {
+      result.current.setXAxis('ownerName')
+      result.current.setChartType('pie')
+    })
+
+    expect(result.current.isTimeSeries).toBe(false)
+    expect(result.current.availableTimeBuckets).toEqual([])
+  })
+
   it('handles complex single-source inference with timestamps, hints, and unsupported fields', () => {
     const data = [
       {

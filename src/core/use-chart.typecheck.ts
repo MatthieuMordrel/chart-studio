@@ -1,3 +1,4 @@
+import type {ChartConfigFromHints, ValidatedChartConfigFromHints} from './types.js'
 import {useChart} from './use-chart.js'
 
 type ExampleRecord = {
@@ -20,6 +21,16 @@ const exampleHints = {
  * Compile-time helper used to assert inferred types.
  */
 function expectType<T>(_value: T): void {}
+
+/**
+ * Compile-time helper used to validate config literals without affecting
+ * `useChart()` inference.
+ */
+function expectValidConfig<
+  const TConfig extends ChartConfigFromHints<ExampleRecord, typeof exampleHints>,
+>(
+  _config: ValidatedChartConfigFromHints<ExampleRecord, typeof exampleHints, TConfig>,
+): void {}
 
 /**
  * This function never runs.
@@ -132,6 +143,25 @@ function verifyConfigTypechecks() {
       },
     },
   })
+
+  // @ts-expect-error explicit defaults should not also be hidden
+  expectValidConfig({
+    chartType: {
+      allowed: ['bar', 'line'],
+      hidden: ['line'],
+      default: 'line',
+    },
+  })
+
+  const conflictingConfig = {
+    xAxis: {
+      hidden: ['createdAt'],
+      default: 'createdAt',
+    },
+  } as const
+
+  // @ts-expect-error extracted config literals should also reject hidden defaults
+  expectValidConfig(conflictingConfig)
 }
 
 function verifyGeneralizedConfigTyping() {

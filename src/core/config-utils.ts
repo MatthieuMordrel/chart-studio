@@ -20,6 +20,51 @@ type ValueControlConfig<TValue extends string> = {
 }
 
 /**
+ * Build the visible runtime option list after applying config restrictions.
+ *
+ * The pipeline is always:
+ * 1. start from runtime-valid options
+ * 2. if `allowed` exists, keep only allowed entries in declared order
+ * 3. if `hidden` exists, subtract hidden entries
+ *
+ * When `fallbackToBaseIfEmpty` is enabled, required controls can recover their
+ * base runtime options if the config leaves nothing selectable for the active
+ * source. This recovery is intentionally separate from default resolution.
+ */
+function restrictConfiguredCollection<TItem, TKey extends string>(
+  items: readonly TItem[],
+  config:
+    | {
+        allowed?: readonly TKey[]
+        hidden?: readonly TKey[]
+      }
+    | undefined,
+  getKey: (item: TItem) => TKey,
+  fallbackToBaseIfEmpty: boolean,
+): TItem[] {
+  const keyedItems = new Map(items.map(item => [getKey(item), item] as const))
+  const allowedKeys = config?.allowed
+  const hiddenKeys = config?.hidden ? new Set(config.hidden) : undefined
+
+  const orderedItems = allowedKeys
+    ? allowedKeys.flatMap(allowedKey => {
+        const match = keyedItems.get(allowedKey)
+        return match ? [match] : []
+      })
+    : [...items]
+
+  const visibleItems = hiddenKeys
+    ? orderedItems.filter(item => !hiddenKeys.has(getKey(item)))
+    : orderedItems
+
+  if (fallbackToBaseIfEmpty && visibleItems.length === 0) {
+    return [...items]
+  }
+
+  return visibleItems
+}
+
+/**
  * Restrict an ID-keyed option list with `allowed`/`hidden`.
  *
  * When `fallbackToBaseIfEmpty` is enabled, required controls keep their base
@@ -30,15 +75,7 @@ export function restrictConfiguredIdOptions<TId extends string, TOption extends 
   config: IdControlConfig<TId> | undefined,
   fallbackToBaseIfEmpty = false,
 ): TOption[] {
-  const visibleOptions = options
-    .filter(option => (config?.allowed ? config.allowed.includes(option.id) : true))
-    .filter(option => (config?.hidden ? !config.hidden.includes(option.id) : true))
-
-  if (fallbackToBaseIfEmpty && visibleOptions.length === 0) {
-    return [...options]
-  }
-
-  return visibleOptions
+  return restrictConfiguredCollection(options, config, option => option.id, fallbackToBaseIfEmpty)
 }
 
 /**
@@ -74,15 +111,7 @@ export function restrictConfiguredValues<TValue extends string>(
   config: ValueControlConfig<TValue> | undefined,
   fallbackToBaseIfEmpty = false,
 ): TValue[] {
-  const visibleValues = values
-    .filter(value => (config?.allowed ? config.allowed.includes(value) : true))
-    .filter(value => (config?.hidden ? !config.hidden.includes(value) : true))
-
-  if (fallbackToBaseIfEmpty && visibleValues.length === 0) {
-    return [...values]
-  }
-
-  return visibleValues
+  return restrictConfiguredCollection(values, config, value => value, fallbackToBaseIfEmpty)
 }
 
 /**

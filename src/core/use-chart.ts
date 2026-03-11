@@ -257,12 +257,12 @@ export function useChart<
   const availableFilters = useMemo(
     () => {
       const extractedFilters = extractAvailableFilters(effectiveData, activeColumns)
-      const allowedFilterIds = activeSource.config?.filters?.allowed
-      const hiddenFilterIds = activeSource.config?.filters?.hidden
+      const selectableFilters = extractedFilters.map(filter => ({
+        ...filter,
+        id: filter.columnId,
+      }))
 
-      return extractedFilters
-        .filter(filter => (allowedFilterIds ? allowedFilterIds.includes(filter.columnId) : true))
-        .filter(filter => (hiddenFilterIds ? !hiddenFilterIds.includes(filter.columnId) : true))
+      return restrictConfiguredIdOptions(selectableFilters, activeSource.config?.filters).map(({id: _id, ...filter}) => filter)
     },
     [effectiveData, activeColumns, activeSource.config]
   )

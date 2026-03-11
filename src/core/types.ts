@@ -250,6 +250,76 @@ type MetricColumnIdFromMetric<TMetric> = Extract<
   string
 >
 
+type StaticConfigError<TMessage extends string> = {
+  __configError__: TMessage
+}
+
+type IsExactly<TLeft, TRight> =
+  [TLeft] extends [TRight]
+    ? [TRight] extends [TLeft]
+      ? true
+      : false
+    : false
+
+type IsTuple<TArray extends readonly unknown[]> = number extends TArray['length'] ? false : true
+
+type NarrowConfigLiteral<TValue, TWide> = IsExactly<TValue, TWide> extends true ? never : TValue
+
+type ValidateLiteralDefaultNotHidden<
+  TSection,
+  TWideOption,
+  TSectionName extends string,
+> = TSection extends {default?: infer TDefault; hidden?: infer THidden}
+  ? THidden extends readonly unknown[]
+    ? IsTuple<THidden> extends true
+      ? [NarrowConfigLiteral<Exclude<TDefault, undefined>, TWideOption>] extends [never]
+        ? unknown
+        : [Extract<NarrowConfigLiteral<Exclude<TDefault, undefined>, TWideOption>, THidden[number]>] extends [never]
+          ? unknown
+          : StaticConfigError<`${TSectionName}.default cannot also appear in ${TSectionName}.hidden`>
+      : unknown
+    : unknown
+  : unknown
+
+type ValidateChartConfigLiterals<
+  T,
+  THints extends ColumnHints<T> | undefined,
+  TConfig extends ChartConfigFromHints<T, THints>,
+> =
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TConfig, 'xAxis'>,
+    ResolvedXAxisColumnIdFromHints<T, THints>,
+    'xAxis'
+  >
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TConfig, 'groupBy'>,
+    ResolvedGroupByColumnIdFromHints<T, THints>,
+    'groupBy'
+  >
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TConfig, 'metric'>,
+    Metric<ResolvedMetricColumnIdFromHints<T, THints>>,
+    'metric'
+  >
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TConfig, 'chartType'>,
+    ChartType,
+    'chartType'
+  >
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TConfig, 'timeBucket'>,
+    TimeBucket,
+    'timeBucket'
+  >
+
+export type ValidatedChartConfigFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined,
+  TConfig extends ChartConfigFromHints<T, THints> | undefined,
+> = TConfig extends ChartConfigFromHints<T, THints>
+  ? TConfig & ValidateChartConfigLiterals<T, THints, TConfig>
+  : TConfig
+
 /** GroupBy IDs narrowed by explicit config when present. */
 export type RestrictedGroupByColumnIdFromConfig<
   T,

@@ -67,6 +67,7 @@ export type {
   TimeBucketConfig,
   ChartConfig,
   ChartConfigFromHints,
+  ValidatedChartConfigFromHints,
   RestrictedXAxisColumnIdFromConfig,
   RestrictedGroupByColumnIdFromConfig,
   RestrictedFilterColumnIdFromConfig,
