@@ -233,6 +233,61 @@ describe('useChart', () => {
     expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
   })
 
+  it('keeps runtime setters aligned with the resolved option lists', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        columnHints: {
+          dateAdded: {type: 'date'},
+          ownerName: {type: 'category'},
+          isOpen: {type: 'boolean'},
+          salary: {type: 'number'},
+        } as const,
+        config: {
+          groupBy: {
+            allowed: ['isOpen'],
+          },
+          metric: {
+            allowed: [
+              {kind: 'aggregate', columnId: 'salary', aggregate: ['avg', 'sum']},
+            ],
+          },
+        },
+      }),
+    )
+
+    expect(result.current.availableGroupBys).toEqual([{id: 'isOpen', label: 'Is Open'}])
+    expect(result.current.availableMetrics).toEqual([
+      {kind: 'aggregate', columnId: 'salary', aggregate: 'avg'},
+      {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+    ])
+
+    act(() => {
+      const unsafeSetXAxis = result.current.setXAxis as (columnId: string) => void
+      const unsafeSetGroupBy = result.current.setGroupBy as (columnId: string | null) => void
+      const unsafeSetMetric = result.current.setMetric as (
+        metric:
+          | {kind: 'count'}
+          | {kind: 'aggregate'; columnId: string; aggregate: 'sum' | 'avg' | 'min' | 'max'}
+      ) => void
+      const unsafeSetReferenceDateId = result.current.setReferenceDateId as (columnId: string) => void
+      const unsafeToggleFilter = result.current.toggleFilter as (columnId: string, value: string) => void
+
+      unsafeSetXAxis('salary')
+      unsafeSetGroupBy('ownerName')
+      unsafeSetMetric({kind: 'count'})
+      unsafeSetReferenceDateId('ownerName')
+      unsafeToggleFilter('dateAdded', '2026-01-15')
+      unsafeToggleFilter('ownerName', 'Missing Owner')
+    })
+
+    expect(result.current.xAxisId).toBe('dateAdded')
+    expect(result.current.groupById).toBeNull()
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
+    expect(result.current.referenceDateId).toBe('dateAdded')
+    expect(result.current.filters.size).toBe(0)
+  })
+
   it('handles complex single-source inference with timestamps, hints, and unsupported fields', () => {
     const data = [
       {

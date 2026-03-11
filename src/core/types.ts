@@ -622,25 +622,43 @@ export type ChartInstance<
   // -- X-axis --
   /** Current X-axis column ID. */
   xAxisId: TXAxisId | null
-  /** Change the X-axis column. */
+  /**
+   * Change the X-axis column.
+   * Runtime accepts only IDs currently present in `availableXAxes`.
+   */
   setXAxis: (columnId: TXAxisId) => void
-  /** Columns eligible for X-axis (date + category). */
+  /**
+   * Columns currently eligible for X-axis at runtime.
+   * Typing narrows only from explicit `columnHints.type`, not from runtime inference.
+   */
   availableXAxes: Array<{id: TXAxisId; label: string; type: 'date' | 'category' | 'boolean'}>
 
   // -- Group by --
   /** Current groupBy column ID (null = no grouping). */
   groupById: TGroupById | null
-  /** Change the groupBy column. */
+  /**
+   * Change the groupBy column.
+   * Runtime accepts only `null` or IDs currently present in `availableGroupBys`.
+   */
   setGroupBy: (columnId: TGroupById | null) => void
-  /** Columns eligible for groupBy (category + boolean, excluding current X-axis). */
+  /**
+   * Columns currently eligible for groupBy at runtime.
+   * Explicit `config.groupBy.allowed` further narrows this list and the setter type.
+   */
   availableGroupBys: Array<{id: TGroupById; label: string}>
 
   // -- Metric --
   /** Current metric (what the Y-axis measures). */
   metric: TMetric
-  /** Change the metric. */
+  /**
+   * Change the metric.
+   * Runtime accepts only metrics currently present in `availableMetrics`.
+   */
   setMetric: (metric: TMetric) => void
-  /** Available metrics (count + one per number column with sum/avg/min/max). */
+  /**
+   * Metrics currently available at runtime.
+   * Explicit `config.metric.allowed` narrows both this list and the setter type.
+   */
   availableMetrics: TMetric[]
 
   // -- Time bucket --
@@ -654,13 +672,16 @@ export type ChartInstance<
   // -- Filters --
   /** Active filter values per column. */
   filters: FilterState<TFilterColumnId>
-  /** Toggle a specific filter value on/off for a column. */
+  /**
+   * Toggle a specific filter value on/off for a column.
+   * Runtime accepts only values currently exposed through `availableFilters`.
+   */
   toggleFilter: (columnId: TFilterColumnId, value: string) => void
-  /** Clear all filters for a column. */
+  /** Clear all filters for a column when that column is currently filterable. */
   clearFilter: (columnId: TFilterColumnId) => void
   /** Clear all filters. */
   clearAllFilters: () => void
-  /** Available filter options extracted from the data. */
+  /** Filter options currently available from the runtime data. */
   availableFilters: AvailableFilter<TFilterColumnId>[]
 
   // -- Sorting --
@@ -674,9 +695,12 @@ export type ChartInstance<
   dateRange: DateRange<TDateColumnId> | null
   /** Which date column provides the visible date range context. */
   referenceDateId: TDateColumnId | null
-  /** Change the reference date column. */
+  /**
+   * Change the reference date column.
+   * Runtime accepts only IDs currently present in `availableDateColumns`.
+   */
   setReferenceDateId: (columnId: TDateColumnId) => void
-  /** All date columns available as reference dates. */
+  /** Date columns currently available as reference dates at runtime. */
   availableDateColumns: Array<{id: TDateColumnId; label: string}>
   /** Active date range filter (null = all time). */
   dateRangeFilter: DateRangeFilter | null

@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react'
 import { getAvailableChartTypes, type ChartAxisType } from './chart-capabilities.js'
 import { computeDateRange, filterByDateRange } from './date-utils.js'
 import { inferColumnsFromData } from './infer-columns.js'
-import { buildAvailableMetrics, DEFAULT_METRIC, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
+import { buildAvailableMetrics, DEFAULT_METRIC, isSameMetric, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
 import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
 import type {
+  AvailableFilter,
   ChartColumn,
   ChartConfigFromHints,
   ChartInstance,
@@ -54,6 +55,29 @@ function finalizeChartReturn(
   return chart as unknown as
     | ChartInstanceFromConfig<any, any, any>
     | MultiSourceChartInstance<NonEmptyChartSourceOptions>
+}
+
+/**
+ * Build a lookup set for option objects keyed by `id`.
+ */
+function createOptionIdSet<TId extends string>(
+  options: readonly {id: TId}[],
+): ReadonlySet<TId> {
+  return new Set(options.map(option => option.id))
+}
+
+/**
+ * Build a lookup map of filterable values by column.
+ */
+function createAvailableFilterValueMap<TColumnId extends string>(
+  availableFilters: readonly AvailableFilter<TColumnId>[],
+): ReadonlyMap<TColumnId, ReadonlySet<string>> {
+  return new Map(
+    availableFilters.map(filter => [
+      filter.columnId,
+      new Set(filter.options.map(option => option.value)),
+    ]),
+  )
 }
 
 /**
@@ -143,12 +167,12 @@ export function useChart<
   const [activeSourceIdRaw, setActiveSourceRaw] = useState(sources[0]?.id ?? 'default')
   const [chartType, setChartTypeRaw] = useState<ChartType>('bar')
   const [xAxisId, setXAxisRaw] = useState<string | null>(null)
-  const [groupById, setGroupBy] = useState<string | null>(null)
-  const [metric, setMetric] = useState<Metric<string>>(DEFAULT_METRIC)
+  const [groupById, setGroupByRaw] = useState<string | null>(null)
+  const [metric, setMetricRaw] = useState<Metric<string>>(DEFAULT_METRIC)
   const [timeBucket, setTimeBucket] = useState<TimeBucket>(DEFAULT_TIME_BUCKET)
   const [filters, setFilters] = useState<FilterState<string>>(() => new Map())
   const [sorting, setSorting] = useState<SortConfig | null>(null)
-  const [referenceDateIdRaw, setReferenceDateId] = useState<string | null>(null)
+  const [referenceDateIdRaw, setReferenceDateIdRaw] = useState<string | null>(null)
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter | null>(null)
 
   const sourceIds = useMemo(() => new Set(sources.map(source => source.id)), [sources])
@@ -195,6 +219,7 @@ export function useChart<
     () => activeColumns.filter(column => column.type !== 'number').map(column => ({ id: column.id, label: column.label, type: column.type })),
     [activeColumns]
   )
+  const availableXAxisIds = useMemo(() => createOptionIdSet(availableXAxes), [availableXAxes])
 
   const availableGroupBys = useMemo(
     () => {
@@ -208,12 +233,14 @@ export function useChart<
     },
     [activeColumns, activeSource.config, resolvedXAxisId]
   )
+  const availableGroupByIds = useMemo(() => createOptionIdSet(availableGroupBys), [availableGroupBys])
 
   const resolvedGroupById = groupById && availableGroupBys.some(column => column.id === groupById) ? groupById : null
   const availableMetrics = useMemo(
     () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.config?.metric?.allowed),
     [activeColumns, activeSource.config]
   )
+  const isMetricSelectable = (candidate: Metric<string>) => availableMetrics.some(metricOption => isSameMetric(metricOption, candidate))
   const resolvedMetric = useMemo(
     () => resolveMetric(metric, activeColumns, availableMetrics),
     [metric, activeColumns, availableMetrics]
@@ -229,6 +256,10 @@ export function useChart<
   )
 
   const availableFilters = useMemo(() => extractAvailableFilters(effectiveData, activeColumns), [effectiveData, activeColumns])
+  const availableFilterValues = useMemo(
+    () => createAvailableFilterValueMap(availableFilters),
+    [availableFilters]
+  )
 
   const resolvedChartType = availableChartTypes.includes(chartType) ? chartType : (availableChartTypes[0] ?? 'bar')
 
@@ -255,6 +286,10 @@ export function useChart<
     const { min, max } = computeDateRange(filtered, column)
     return { columnId: column.id, label: column.label, min, max }
   }, [dateColumns, referenceDateId, effectiveData, activeColumns, resolvedFilters])
+  const availableDateColumnIds = useMemo(
+    () => createOptionIdSet(availableDateColumns),
+    [availableDateColumns]
+  )
 
   const setChartType = (type: ChartType) => {
     if (availableChartTypes.includes(type)) {
@@ -263,13 +298,41 @@ export function useChart<
   }
 
   const setXAxis = (columnId: string) => {
+    if (!availableXAxisIds.has(columnId)) {
+      return
+    }
+
     setXAxisRaw(columnId)
     if (resolvedGroupById === columnId) {
-      setGroupBy(null)
+      setGroupByRaw(null)
     }
+  }
+  const setGroupBy = (columnId: string | null) => {
+    if (columnId === null) {
+      setGroupByRaw(null)
+      return
+    }
+
+    if (!availableGroupByIds.has(columnId)) {
+      return
+    }
+
+    setGroupByRaw(columnId)
+  }
+  const setMetric = (nextMetric: Metric<string>) => {
+    if (!isMetricSelectable(nextMetric)) {
+      return
+    }
+
+    setMetricRaw(nextMetric)
   }
 
   const toggleFilter = (columnId: string, value: string) => {
+    const availableValues = availableFilterValues.get(columnId)
+    if (!availableValues?.has(value)) {
+      return
+    }
+
     setFilters(prev => {
       const next = new Map(prev)
       const current = next.get(columnId) ?? new Set<string>()
@@ -292,6 +355,10 @@ export function useChart<
   }
 
   const clearFilter = (columnId: string) => {
+    if (!availableFilterValues.has(columnId)) {
+      return
+    }
+
     setFilters(prev => {
       const next = new Map(prev)
       next.delete(columnId)
@@ -301,6 +368,13 @@ export function useChart<
 
   const clearAllFilters = () => {
     setFilters(new Map())
+  }
+  const setReferenceDateId = (columnId: string) => {
+    if (!availableDateColumnIds.has(columnId)) {
+      return
+    }
+
+    setReferenceDateIdRaw(columnId)
   }
 
   const chart: RuntimeChartInstance = {

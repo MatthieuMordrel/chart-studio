@@ -134,6 +134,45 @@ function verifyConfigTypechecks() {
   })
 }
 
+function verifyInferenceOnlyTypingStaysBroadWithoutExplicitHints() {
+  const chart = useChart({
+    data: [] as ExampleRecord[],
+  })
+
+  // Without explicit columnHints.type values, compile-time typing stays broad
+  // enough to reflect the runtime inference story rather than pretending the
+  // final runtime column roles are already known.
+  chart.setXAxis('createdAt')
+  chart.setXAxis('ownerName')
+  chart.setXAxis('salary')
+  chart.setGroupBy('createdAt')
+  chart.toggleFilter('createdAt', '2026-01-01')
+  chart.setReferenceDateId('salary')
+
+  // Config remains the authoritative narrowing layer when present.
+  const restrictedChart = useChart({
+    data: [] as ExampleRecord[],
+    config: {
+      groupBy: {
+        allowed: ['ownerName'],
+      },
+      metric: {
+        allowed: [{kind: 'count'}],
+      },
+    },
+  })
+
+  restrictedChart.setGroupBy('ownerName')
+  restrictedChart.setMetric({kind: 'count'})
+
+  // @ts-expect-error explicit config should still narrow groupBy even without explicit hints
+  restrictedChart.setGroupBy('isOpen')
+
+  // @ts-expect-error explicit config should still narrow metrics even without explicit hints
+  restrictedChart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+}
+
 void verifyUseChartColumnIds
 void verifyToolRestrictionsTyping
 void verifyConfigTypechecks
+void verifyInferenceOnlyTypingStaysBroadWithoutExplicitHints
