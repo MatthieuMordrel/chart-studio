@@ -46,6 +46,7 @@ type AnyChartInstance = {
   availableMetrics: ChartContextChart['availableMetrics']
   timeBucket: ChartContextChart['timeBucket']
   setTimeBucket: (...args: any[]) => unknown
+  availableTimeBuckets: ChartContextChart['availableTimeBuckets']
   isTimeSeries: boolean
   filters: Map<any, Set<string>>
   toggleFilter: (...args: any[]) => unknown
@@ -127,6 +128,7 @@ function createChartContextChart(chart: AnyChartInstance): ChartContextChart {
     availableMetrics: chart.availableMetrics,
     timeBucket: chart.timeBucket,
     setTimeBucket: chart.setTimeBucket,
+    availableTimeBuckets: chart.availableTimeBuckets,
     isTimeSeries: chart.isTimeSeries,
     filters: new Map(chart.filters),
     toggleFilter: (columnId, value) => {

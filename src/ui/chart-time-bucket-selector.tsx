@@ -17,18 +17,15 @@ const BUCKET_LABELS: Record<TimeBucket, string> = {
   year: 'Year',
 }
 
-/** All bucket options in order. */
-const BUCKET_OPTIONS: TimeBucket[] = ['day', 'week', 'month', 'quarter', 'year']
-
 /** Custom dropdown to select time granularity. */
 export function ChartTimeBucketSelector({className}: {className?: string}) {
-  const {chartType, isTimeSeries, timeBucket, setTimeBucket} = useChartContext()
+  const {chartType, isTimeSeries, timeBucket, setTimeBucket, availableTimeBuckets} = useChartContext()
 
-  if (!isTimeSeries || !CHART_TYPE_CONFIG[chartType].supportsTimeBucketing) {
+  if (!isTimeSeries || !CHART_TYPE_CONFIG[chartType].supportsTimeBucketing || availableTimeBuckets.length === 0) {
     return null
   }
 
-  const options = BUCKET_OPTIONS.map((bucket) => ({value: bucket, label: BUCKET_LABELS[bucket]}))
+  const options = availableTimeBuckets.map((bucket) => ({value: bucket, label: BUCKET_LABELS[bucket as TimeBucket]}))
 
   return (
     <ChartSelect

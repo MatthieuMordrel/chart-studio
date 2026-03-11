@@ -1,4 +1,5 @@
 import type {ChartType} from './types.js'
+import {CHART_TYPE_ORDER} from './config-utils.js'
 
 /**
  * X-axis kinds understood by chart-studio when validating chart types.
@@ -16,11 +17,6 @@ export type ChartTypeCapabilities = {
   supportsGrouping: boolean
   supportsTimeBucketing: boolean
 }
-
-/**
- * Ordered chart types exposed to consumers.
- */
-const CHART_TYPE_ORDER: readonly ChartType[] = ['bar', 'line', 'area', 'pie', 'donut']
 
 /**
  * Capabilities for each supported chart type.

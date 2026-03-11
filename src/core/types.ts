@@ -186,17 +186,37 @@ export type ChartConfigFromHints<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
 > = ChartConfig<
+  ResolvedXAxisColumnIdFromHints<T, THints>,
   ResolvedGroupByColumnIdFromHints<T, THints>,
+  ResolvedFilterColumnIdFromHints<T, THints>,
   ResolvedMetricColumnIdFromHints<T, THints>
 >
 
-type AllowedGroupByColumnIdFromConfig<TConfig> = Extract<
-  TConfig extends {groupBy?: {allowed?: readonly (infer TAllowedGroupById)[]}} ? TAllowedGroupById : never,
-  string
+type ConfigSection<TConfig, TKey extends string> =
+  TConfig extends {[TResolvedKey in TKey]?: infer TSection} ? TSection : never
+
+type AllowedOptionFromControlConfig<TControlConfig> =
+  TControlConfig extends {allowed?: readonly (infer TAllowedOption)[]} ? TAllowedOption : never
+
+type HiddenOptionFromControlConfig<TControlConfig> =
+  TControlConfig extends {hidden?: readonly (infer THiddenOption)[]} ? THiddenOption : never
+
+type RestrictUnionOrFallback<TAllowed, TFallback> =
+  [Extract<TAllowed, TFallback>] extends [never] ? TFallback : Extract<TAllowed, TFallback>
+
+type ExcludeHiddenOrFallback<TBase, THidden> =
+  [Extract<THidden, TBase>] extends [TBase] ? TBase : Exclude<TBase, Extract<THidden, TBase>>
+
+type RestrictOptionsFromControlConfig<TBaseOption, TControlConfig> = ExcludeHiddenOrFallback<
+  RestrictUnionOrFallback<AllowedOptionFromControlConfig<TControlConfig>, TBaseOption>,
+  Extract<HiddenOptionFromControlConfig<TControlConfig>, TBaseOption>
 >
 
 type AllowedMetricFromConfig<TConfig> =
   TConfig extends {metric?: {allowed?: readonly (infer TAllowedMetric)[]}} ? TAllowedMetric : never
+
+type HiddenMetricFromConfig<TConfig> =
+  TConfig extends {metric?: {hidden?: readonly (infer THiddenMetric)[]}} ? THiddenMetric : never
 
 type ExpandMetricAllowance<TMetricAllowance> =
   TMetricAllowance extends CountMetric ? CountMetric
@@ -225,9 +245,6 @@ type ExpandMetricAllowance<TMetricAllowance> =
         : never
     : never
 
-type RestrictUnionOrFallback<TAllowed, TFallback> =
-  [Extract<TAllowed, TFallback>] extends [never] ? TFallback : Extract<TAllowed, TFallback>
-
 type MetricColumnIdFromMetric<TMetric> = Extract<
   TMetric extends AggregateMetric<infer TColumnId> ? TColumnId : never,
   string
@@ -238,9 +255,29 @@ export type RestrictedGroupByColumnIdFromConfig<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
   TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
-> = RestrictUnionOrFallback<
-  AllowedGroupByColumnIdFromConfig<TConfig>,
-  ResolvedGroupByColumnIdFromHints<T, THints>
+> = RestrictOptionsFromControlConfig<
+  ResolvedGroupByColumnIdFromHints<T, THints>,
+  ConfigSection<TConfig, 'groupBy'>
+>
+
+/** X-axis IDs narrowed by explicit config when present. */
+export type RestrictedXAxisColumnIdFromConfig<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+> = RestrictOptionsFromControlConfig<
+  ResolvedXAxisColumnIdFromHints<T, THints>,
+  ConfigSection<TConfig, 'xAxis'>
+>
+
+/** Filter column IDs narrowed by explicit config when present. */
+export type RestrictedFilterColumnIdFromConfig<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+> = RestrictOptionsFromControlConfig<
+  ResolvedFilterColumnIdFromHints<T, THints>,
+  ConfigSection<TConfig, 'filters'>
 >
 
 /** Metric union narrowed by explicit config when present. */
@@ -248,9 +285,24 @@ export type RestrictedMetricFromConfig<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
   TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
-> = RestrictUnionOrFallback<
-  ExpandMetricAllowance<AllowedMetricFromConfig<TConfig>>,
-  Metric<ResolvedMetricColumnIdFromHints<T, THints>>
+> = ExcludeHiddenOrFallback<
+  RestrictUnionOrFallback<
+    ExpandMetricAllowance<AllowedMetricFromConfig<TConfig>>,
+    Metric<ResolvedMetricColumnIdFromHints<T, THints>>
+  >,
+  HiddenMetricFromConfig<TConfig>
+>
+
+/** Chart types narrowed by explicit config when present. */
+export type RestrictedChartTypeFromConfig<TConfig> = RestrictOptionsFromControlConfig<
+  ChartType,
+  ConfigSection<TConfig, 'chartType'>
+>
+
+/** Time buckets narrowed by explicit config when present. */
+export type RestrictedTimeBucketFromConfig<TConfig> = RestrictOptionsFromControlConfig<
+  TimeBucket,
+  ConfigSection<TConfig, 'timeBucket'>
 >
 
 /** Base properties shared by all column types. */
@@ -402,23 +454,50 @@ export type MetricAllowance<TColumnId extends string = string> =
 // Chart config
 // ---------------------------------------------------------------------------
 
-/**
- * Declarative config for the groupBy control.
- *
- * @property allowed - Optional whitelist of groupable column IDs.
- */
-export type GroupByConfig<TColumnId extends string = string> = {
-  allowed?: readonly TColumnId[]
+/** Shared config shape for one selectable control. */
+export type SelectableControlConfig<TOption extends string = string> = {
+  /** Optional whitelist of options that remain visible/selectable. */
+  allowed?: readonly TOption[]
+  /** Optional blacklist of options to hide after whitelisting. */
+  hidden?: readonly TOption[]
+  /** Preferred selection when the current value is missing or invalid. */
+  default?: TOption
 }
+
+/** Declarative config for the X-axis control. */
+export type XAxisConfig<TColumnId extends string = string> = SelectableControlConfig<TColumnId>
+
+/** Declarative config for the groupBy control. */
+export type GroupByConfig<TColumnId extends string = string> = SelectableControlConfig<TColumnId>
+
+/**
+ * Declarative config for which columns may appear in the filters UI.
+ *
+ * Filter value restrictions are intentionally out of scope for now. This keeps
+ * `filters` aligned with the existing column-first headless model.
+ */
+export type FiltersConfig<TColumnId extends string = string> = Omit<
+  SelectableControlConfig<TColumnId>,
+  'default'
+>
 
 /**
  * Declarative config for the metric control.
  *
- * @property allowed - Optional whitelist of metrics that may be selected.
+ * `allowed` keeps the shorthand array-expansion form while `hidden` and
+ * `default` operate on fully resolved metric objects.
  */
 export type MetricConfig<TColumnId extends string = string> = {
   allowed?: readonly MetricAllowance<TColumnId>[]
+  hidden?: readonly Metric<TColumnId>[]
+  default?: Metric<TColumnId>
 }
+
+/** Declarative config for chart-type selection. */
+export type ChartTypeConfig = SelectableControlConfig<ChartType>
+
+/** Declarative config for time-bucket selection. */
+export type TimeBucketConfig = SelectableControlConfig<TimeBucket>
 
 /**
  * Explicit chart config supported by `useChart()`.
@@ -427,11 +506,17 @@ export type MetricConfig<TColumnId extends string = string> = {
  * `config` becomes authoritative when callers want to restrict the public chart contract.
  */
 export type ChartConfig<
+  TXAxisColumnId extends string = string,
   TGroupByColumnId extends string = string,
+  TFilterColumnId extends string = string,
   TMetricColumnId extends string = string,
 > = {
+  xAxis?: XAxisConfig<TXAxisColumnId>
   groupBy?: GroupByConfig<TGroupByColumnId>
+  filters?: FiltersConfig<TFilterColumnId>
   metric?: MetricConfig<TMetricColumnId>
+  chartType?: ChartTypeConfig
+  timeBucket?: TimeBucketConfig
 }
 
 // ---------------------------------------------------------------------------
@@ -519,7 +604,7 @@ export type ResolvedChartSource<T, TColumnId extends string = string> = {
   label: string
   data: readonly T[]
   columns: readonly ChartColumn<T, TColumnId>[]
-  config?: ChartConfig<string, string>
+  config?: ChartConfig<string, string, string, string>
 }
 
 // ---------------------------------------------------------------------------
@@ -594,12 +679,14 @@ export type DateRangeFilter = {
 export type ChartInstance<
   T,
   TColumnId extends string = string,
+  TChartType extends ChartType = ChartType,
   TXAxisId extends TColumnId = TColumnId,
   TGroupById extends TColumnId = TColumnId,
   TMetricColumnId extends TColumnId = TColumnId,
   TMetric extends Metric<any> = Metric<TMetricColumnId>,
   TFilterColumnId extends TColumnId = TColumnId,
   TDateColumnId extends TColumnId = TColumnId,
+  TTimeBucket extends TimeBucket = TimeBucket,
 > = {
   // -- Source --
   /** Active source ID (only relevant for multi-source). */
@@ -613,11 +700,11 @@ export type ChartInstance<
 
   // -- Chart type --
   /** Current chart type. */
-  chartType: ChartType
-  /** Change the chart type. */
-  setChartType: (type: ChartType) => void
-  /** Chart types available given the current X-axis. */
-  availableChartTypes: ChartType[]
+  chartType: TChartType
+  /** Change the chart type. Runtime accepts only values in `availableChartTypes`. */
+  setChartType: (type: TChartType) => void
+  /** Chart types currently available given the active axis, grouping, and config. */
+  availableChartTypes: TChartType[]
 
   // -- X-axis --
   /** Current X-axis column ID. */
@@ -663,9 +750,11 @@ export type ChartInstance<
 
   // -- Time bucket --
   /** Current time bucket (only relevant when X-axis is date). */
-  timeBucket: TimeBucket
-  /** Change the time bucket. */
-  setTimeBucket: (bucket: TimeBucket) => void
+  timeBucket: TTimeBucket
+  /** Change the time bucket. Runtime accepts only values in `availableTimeBuckets`. */
+  setTimeBucket: (bucket: TTimeBucket) => void
+  /** Time buckets currently available for the active chart state and config. */
+  availableTimeBuckets: TTimeBucket[]
   /** Whether time bucketing controls should be shown. */
   isTimeSeries: boolean
 
@@ -727,12 +816,14 @@ export type ChartInstanceFromHints<
 > = ChartInstance<
   T,
   ResolvedColumnIdFromHints<T, THints>,
+  ChartType,
   ResolvedXAxisColumnIdFromHints<T, THints>,
   ResolvedGroupByColumnIdFromHints<T, THints>,
   ResolvedMetricColumnIdFromHints<T, THints>,
   Metric<ResolvedMetricColumnIdFromHints<T, THints>>,
   ResolvedFilterColumnIdFromHints<T, THints>,
-  ResolvedDateColumnIdFromHints<T, THints>
+  ResolvedDateColumnIdFromHints<T, THints>,
+  TimeBucket
 >
 
 /** Single-source chart instance narrowed by both explicit hints and explicit config. */
@@ -743,15 +834,17 @@ export type ChartInstanceFromConfig<
 > = ChartInstance<
   T,
   ResolvedColumnIdFromHints<T, THints>,
-  ResolvedXAxisColumnIdFromHints<T, THints>,
+  RestrictedChartTypeFromConfig<TConfig>,
+  RestrictedXAxisColumnIdFromConfig<T, THints, TConfig>,
   RestrictedGroupByColumnIdFromConfig<T, THints, TConfig>,
   Extract<
     MetricColumnIdFromMetric<RestrictedMetricFromConfig<T, THints, TConfig>>,
     ResolvedMetricColumnIdFromHints<T, THints>
   >,
   RestrictedMetricFromConfig<T, THints, TConfig>,
-  ResolvedFilterColumnIdFromHints<T, THints>,
-  ResolvedDateColumnIdFromHints<T, THints>
+  RestrictedFilterColumnIdFromConfig<T, THints, TConfig>,
+  ResolvedDateColumnIdFromHints<T, THints>,
+  RestrictedTimeBucketFromConfig<TConfig>
 >
 
 type SourceIdFromSource<TSource extends AnyChartSourceOptions> = TSource['id']

@@ -134,6 +134,74 @@ function verifyConfigTypechecks() {
   })
 }
 
+function verifyGeneralizedConfigTyping() {
+  const generalizedConfig = {
+    xAxis: {
+      allowed: ['createdAt', 'ownerName'],
+      hidden: ['ownerName'],
+      default: 'createdAt',
+    },
+    groupBy: {
+      allowed: ['ownerName', 'isOpen'],
+      hidden: ['ownerName'],
+      default: 'isOpen',
+    },
+    filters: {
+      allowed: ['ownerName', 'isOpen'],
+      hidden: ['isOpen'],
+    },
+    metric: {
+      allowed: [
+        {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
+      ],
+      hidden: [{kind: 'aggregate', columnId: 'salary', aggregate: 'avg'}],
+      default: {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+    },
+    chartType: {
+      allowed: ['line', 'area'],
+      hidden: ['line'],
+      default: 'area',
+    },
+    timeBucket: {
+      allowed: ['quarter', 'year'],
+      hidden: ['year'],
+      default: 'quarter',
+    },
+  } as const
+
+  const chart = useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    config: generalizedConfig,
+  })
+
+  chart.setXAxis('createdAt')
+  chart.setXAxis('ownerName')
+  chart.setGroupBy('isOpen')
+  chart.toggleFilter('ownerName', 'Alice')
+  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+  chart.setChartType('area')
+  chart.setTimeBucket('quarter')
+
+  // @ts-expect-error xAxis config should keep undeclared IDs out of the setter type
+  chart.setXAxis('isOpen')
+
+  // @ts-expect-error groupBy config should keep undeclared IDs out of the setter type
+  chart.setGroupBy('createdAt')
+
+  // @ts-expect-error filter config should keep undeclared IDs out of the filter setter type
+  chart.toggleFilter('createdAt', '2026-01-01')
+
+  // @ts-expect-error metric config should narrow the setter type
+  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'min'})
+
+  // @ts-expect-error chartType config should narrow the setter type
+  chart.setChartType('bar')
+
+  // @ts-expect-error timeBucket config should narrow the setter type
+  chart.setTimeBucket('month')
+}
+
 function verifyInferenceOnlyTypingStaysBroadWithoutExplicitHints() {
   const chart = useChart({
     data: [] as ExampleRecord[],
@@ -175,4 +243,5 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitHints() {
 void verifyUseChartColumnIds
 void verifyToolRestrictionsTyping
 void verifyConfigTypechecks
+void verifyGeneralizedConfigTyping
 void verifyInferenceOnlyTypingStaysBroadWithoutExplicitHints

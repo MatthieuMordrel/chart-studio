@@ -4,6 +4,7 @@ import type {
   ChartColumn,
   Metric,
   MetricAllowance,
+  MetricConfig,
   NumberColumn,
   NumericAggregateFunction,
 } from './types.js'
@@ -154,16 +155,31 @@ export function normalizeMetricAllowances<TColumnId extends string>(
  */
 export function restrictAvailableMetrics<TColumnId extends string>(
   metrics: readonly Metric<TColumnId>[],
-  allowedMetrics?: readonly MetricAllowance<TColumnId>[],
+  config?: MetricConfig<TColumnId>,
 ): Metric<TColumnId>[] {
-  const normalizedAllowedMetrics = normalizeMetricAllowances(allowedMetrics)
+  const normalizedAllowedMetrics = normalizeMetricAllowances(config?.allowed)
   if (!normalizedAllowedMetrics) {
-    return [...metrics]
+    const hiddenMetrics = config?.hidden
+    if (!hiddenMetrics || hiddenMetrics.length === 0) {
+      return [...metrics]
+    }
+
+    const visibleMetrics = metrics.filter(metric =>
+      hiddenMetrics.every(hiddenMetric => !isSameMetric(metric, hiddenMetric))
+    )
+
+    return visibleMetrics.length > 0 ? visibleMetrics : [metrics[0] ?? DEFAULT_METRIC]
   }
 
-  const restricted = normalizedAllowedMetrics.filter(allowedMetric =>
+  const allowedMetrics = normalizedAllowedMetrics.filter(allowedMetric =>
     metrics.some(metric => isSameMetric(metric, allowedMetric))
   )
+  const hiddenMetrics = config?.hidden
+  const restricted = !hiddenMetrics || hiddenMetrics.length === 0
+    ? allowedMetrics
+    : allowedMetrics.filter(metric =>
+        hiddenMetrics.every(hiddenMetric => !isSameMetric(metric, hiddenMetric))
+      )
 
   // A chart always needs one active metric. Fall back to the inferred default if
   // the whitelist ends up empty or does not match the active source.
@@ -177,9 +193,19 @@ export function resolveMetric<T, TColumnId extends string>(
   metric: Metric<TColumnId>,
   columns: readonly ChartColumn<T, TColumnId>[],
   availableMetrics?: readonly Metric<TColumnId>[],
+  configuredDefaultMetric?: Metric<TColumnId>,
 ): Metric<TColumnId> {
   if (availableMetrics && availableMetrics.length > 0) {
-    return availableMetrics.find(candidate => isSameMetric(candidate, metric)) ?? availableMetrics[0]!
+    const selectedMetric = availableMetrics.find(candidate => isSameMetric(candidate, metric))
+    if (selectedMetric) {
+      return selectedMetric
+    }
+
+    const defaultMetric = configuredDefaultMetric
+      ? availableMetrics.find(candidate => isSameMetric(candidate, configuredDefaultMetric))
+      : undefined
+
+    return defaultMetric ?? availableMetrics[0]!
   }
 
   if (!isAggregateMetric(metric)) {

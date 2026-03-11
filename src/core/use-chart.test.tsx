@@ -288,6 +288,65 @@ describe('useChart', () => {
     expect(result.current.filters.size).toBe(0)
   })
 
+  it('supports generalized config defaults and restrictions across tools', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        columnHints: {
+          dateAdded: {type: 'date'},
+          ownerName: {type: 'category'},
+          isOpen: {type: 'boolean'},
+          salary: {type: 'number'},
+        } as const,
+        config: {
+          xAxis: {
+            allowed: ['dateAdded'],
+            default: 'dateAdded',
+          },
+          groupBy: {
+            allowed: ['ownerName', 'isOpen'],
+            hidden: ['ownerName'],
+            default: 'isOpen',
+          },
+          filters: {
+            allowed: ['ownerName', 'isOpen'],
+            hidden: ['isOpen'],
+          },
+          metric: {
+            allowed: [
+              {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
+            ],
+            hidden: [{kind: 'aggregate', columnId: 'salary', aggregate: 'avg'}],
+            default: {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+          },
+          chartType: {
+            allowed: ['line', 'area'],
+            default: 'area',
+          },
+          timeBucket: {
+            allowed: ['quarter', 'year'],
+            hidden: ['year'],
+            default: 'quarter',
+          },
+        },
+      }),
+    )
+
+    expect(result.current.availableXAxes).toEqual([{id: 'dateAdded', label: 'Date Added', type: 'date'}])
+    expect(result.current.xAxisId).toBe('dateAdded')
+    expect(result.current.availableGroupBys).toEqual([{id: 'isOpen', label: 'Is Open'}])
+    expect(result.current.groupById).toBe('isOpen')
+    expect(result.current.availableFilters.map(filter => filter.columnId)).toEqual(['ownerName'])
+    expect(result.current.availableMetrics).toEqual([
+      {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+    ])
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+    expect(result.current.availableChartTypes).toEqual(['line', 'area'])
+    expect(result.current.chartType).toBe('area')
+    expect(result.current.availableTimeBuckets).toEqual(['quarter'])
+    expect(result.current.timeBucket).toBe('quarter')
+  })
+
   it('handles complex single-source inference with timestamps, hints, and unsupported fields', () => {
     const data = [
       {

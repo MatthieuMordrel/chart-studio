@@ -19,6 +19,12 @@ export function SingleSourceChart() {
       grossProfit: { type: 'number', label: 'Gross Profit' }
     } as const,
     config: {
+      xAxis: {
+        allowed: ['periodEnd']
+      },
+      
+      timeBucket: { allowed: ['year', 'quarter', 'month'] },
+      chartType: { allowed: ['bar', 'line'] },
       groupBy: {
         allowed: ['segment']
       },

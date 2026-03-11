@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { getAvailableChartTypes, type ChartAxisType } from './chart-capabilities.js'
+import { TIME_BUCKET_ORDER, resolveConfiguredIdSelection, resolveConfiguredValue, restrictConfiguredIdOptions, restrictConfiguredValues } from './config-utils.js'
+import { CHART_TYPE_CONFIG, getAvailableChartTypes, type ChartAxisType } from './chart-capabilities.js'
 import { computeDateRange, filterByDateRange } from './date-utils.js'
 import { inferColumnsFromData } from './infer-columns.js'
 import { buildAvailableMetrics, DEFAULT_METRIC, isSameMetric, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
@@ -58,15 +59,6 @@ function finalizeChartReturn(
 }
 
 /**
- * Build a lookup set for option objects keyed by `id`.
- */
-function createOptionIdSet<TId extends string>(
-  options: readonly {id: TId}[],
-): ReadonlySet<TId> {
-  return new Set(options.map(option => option.id))
-}
-
-/**
  * Build a lookup map of filterable values by column.
  */
 function createAvailableFilterValueMap<TColumnId extends string>(
@@ -104,7 +96,7 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   - `xAxisId`, `setXAxis`, `availableXAxes`: Current, setter, and available columns for X axis
  *   - `groupById`, `setGroupBy`, `availableGroupBys`: Group by key, setter, and options
  *   - `metric`, `setMetric`, `availableMetrics`: Current aggregation metric, setter, and options
- *   - `timeBucket`, `setTimeBucket`: Date/time bucketing (if applicable), setter
+ *   - `timeBucket`, `setTimeBucket`, `availableTimeBuckets`: Date/time bucketing state, setter, and options
  *   - `isTimeSeries`: Whether the chart is a time series (based on axis)
  *   - `filters`, `toggleFilter`, `clearFilter`, `clearAllFilters`, `availableFilters`: Current filters and their controls
  *   - `sorting`, `setSorting`: Current sorting config and setter
@@ -169,7 +161,7 @@ export function useChart<
   const [xAxisId, setXAxisRaw] = useState<string | null>(null)
   const [groupById, setGroupByRaw] = useState<string | null>(null)
   const [metric, setMetricRaw] = useState<Metric<string>>(DEFAULT_METRIC)
-  const [timeBucket, setTimeBucket] = useState<TimeBucket>(DEFAULT_TIME_BUCKET)
+  const [timeBucket, setTimeBucketRaw] = useState<TimeBucket>(DEFAULT_TIME_BUCKET)
   const [filters, setFilters] = useState<FilterState<string>>(() => new Map())
   const [sorting, setSorting] = useState<SortConfig | null>(null)
   const [referenceDateIdRaw, setReferenceDateIdRaw] = useState<string | null>(null)
@@ -194,8 +186,31 @@ export function useChart<
   )
 
   const availableDateColumns = useMemo(() => dateColumns.map(column => ({ id: column.id, label: column.label })), [dateColumns])
+  const availableDateColumnIds = useMemo(
+    () => new Set(availableDateColumns.map(option => option.id)),
+    [availableDateColumns]
+  )
 
-  const resolvedXAxisId = useMemo(() => resolveXAxisId(xAxisId, activeColumns), [xAxisId, activeColumns])
+  const availableXAxes = useMemo(
+    () => restrictConfiguredIdOptions(
+      activeColumns
+        .filter(column => column.type !== 'number')
+        .map(column => ({ id: column.id, label: column.label, type: column.type })),
+      activeSource.config?.xAxis,
+      true
+    ),
+    [activeColumns, activeSource.config]
+  )
+  const availableXAxisIds = useMemo(() => new Set(availableXAxes.map(option => option.id)), [availableXAxes])
+  const resolvedXAxisId = useMemo(
+    () => resolveConfiguredIdSelection(
+      xAxisId,
+      availableXAxes,
+      activeSource.config?.xAxis?.default,
+      resolveXAxisId(null, activeColumns)
+    ),
+    [xAxisId, availableXAxes, activeSource.config, activeColumns]
+  )
   const xColumn = activeColumns.find(column => column.id === resolvedXAxisId) ?? null
   const resolvedXAxisType: ChartAxisType | null = xColumn && xColumn.type !== 'number' ? xColumn.type : null
   const isTimeSeries = resolvedXAxisType === 'date'
@@ -215,53 +230,80 @@ export function useChart<
     return filterByDateRange(rawData, column, dateRangeFilter)
   }, [rawData, dateRangeFilter, dateColumns, referenceDateId])
 
-  const availableXAxes = useMemo(
-    () => activeColumns.filter(column => column.type !== 'number').map(column => ({ id: column.id, label: column.label, type: column.type })),
-    [activeColumns]
-  )
-  const availableXAxisIds = useMemo(() => createOptionIdSet(availableXAxes), [availableXAxes])
-
   const availableGroupBys = useMemo(
-    () => {
-      const allowedGroupByIds = activeSource.config?.groupBy?.allowed
-      const allowedGroupByIdSet = allowedGroupByIds ? new Set(allowedGroupByIds) : null
-
-      return activeColumns
-        .filter(column => (column.type === 'category' || column.type === 'boolean') && column.id !== resolvedXAxisId)
-        .filter(column => (allowedGroupByIdSet ? allowedGroupByIdSet.has(column.id) : true))
-        .map(column => ({ id: column.id, label: column.label }))
-    },
+    () =>
+      restrictConfiguredIdOptions(
+        activeColumns
+          .filter(column => (column.type === 'category' || column.type === 'boolean') && column.id !== resolvedXAxisId)
+          .map(column => ({ id: column.id, label: column.label })),
+        activeSource.config?.groupBy
+      ),
     [activeColumns, activeSource.config, resolvedXAxisId]
   )
-  const availableGroupByIds = useMemo(() => createOptionIdSet(availableGroupBys), [availableGroupBys])
-
-  const resolvedGroupById = groupById && availableGroupBys.some(column => column.id === groupById) ? groupById : null
+  const availableGroupByIds = useMemo(() => new Set(availableGroupBys.map(option => option.id)), [availableGroupBys])
+  const resolvedGroupById = useMemo(
+    () => resolveConfiguredIdSelection(groupById, availableGroupBys, activeSource.config?.groupBy?.default, null, false),
+    [groupById, availableGroupBys, activeSource.config]
+  )
   const availableMetrics = useMemo(
-    () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.config?.metric?.allowed),
+    () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.config?.metric),
     [activeColumns, activeSource.config]
   )
   const isMetricSelectable = (candidate: Metric<string>) => availableMetrics.some(metricOption => isSameMetric(metricOption, candidate))
   const resolvedMetric = useMemo(
-    () => resolveMetric(metric, activeColumns, availableMetrics),
-    [metric, activeColumns, availableMetrics]
+    () => resolveMetric(metric, activeColumns, availableMetrics, activeSource.config?.metric?.default),
+    [metric, activeColumns, availableMetrics, activeSource.config]
   )
-  const resolvedFilters = useMemo(() => sanitizeFilters(filters, activeColumns), [filters, activeColumns])
-  const availableChartTypes = useMemo(
-    () =>
-      getAvailableChartTypes({
-        xAxisType: resolvedXAxisType,
-        hasGroupBy: resolvedGroupById !== null
-      }),
-    [resolvedGroupById, resolvedXAxisType]
-  )
+  const availableFilters = useMemo(
+    () => {
+      const extractedFilters = extractAvailableFilters(effectiveData, activeColumns)
+      const allowedFilterIds = activeSource.config?.filters?.allowed
+      const hiddenFilterIds = activeSource.config?.filters?.hidden
 
-  const availableFilters = useMemo(() => extractAvailableFilters(effectiveData, activeColumns), [effectiveData, activeColumns])
+      return extractedFilters
+        .filter(filter => (allowedFilterIds ? allowedFilterIds.includes(filter.columnId) : true))
+        .filter(filter => (hiddenFilterIds ? !hiddenFilterIds.includes(filter.columnId) : true))
+    },
+    [effectiveData, activeColumns, activeSource.config]
+  )
   const availableFilterValues = useMemo(
     () => createAvailableFilterValueMap(availableFilters),
     [availableFilters]
   )
+  const filterColumns = useMemo(
+    () => activeColumns.filter(column => availableFilters.some(filter => filter.columnId === column.id)),
+    [activeColumns, availableFilters]
+  )
+  const resolvedFilters = useMemo(() => sanitizeFilters(filters, filterColumns), [filters, filterColumns])
+  const availableChartTypes = useMemo(
+    () => restrictConfiguredValues(
+      getAvailableChartTypes({
+        xAxisType: resolvedXAxisType,
+        hasGroupBy: resolvedGroupById !== null
+      }),
+      activeSource.config?.chartType,
+      true
+    ),
+    [resolvedGroupById, resolvedXAxisType, activeSource.config]
+  )
+  const resolvedChartType = useMemo(
+    () => resolveConfiguredValue(chartType, availableChartTypes, activeSource.config?.chartType?.default),
+    [chartType, availableChartTypes, activeSource.config]
+  )
+  const availableTimeBuckets = useMemo(
+    () => {
+      const baseBuckets = isTimeSeries && resolvedXAxisType !== null && CHART_TYPE_CONFIG[resolvedChartType].supportsTimeBucketing
+        ? TIME_BUCKET_ORDER
+        : []
 
-  const resolvedChartType = availableChartTypes.includes(chartType) ? chartType : (availableChartTypes[0] ?? 'bar')
+      return restrictConfiguredValues(baseBuckets, activeSource.config?.timeBucket, true)
+    },
+    [isTimeSeries, resolvedXAxisType, resolvedChartType, activeSource.config]
+  )
+  const resolvedTimeBucket = useMemo(
+    () => resolveConfiguredValue(timeBucket, availableTimeBuckets, activeSource.config?.timeBucket?.default),
+    [timeBucket, availableTimeBuckets, activeSource.config]
+  )
 
   const pipelineResult = useMemo(() => {
     if (!resolvedXAxisId) return { data: [], series: [], groups: [] }
@@ -272,11 +314,11 @@ export function useChart<
       xAxisId: resolvedXAxisId,
       groupById: resolvedGroupById,
       metric: resolvedMetric,
-      timeBucket,
+      timeBucket: resolvedTimeBucket,
       filters: resolvedFilters,
       sorting
     })
-  }, [effectiveData, activeColumns, resolvedXAxisId, resolvedGroupById, resolvedMetric, timeBucket, resolvedFilters, sorting])
+  }, [effectiveData, activeColumns, resolvedXAxisId, resolvedGroupById, resolvedMetric, resolvedTimeBucket, resolvedFilters, sorting])
 
   const dateRange: DateRange<string> | null = useMemo(() => {
     const column = dateColumns.find(candidate => candidate.id === referenceDateId)
@@ -286,10 +328,6 @@ export function useChart<
     const { min, max } = computeDateRange(filtered, column)
     return { columnId: column.id, label: column.label, min, max }
   }, [dateColumns, referenceDateId, effectiveData, activeColumns, resolvedFilters])
-  const availableDateColumnIds = useMemo(
-    () => createOptionIdSet(availableDateColumns),
-    [availableDateColumns]
-  )
 
   const setChartType = (type: ChartType) => {
     if (availableChartTypes.includes(type)) {
@@ -325,6 +363,13 @@ export function useChart<
     }
 
     setMetricRaw(nextMetric)
+  }
+  const setTimeBucket = (nextTimeBucket: TimeBucket) => {
+    if (!availableTimeBuckets.includes(nextTimeBucket)) {
+      return
+    }
+
+    setTimeBucketRaw(nextTimeBucket)
   }
 
   const toggleFilter = (columnId: string, value: string) => {
@@ -394,8 +439,9 @@ export function useChart<
     metric: resolvedMetric,
     setMetric,
     availableMetrics,
-    timeBucket,
+    timeBucket: resolvedTimeBucket,
     setTimeBucket,
+    availableTimeBuckets,
     isTimeSeries,
     filters: resolvedFilters,
     toggleFilter,

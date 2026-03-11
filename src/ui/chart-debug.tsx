@@ -116,6 +116,7 @@ function getDebugContent(chart: ReturnType<typeof useChartContext>, activeTab: T
         groupById: chart.groupById,
         metric: chart.metric,
         timeBucket: chart.timeBucket,
+        availableTimeBuckets: chart.availableTimeBuckets,
         isTimeSeries: chart.isTimeSeries,
         filters: Object.fromEntries([...chart.filters.entries()].map(([k, v]) => [k, [...v]])),
         sorting: chart.sorting,
