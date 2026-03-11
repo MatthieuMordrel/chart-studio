@@ -158,9 +158,14 @@ function getRawColumnSchemaMap<T>(
 
 /**
  * Extract derived column definitions from the full schema object.
+ *
+ * Derived ids are additive-only. If callers attempt to reuse a raw field id,
+ * the explicit derived definition is ignored so runtime behavior stays aligned
+ * with the public contract even in untyped JavaScript or unsafe casts.
  */
 function getDerivedColumnSchemas<T>(
   schema: ChartSchema<T, any> | undefined,
+  rawFieldIds: ReadonlySet<string>,
 ): Array<[string, DerivedColumnSchema<T>]> {
   if (!schema?.columns) {
     return []
@@ -168,7 +173,18 @@ function getDerivedColumnSchemas<T>(
 
   return Object.entries(schema.columns).flatMap(([key, value]) => {
     if (typeof value === 'object' && value !== null && 'kind' in value && value.kind === 'derived') {
-      return [[key, value as DerivedColumnSchema<T>]]
+      const derivedColumn = value as DerivedColumnSchema<T>
+
+      if (rawFieldIds.has(key)) {
+        warn(`schema.columns.${key} cannot be derived because derived columns must use a new id instead of replacing a raw field.`)
+        return []
+      }
+
+      if (derivedColumn.label.trim().length === 0) {
+        warn(`schema.columns.${key} should declare a non-empty label so derived columns stay intentional in the UI.`)
+      }
+
+      return [[key, derivedColumn]]
     }
 
     return []
@@ -662,6 +678,7 @@ export function inferColumnsFromData<T, const TSchema extends ChartSchema<T, any
 ): readonly ChartColumn<T, ResolvedColumnIdFromSchema<T, TSchema>>[] {
   const rawColumnSchema = getRawColumnSchemaMap(schema)
   const fields = collectFieldKeys(data, rawColumnSchema)
+  const rawFieldIds = new Set(fields)
   const resolvedColumns: ChartColumn<T, string>[] = []
 
   for (const field of fields) {
@@ -673,7 +690,7 @@ export function inferColumnsFromData<T, const TSchema extends ChartSchema<T, any
     }
   }
 
-  for (const [key, columnSchema] of getDerivedColumnSchemas(schema)) {
+  for (const [key, columnSchema] of getDerivedColumnSchemas(schema, rawFieldIds)) {
     resolvedColumns.push(buildDerivedColumn(key, columnSchema))
   }
 

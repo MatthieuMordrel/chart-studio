@@ -2,17 +2,15 @@ import { useState } from 'react'
 import { HeadlessChart } from './charts/HeadlessChart'
 import { KitchenSinkChart } from './charts/KitchenSinkChart'
 import { MinimalChart } from './charts/MinimalChart'
-import { OverflowToolbarChart } from './charts/OverflowToolbarChart'
 import { SingleSourceChart } from './charts/SingleSourceChart'
 import { CodePanel } from './CodePanel'
 import headlessSource from './charts/HeadlessChart.tsx?raw'
 import kitchenSinkSource from './charts/KitchenSinkChart.tsx?raw'
 import minimalSource from './charts/MinimalChart.tsx?raw'
-import overflowToolbarSource from './charts/OverflowToolbarChart.tsx?raw'
 import singleSourceSource from './charts/SingleSourceChart.tsx?raw'
 import { ThemeToggle } from './ThemeToggle'
 
-type ScenarioId = 'kitchen-sink' | 'single-source' | 'overflow-toolbar' | 'minimal' | 'headless'
+type ScenarioId = 'kitchen-sink' | 'single-source' | 'minimal' | 'headless'
 
 const SCENARIOS = [
   {
@@ -28,13 +26,6 @@ const SCENARIOS = [
     description:
       'Inference-first single-source mode. Pass raw data directly to useChart and add a schema only ' +
       'when you want explicit labels, derived columns, or tighter control restrictions.'
-  },
-  {
-    id: 'overflow-toolbar' as const,
-    label: 'Overflow Toolbar',
-    description:
-      'Uses ChartToolbar with its default configuration so every control stays inside the ellipsis menu. ' +
-      'Multi-source mode with ChartDebug included to inspect state changes.'
   },
   {
     id: 'minimal' as const,
@@ -56,7 +47,6 @@ const SCENARIOS = [
 const SCENARIO_SOURCE: Record<ScenarioId, string> = {
   'kitchen-sink': kitchenSinkSource,
   'single-source': singleSourceSource,
-  'overflow-toolbar': overflowToolbarSource,
   minimal: minimalSource,
   headless: headlessSource
 }
@@ -98,7 +88,6 @@ function App() {
 
         {scenarioId === 'kitchen-sink' && <KitchenSinkChart />}
         {scenarioId === 'single-source' && <SingleSourceChart />}
-        {scenarioId === 'overflow-toolbar' && <OverflowToolbarChart />}
         {scenarioId === 'minimal' && <MinimalChart />}
         {scenarioId === 'headless' && <HeadlessChart />}
 

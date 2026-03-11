@@ -22,6 +22,24 @@ const exampleSchema = defineChartSchema<ExampleRecord>()({
       label: 'Margin Bucket',
       accessor: (row: ExampleRecord) => (row.salary != null && row.salary > 100000 ? 'High' : 'Base'),
     },
+    hasSalary: {
+      kind: 'derived',
+      type: 'boolean',
+      label: 'Has Salary',
+      accessor: (row: ExampleRecord) => row.salary != null,
+    },
+    createdDay: {
+      kind: 'derived',
+      type: 'date',
+      label: 'Created Day',
+      accessor: (row: ExampleRecord) => row.createdAt,
+    },
+    salaryValue: {
+      kind: 'derived',
+      type: 'number',
+      label: 'Salary Value',
+      accessor: (row: ExampleRecord) => row.salary ?? 0,
+    },
   },
 })
 
@@ -53,9 +71,9 @@ function verifyUseChartColumnIds() {
     schema: exampleSchema,
   })
 
-  expectType<'createdAt' | 'ownerName' | 'isOpen' | 'marginBucket' | null>(chart.xAxisId)
-  expectType<'ownerName' | 'isOpen' | 'marginBucket' | null>(chart.groupById)
-  expectType<'createdAt' | null>(chart.referenceDateId)
+  expectType<'createdAt' | 'ownerName' | 'isOpen' | 'marginBucket' | 'hasSalary' | 'createdDay' | null>(chart.xAxisId)
+  expectType<'ownerName' | 'isOpen' | 'marginBucket' | 'hasSalary' | null>(chart.groupById)
+  expectType<'createdAt' | 'createdDay' | null>(chart.referenceDateId)
 
   chart.setXAxis('ownerName')
   chart.setGroupBy('isOpen')
@@ -67,6 +85,10 @@ function verifyUseChartColumnIds() {
   chart.setXAxis('marginBucket')
   chart.setGroupBy('marginBucket')
   chart.toggleFilter('marginBucket', 'High')
+  chart.setGroupBy('hasSalary')
+  chart.toggleFilter('hasSalary', 'True')
+  chart.setReferenceDateId('createdDay')
+  chart.setMetric({kind: 'aggregate', columnId: 'salaryValue', aggregate: 'sum'})
 
   // @ts-expect-error invalid column IDs should fail
   chart.setXAxis('missingField')
@@ -80,6 +102,9 @@ function verifyUseChartColumnIds() {
   // @ts-expect-error number columns should not be groupable when explicit schema says they are numeric
   chart.setGroupBy('salary')
 
+  // @ts-expect-error derived number columns should also stay out of grouping APIs
+  chart.setGroupBy('salaryValue')
+
   // @ts-expect-error explicit numeric schema entries should keep number columns out of the X-axis API
   chart.setXAxis('salary')
 
@@ -88,6 +113,9 @@ function verifyUseChartColumnIds() {
 
   // @ts-expect-error non-date columns should not be usable as reference dates when explicit schema says otherwise
   chart.setReferenceDateId('ownerName')
+
+  // @ts-expect-error derived category columns should not be usable as reference dates
+  chart.setReferenceDateId('marginBucket')
 
   // @ts-expect-error explicitly excluded fields should be removed from the chart API
   chart.setXAxis('internalId')
@@ -239,9 +267,22 @@ function verifyDeclarationTimeSchemaFailures() {
       derivedMetric: {
         kind: 'derived',
         type: 'number',
+        label: 'Derived Metric',
         accessor: (row: ExampleRecord) => row.salary ?? 0,
         // @ts-expect-error derived column definitions should reject unknown nested keys
         fallback: 1,
+      },
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: {
+      createdAt: {type: 'date'},
+      // @ts-expect-error derived columns should require an explicit label
+      missingLabel: {
+        kind: 'derived',
+        type: 'category',
+        accessor: (): string => 'Missing',
       },
     },
   })

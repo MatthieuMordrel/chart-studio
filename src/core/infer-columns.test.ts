@@ -100,4 +100,32 @@ describe('inferColumnsFromData', () => {
     expect(byId.get('revenue')?.type).toBe('number')
     expect(byId.get('region')?.type).toBe('category')
   })
+
+  it('keeps derived columns additive-only at runtime even when untyped input reuses a raw field id', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const data = [
+      {createdAt: '2026-01-10', revenue: 200},
+      {createdAt: '2026-02-14', revenue: 350},
+    ] as const
+
+    const columns = inferColumnsFromData(data, {
+      columns: {
+        revenue: {
+          kind: 'derived',
+          type: 'number',
+          label: 'Derived Revenue',
+          accessor: () => 999,
+        },
+      },
+    } as unknown as Parameters<typeof inferColumnsFromData<typeof data[number]>>[1])
+
+    const revenueColumns = columns.filter(column => column.id === 'revenue')
+
+    expect(revenueColumns).toHaveLength(1)
+    expect(revenueColumns[0]?.label).toBe('Revenue')
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[chart-studio] schema.columns.revenue cannot be derived because derived columns must use a new id instead of replacing a raw field.',
+    )
+    warnSpy.mockRestore()
+  })
 })

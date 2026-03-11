@@ -1,14 +1,27 @@
 import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
-import { quarterlyFinancialData } from '../mock-data'
+import { quarterlyFinancialData, type QuarterlyFinancialRecord } from '../mock-data'
 
-const singleSourceChartSchema = defineChartSchema<(typeof quarterlyFinancialData)[number]>()({
+const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()({
   columns: {
     periodEnd: { type: 'date', label: 'Period End' },
     segment: { type: 'category' },
     revenue: { type: 'number', label: 'Revenue' },
     netIncome: { type: 'number', label: 'Net Income' },
-    ebitda: { type: 'number', label: 'EBITDA' }
+    ebitda: { type: 'number', label: 'EBITDA' },
+    ebitdaMargin: {
+      kind: 'derived',
+      type: 'number',
+      label: 'EBITDA Margin',
+      format: 'percent',
+      accessor: (record: QuarterlyFinancialRecord) => {
+        if (record.revenue <= 0) {
+          return null
+        }
+
+        return record.ebitda / record.revenue
+      }
+    }
   },
   xAxis: {
     allowed: ['periodEnd']
@@ -21,6 +34,7 @@ const singleSourceChartSchema = defineChartSchema<(typeof quarterlyFinancialData
   metric: {
     allowed: [
       { kind: 'aggregate', columnId: 'ebitda', aggregate: ['sum', 'avg'] },
+      { kind: 'aggregate', columnId: 'ebitdaMargin', aggregate: 'avg' },
       { kind: 'aggregate', columnId: 'revenue', aggregate: 'sum' },
       { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
     ]

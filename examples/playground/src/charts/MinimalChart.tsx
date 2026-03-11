@@ -11,8 +11,7 @@ import { recipeLogData } from '../mock-data'
  */
 export function MinimalChart() {
   const chart = useChart({
-    data: recipeLogData,
-    sourceLabel: 'Home Cooking'
+    data: recipeLogData
   })
 
   return (

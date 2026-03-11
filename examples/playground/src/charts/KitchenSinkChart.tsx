@@ -30,10 +30,10 @@ type Preset = {
 
 const DEFAULT_VISIBILITY: Record<ControlId, ControlVisibility> = {
   source: 'pinned',
-  xAxis: 'overflow',
+  xAxis: 'pinned',
   chartType: 'overflow',
-  groupBy: 'pinned',
-  timeBucket: 'pinned',
+  groupBy: 'overflow',
+  timeBucket: 'overflow',
   metric: 'overflow',
   filters: 'overflow',
   dateRange: 'pinned'

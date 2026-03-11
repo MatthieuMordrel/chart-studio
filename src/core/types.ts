@@ -117,9 +117,24 @@ export type RawColumnSchemaMap<T> = Partial<{
   [TKey in InferableFieldKey<T>]: RawColumnSchemaFor<T[TKey], T> | false
 }>
 
-/** Shared properties supported by every explicit derived column. */
-type DerivedColumnSchemaBase<T, TValue, TType extends ChartColumnType> = BaseColumnHint<T, TValue> & {
+/**
+ * Shared contract for every explicit derived column declared in `schema.columns`.
+ *
+ * Derived columns are intentionally narrow:
+ * - they are additive-only and must use a new id
+ * - they compute from one row at a time via `accessor`
+ * - they reuse the same formatting surface as raw columns
+ * - they do not currently expose any extra metadata channel
+ */
+type DerivedColumnSchemaBase<T, TValue, TType extends ChartColumnType> = Omit<
+  BaseColumnHint<T, TValue>,
+  'label'
+> & {
+  /** Distinguishes explicit derived columns from raw-field overrides. */
   kind: 'derived'
+  /** Every derived column should expose an intentional user-facing label. */
+  label: string
+  /** Declared column role that governs chart capabilities and typing. */
   type: TType
 }
 

@@ -1,6 +1,6 @@
 import {act, renderHook} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {candidateData, jobData} from '../test/chart-test-fixtures.js'
+import {candidateData, jobData, type JobRecord} from '../test/chart-test-fixtures.js'
 import {defineChartSchema} from './define-chart-schema.js'
 import {useChart} from './use-chart.js'
 
@@ -10,6 +10,42 @@ const configuredJobSchema = defineChartSchema<(typeof jobData)[number]>()({
     ownerName: {type: 'category'},
     isOpen: {type: 'boolean'},
     salary: {type: 'number'},
+  },
+})
+
+const derivedJobSchema = defineChartSchema<JobRecord>()({
+  columns: {
+    dateAdded: {type: 'date'},
+    ownerName: {type: 'category'},
+    isOpen: {type: 'boolean'},
+    salary: {type: 'number'},
+    salaryBand: {
+      kind: 'derived',
+      type: 'category',
+      label: 'Salary Band',
+      accessor: (row: JobRecord) => (row.salary != null && row.salary >= 100 ? 'High' : 'Low'),
+    },
+    hasOwner: {
+      kind: 'derived',
+      type: 'boolean',
+      label: 'Has Owner',
+      accessor: (row: JobRecord) => row.ownerName != null,
+      trueLabel: 'Assigned',
+      falseLabel: 'Unassigned',
+    },
+    salaryDate: {
+      kind: 'derived',
+      type: 'date',
+      label: 'Salary Date',
+      accessor: (row: JobRecord) => row.dateAdded,
+    },
+    salaryValue: {
+      kind: 'derived',
+      type: 'number',
+      label: 'Salary Value',
+      format: 'currency',
+      accessor: (row: JobRecord) => row.salary,
+    },
   },
 })
 
@@ -242,6 +278,64 @@ describe('useChart', () => {
 
     expect(result.current.groupById).toBeNull()
     expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
+  })
+
+  it('lets derived columns participate in every compatible chart control', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        schema: derivedJobSchema,
+      }),
+    )
+
+    expect(result.current.availableXAxes).toEqual(
+      expect.arrayContaining([
+        {id: 'salaryBand', label: 'Salary Band', type: 'category'},
+        {id: 'hasOwner', label: 'Has Owner', type: 'boolean'},
+        {id: 'salaryDate', label: 'Salary Date', type: 'date'},
+      ]),
+    )
+    expect(result.current.availableGroupBys).toEqual(
+      expect.arrayContaining([
+        {id: 'salaryBand', label: 'Salary Band'},
+        {id: 'hasOwner', label: 'Has Owner'},
+      ]),
+    )
+    expect(result.current.availableFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({columnId: 'salaryBand', label: 'Salary Band'}),
+        expect.objectContaining({columnId: 'hasOwner', label: 'Has Owner'}),
+      ]),
+    )
+    expect(result.current.availableDateColumns).toEqual(
+      expect.arrayContaining([
+        {id: 'dateAdded', label: 'Date Added'},
+        {id: 'salaryDate', label: 'Salary Date'},
+      ]),
+    )
+    expect(result.current.availableMetrics).toEqual(
+      expect.arrayContaining([
+        {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+        {kind: 'aggregate', columnId: 'salaryValue', aggregate: 'sum'},
+      ]),
+    )
+
+    act(() => {
+      result.current.setXAxis('salaryBand')
+      result.current.setGroupBy('hasOwner')
+      result.current.toggleFilter('salaryBand', 'High')
+      result.current.setReferenceDateId('salaryDate')
+      result.current.setMetric({kind: 'aggregate', columnId: 'salaryValue', aggregate: 'sum'})
+    })
+
+    expect(result.current.xAxisId).toBe('salaryBand')
+    expect(result.current.groupById).toBe('hasOwner')
+    expect(result.current.referenceDateId).toBe('salaryDate')
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salaryValue', aggregate: 'sum'})
+    expect(result.current.filters.get('salaryBand')).toEqual(new Set(['High']))
+    expect(result.current.transformedData).toEqual([
+      expect.objectContaining({xKey: 'High', Assigned: 300}),
+    ])
   })
 
   it('keeps runtime setters aligned with the resolved option lists', () => {
