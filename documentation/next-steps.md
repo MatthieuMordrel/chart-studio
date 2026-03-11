@@ -39,6 +39,13 @@ The goal is:
 - Standardize the shape so every tool can eventually support the same concepts where relevant:
   `allowed`, `hidden`, `default`, and possibly `locked`.
 - Extend the current approach beyond `groupBy` and `metric` only after the shape is stable.
+- Add the next declarative tool targets explicitly:
+  `filters`, `timeBucket`, `xAxis`, `chartType`, and shared default selection behavior.
+- Define whether filter restrictions mean:
+  "which columns may be filtered",
+  "which values are available for a given filterable column",
+  or both.
+- Define how `timeBucket.allowed` should interact with the active X-axis type so date-only controls stay honest.
 - Ensure new tool configs compose cleanly with both headless and UI usage.
 
 ## 5. Prepare For Derived Columns
