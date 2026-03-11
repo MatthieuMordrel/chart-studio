@@ -20,15 +20,67 @@ The goal is:
   and tool restrictions.
 - The remaining gap is declaration-time strictness.
 - The current builder preserves literals and downstream narrowing, but it should become stricter at definition time.
+- There are now intentional red type tests in:
+  `src/core/use-chart.typecheck.ts`.
+- Those tests should stay red until declaration-time schema validation is truly fixed.
+- The success bar is not “the runtime still works”.
+  The success bar is:
+  the typecheck goes green because those invalid declarations are finally rejected.
+- The important reality:
+  this is a TypeScript inference problem, not a chart-runtime problem.
+- The API goal is still correct.
+  The risk is implementation strategy, not product direction.
+- We should explicitly optimize for:
+  best-in-class authoring ergonomics,
+  strong declaration-time feedback where TypeScript can do it reliably,
+  and avoiding type machinery that collapses inference or makes the API unreadable.
 - Goals for the schema-validation story:
   preserve literal narrowing,
   reject invalid top-level keys,
   reject invalid nested keys,
   reject invalid raw-field branch shapes,
   reject invalid derived-column branch shapes,
+  reject unknown ids inside tool restrictions such as `groupBy.allowed`, `xAxis.allowed`, `filters.allowed`, and `metric.allowed`,
   and keep the authoring experience readable enough for both humans and LLMs.
 - The important principle:
   `defineChartSchema(...)` should be the single place where advanced users get confidence that the object they wrote is the object the library understands.
+- Another important principle:
+  inference must happen before validation.
+  If the validation type participates too aggressively in inferring the schema object, TypeScript starts widening literals or collapsing the builder parameter to `never`.
+- Concrete red cases that must become green:
+  `schema.columns.fefe`,
+  `groupBy.allowed: ['fefe']`,
+  `xAxis.allowed: ['fefe']`,
+  `filters.allowed: ['fefe']`,
+  `metric.allowed` entries with `columnId: 'fefe'`,
+  unknown top-level schema keys,
+  unknown nested schema keys,
+  raw keys accepting derived definitions,
+  and derived definitions accepting stray properties.
+- Recommended implementation strategy:
+  do not try to solve every exactness rule through one giant self-referential conditional type.
+- Instead, split the work into stages:
+  1. preserve the current literal inference behavior of `defineChartSchema<Row>()({...})`,
+  2. add exact object checking for `columns` branches,
+  3. add exact object checking for top-level and nested control config shapes,
+  4. then add id-validation for `allowed`, `hidden`, and `default` based on already-inferred schema ids.
+- A practical litmus test for every attempted type change:
+  valid schemas should still infer literal ids and narrow downstream setters before we care about new rejection cases.
+  If a candidate solution breaks valid inference, it is the wrong direction even if some red tests become green.
+- It is acceptable if the final design draws a clear boundary between:
+  compile-time prevention for structurally knowable invalid declarations,
+  and runtime sanitization for dynamic invalid states.
+- It is not acceptable to require:
+  unreadable helper types at the call site,
+  multiple schema authoring surfaces,
+  or an API that only works through unnatural `as const` rituals everywhere.
+- If full single-pass declaration-time validation proves too hostile to inference,
+  the fallback should still preserve the one-schema story.
+  For example:
+  the builder may remain inference-first while a second internal validation layer is used only to power tests and exported helper types.
+  But we should only take that path if repeated builder-based attempts show the TS cost is not worth it.
+- The core decision rule:
+  prefer a stable and understandable TypeScript experience over chasing absolute compile-time perfection that makes the API fragile.
 
 ## 2. Finish The Derived-Column Contract
 
@@ -107,6 +159,8 @@ The goal is:
 ## 8. Expand Test Coverage Around API Guarantees
 
 - Add dedicated type tests for declaration-time `schema` validation once the stricter builder story is finalized.
+- Use the intentional red cases in `src/core/use-chart.typecheck.ts` as the concrete checklist.
+- The task is complete only when those expectations become valid and `bun run typecheck` is green again.
 - Add dedicated type tests for single-source restricted setters and derived-column behavior.
 - Add runtime tests for sanitization when tool restrictions change or when multi-source switches invalidate current selections.
 - Add UI tests confirming restricted metrics and groupings never appear in selectors.
@@ -124,7 +178,10 @@ The goal is:
 
 ## Recommended Order
 
-1. Harden declaration-time `schema` validation so the builder fully matches the intended contract.
-2. Finalize the derived-column contract inside `schema.columns`.
-3. Revisit multi-source ergonomics only after the single-source `schema` contract is fully solid.
-4. Finish the docs/examples/test pass once the stricter schema story is locked.
+1. Preserve the current good inference behavior of `defineChartSchema<Row>()({...})` as a non-negotiable baseline.
+2. Tighten `schema.columns` exactness first, because it is the foundation for every later id restriction.
+3. Tighten top-level and nested config exactness next, before attempting cross-object id validation.
+4. Add id-based declaration-time validation for `allowed`, `hidden`, and `default` only after the builder still proves stable on valid schemas.
+5. Finalize the derived-column contract inside `schema.columns`.
+6. Revisit multi-source ergonomics only after the single-source `schema` contract is fully solid.
+7. Finish the docs/examples/test pass once the stricter schema story is locked.

@@ -142,6 +142,110 @@ function verifySchemaTypechecks() {
   defineChartSchema<ExampleRecord>()(conflictingSchema)
 }
 
+/**
+ * Intentional red tests documenting the current declaration-time schema gaps.
+ *
+ * These `@ts-expect-error` assertions currently fail because the builder still
+ * accepts invalid schema shapes too broadly. The next agent should make these
+ * tests go green by tightening `defineChartSchema(...)` and the related schema
+ * types until every invalid case below is rejected at declaration time.
+ */
+function verifyDeclarationTimeSchemaFailures() {
+  defineChartSchema<ExampleRecord>()({
+    columns: {
+      createdAt: {type: 'date'},
+      // @ts-expect-error unknown raw field keys should fail unless they are valid derived columns
+      fefe: {},
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: exampleSchema.columns,
+    groupBy: {
+      allowed: [
+        'ownerName',
+        // @ts-expect-error unknown groupBy IDs should fail at declaration time
+        'fefe',
+      ],
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: exampleSchema.columns,
+    xAxis: {
+      allowed: [
+        'createdAt',
+        // @ts-expect-error unknown xAxis IDs should fail at declaration time
+        'fefe',
+      ],
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: exampleSchema.columns,
+    filters: {
+      allowed: [
+        'ownerName',
+        // @ts-expect-error unknown filter IDs should fail at declaration time
+        'fefe',
+      ],
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: exampleSchema.columns,
+    metric: {
+      allowed: [
+        {kind: 'count'},
+        // @ts-expect-error unknown metric column IDs should fail at declaration time
+        {kind: 'aggregate', columnId: 'fefe', aggregate: 'sum'},
+      ],
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: exampleSchema.columns,
+    // @ts-expect-error unknown top-level schema keys should fail at declaration time
+    grouping: {
+      allowed: ['ownerName'],
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: exampleSchema.columns,
+    groupBy: {
+      allowed: ['ownerName'],
+      // @ts-expect-error unknown nested keys should fail at declaration time
+      fallback: 'ownerName',
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: {
+      createdAt: {type: 'date'},
+      ownerName: {
+        // @ts-expect-error existing raw keys should not accept derived column definitions
+        kind: 'derived',
+        type: 'category',
+        accessor: () => 'Owner',
+      },
+    },
+  })
+
+  defineChartSchema<ExampleRecord>()({
+    columns: {
+      createdAt: {type: 'date'},
+      derivedMetric: {
+        kind: 'derived',
+        type: 'number',
+        accessor: (row: ExampleRecord) => row.salary ?? 0,
+        // @ts-expect-error derived column definitions should reject unknown nested keys
+        fallback: 1,
+      },
+    },
+  })
+}
+
 function verifyGeneralizedSchemaTyping() {
   const generalizedSchema = defineChartSchema<ExampleRecord>()({
     columns: exampleSchema.columns,
@@ -245,5 +349,6 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema() {
 void verifyUseChartColumnIds
 void verifyToolRestrictionsTyping
 void verifySchemaTypechecks
+void verifyDeclarationTimeSchemaFailures
 void verifyGeneralizedSchemaTyping
 void verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema
