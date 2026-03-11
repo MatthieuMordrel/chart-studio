@@ -6,7 +6,8 @@ import {createContext, useContext, useMemo, type ReactElement, type ReactNode} f
 import type {
   ChartColumn,
   ChartInstance,
-  ChartInstanceFromHints,
+  ChartInstanceFromConfig,
+  ChartToolsConfigFromHints,
   ColumnHints,
   Metric,
 } from '../core/types.js'
@@ -188,8 +189,11 @@ export function useChartContext() {
  * React cannot infer provider generics through arbitrary subtrees, so callers
  * provide the row type (and optional hint type) explicitly.
  */
-export function useTypedChartContext<T, const THints extends ColumnHints<T> | undefined = undefined>():
-  ChartInstanceFromHints<T, THints> {
+export function useTypedChartContext<
+  T,
+  const THints extends ColumnHints<T> | undefined = undefined,
+  const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+>(): ChartInstanceFromConfig<T, THints, TTools> {
   const ctx = useContext(ChartContext)
   if (!ctx) {
     throw new Error('useTypedChartContext must be used within a <Chart> provider')
@@ -201,7 +205,7 @@ export function useTypedChartContext<T, const THints extends ColumnHints<T> | un
     )
   }
 
-  return ctx.typedChart as ChartInstanceFromHints<T, THints>
+  return ctx.typedChart as ChartInstanceFromConfig<T, THints, TTools>
 }
 
 /**

@@ -32,6 +32,8 @@ export type {
   MetricToolConfig,
   ChartToolsConfig,
   ChartToolsConfigFromHints,
+  RestrictedGroupByColumnIdFromTools,
+  RestrictedMetricFromTools,
   DateColumn,
   CategoryColumn,
   BooleanColumn,
@@ -55,5 +57,6 @@ export type {
   TransformedDataPoint,
   AvailableFilter,
   ChartInstance,
+  ChartInstanceFromConfig,
   ChartInstanceFromHints,
 } from './types.js'

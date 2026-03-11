@@ -218,7 +218,7 @@ describe('useChart', () => {
 
     act(() => {
       result.current.setGroupBy('ownerName' as Parameters<typeof result.current.setGroupBy>[0])
-      result.current.setMetric({kind: 'count'} as Parameters<typeof result.current.setMetric>[0])
+      result.current.setMetric({kind: 'count'} as unknown as Parameters<typeof result.current.setMetric>[0])
     })
 
     expect(result.current.groupById).toBeNull()

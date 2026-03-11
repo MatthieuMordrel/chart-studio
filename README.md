@@ -130,7 +130,7 @@ const chart = useChart({
 })
 ```
 
-With explicit `columnHints.type`, those restrictions are also type-checked.
+With explicit `columnHints.type`, those restrictions are also type-checked, and in the single-source path they also narrow setters like `setGroupBy(...)` and `setMetric(...)` to the declared subset.
 
 ## Headless Example
 

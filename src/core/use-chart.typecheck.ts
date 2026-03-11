@@ -69,7 +69,7 @@ function verifyUseChartColumnIds() {
 }
 
 function verifyToolRestrictionsTyping() {
-  useChart({
+  const chart = useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
     tools: {
@@ -84,6 +84,17 @@ function verifyToolRestrictionsTyping() {
       },
     },
   })
+
+  chart.setGroupBy('ownerName')
+  chart.setGroupBy('isOpen')
+  chart.setMetric({kind: 'count'})
+  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+
+  // @ts-expect-error tools.groupBy.allowed should narrow the setter to the declared subset
+  chart.setGroupBy('createdAt')
+
+  // @ts-expect-error tools.metric.allowed should narrow the setter to the declared metric subset
+  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
 
   useChart({
     data: [] as ExampleRecord[],

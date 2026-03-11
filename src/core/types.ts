@@ -190,6 +190,42 @@ export type ChartToolsConfigFromHints<
   ResolvedMetricColumnIdFromHints<T, THints>
 >
 
+type AllowedGroupByColumnIdFromTools<TTools> = Extract<
+  TTools extends {groupBy?: {allowed?: readonly (infer TAllowedGroupById)[]}} ? TAllowedGroupById : never,
+  string
+>
+
+type AllowedMetricFromTools<TTools> =
+  TTools extends {metric?: {allowed?: readonly (infer TAllowedMetric)[]}} ? TAllowedMetric : never
+
+type RestrictUnionOrFallback<TAllowed, TFallback> =
+  [Extract<TAllowed, TFallback>] extends [never] ? TFallback : Extract<TAllowed, TFallback>
+
+type MetricColumnIdFromMetric<TMetric> = Extract<
+  TMetric extends AggregateMetric<infer TColumnId> ? TColumnId : never,
+  string
+>
+
+/** GroupBy IDs narrowed by explicit tool restrictions when present. */
+export type RestrictedGroupByColumnIdFromTools<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+> = RestrictUnionOrFallback<
+  AllowedGroupByColumnIdFromTools<TTools>,
+  ResolvedGroupByColumnIdFromHints<T, THints>
+>
+
+/** Metric union narrowed by explicit tool restrictions when present. */
+export type RestrictedMetricFromTools<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+> = RestrictUnionOrFallback<
+  AllowedMetricFromTools<TTools>,
+  Metric<ResolvedMetricColumnIdFromHints<T, THints>>
+>
+
 /** Base properties shared by all column types. */
 type ColumnBase<T, TId extends string> = {
   /** Unique identifier — typically the field key in the data object. */
@@ -503,6 +539,7 @@ export type ChartInstance<
   TXAxisId extends TColumnId = TColumnId,
   TGroupById extends TColumnId = TColumnId,
   TMetricColumnId extends TColumnId = TColumnId,
+  TMetric extends Metric<any> = Metric<TMetricColumnId>,
   TFilterColumnId extends TColumnId = TColumnId,
   TDateColumnId extends TColumnId = TColumnId,
 > = {
@@ -542,11 +579,11 @@ export type ChartInstance<
 
   // -- Metric --
   /** Current metric (what the Y-axis measures). */
-  metric: Metric<TMetricColumnId>
+  metric: TMetric
   /** Change the metric. */
-  setMetric: (metric: Metric<TMetricColumnId>) => void
+  setMetric: (metric: TMetric) => void
   /** Available metrics (count + one per number column with sum/avg/min/max). */
-  availableMetrics: Metric<TMetricColumnId>[]
+  availableMetrics: TMetric[]
 
   // -- Time bucket --
   /** Current time bucket (only relevant when X-axis is date). */
@@ -611,6 +648,26 @@ export type ChartInstanceFromHints<
   ResolvedXAxisColumnIdFromHints<T, THints>,
   ResolvedGroupByColumnIdFromHints<T, THints>,
   ResolvedMetricColumnIdFromHints<T, THints>,
+  Metric<ResolvedMetricColumnIdFromHints<T, THints>>,
+  ResolvedFilterColumnIdFromHints<T, THints>,
+  ResolvedDateColumnIdFromHints<T, THints>
+>
+
+/** Single-source chart instance narrowed by both explicit hints and explicit tool restrictions. */
+export type ChartInstanceFromConfig<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+> = ChartInstance<
+  T,
+  ResolvedColumnIdFromHints<T, THints>,
+  ResolvedXAxisColumnIdFromHints<T, THints>,
+  RestrictedGroupByColumnIdFromTools<T, THints, TTools>,
+  Extract<
+    MetricColumnIdFromMetric<RestrictedMetricFromTools<T, THints, TTools>>,
+    ResolvedMetricColumnIdFromHints<T, THints>
+  >,
+  RestrictedMetricFromTools<T, THints, TTools>,
   ResolvedFilterColumnIdFromHints<T, THints>,
   ResolvedDateColumnIdFromHints<T, THints>
 >

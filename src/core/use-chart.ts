@@ -6,7 +6,9 @@ import { buildAvailableMetrics, DEFAULT_METRIC, resolveMetric, restrictAvailable
 import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
 import type {
   ChartColumn,
+  ChartInstanceFromConfig,
   ChartInstanceFromHints,
+  ChartToolsConfigFromHints,
   ChartType,
   ColumnHints,
   DateColumn,
@@ -61,12 +63,23 @@ import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-c
 export function useChart<T, const THints extends ColumnHints<T> | undefined = undefined>(
   options: SingleSourceOptions<T, THints>
 ): ChartInstanceFromHints<T, THints>
+export function useChart<
+  T,
+  const THints extends ColumnHints<T> | undefined = undefined,
+  const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+>(
+  options: SingleSourceOptions<T, THints, TTools>
+): ChartInstanceFromConfig<T, THints, TTools>
 export function useChart<const TSources extends NonEmptyChartSourceOptions>(
   options: MultiSourceOptions<TSources>
 ): MultiSourceChartInstance<TSources>
-export function useChart<T, const THints extends ColumnHints<T> | undefined = undefined>(
-  options: UseChartOptions<T, THints>
-): ChartInstanceFromHints<T, THints> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
+export function useChart<
+  T,
+  const THints extends ColumnHints<T> | undefined = undefined,
+  const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+>(
+  options: UseChartOptions<T, THints, TTools>
+): ChartInstanceFromConfig<T, THints, TTools> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
   if ('sources' in options && options.sources?.length === 0) {
     throw new Error('useChart requires at least one source')
   }
@@ -295,5 +308,5 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
     columns: activeColumns,
     rawData,
     recordCount: rawData.length
-  } as unknown as ChartInstanceFromHints<T, THints> | MultiSourceChartInstance<NonEmptyChartSourceOptions>
+  } as unknown as ChartInstanceFromConfig<T, THints, TTools> | MultiSourceChartInstance<NonEmptyChartSourceOptions>
 }

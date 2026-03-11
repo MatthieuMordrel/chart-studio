@@ -17,6 +17,17 @@ const exampleHints = {
   internalId: false,
 } as const
 
+const exampleTools = {
+  groupBy: {
+    allowed: ['isOpen'],
+  },
+  metric: {
+    allowed: [
+      {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+    ],
+  },
+} as const
+
 /**
  * Compile-time helper used to assert inferred types.
  */
@@ -26,11 +37,11 @@ function expectType<T>(_value: T): void {}
  * Type-only probe that verifies the typed UI context path.
  */
 function TypedSingleSourceProbe() {
-  const chart = useTypedChartContext<ExampleRecord, typeof exampleHints>()
+  const chart = useTypedChartContext<ExampleRecord, typeof exampleHints, typeof exampleTools>()
 
   expectType<ExampleRecord[]>([...chart.rawData])
   expectType<'createdAt' | 'ownerName' | 'isOpen' | null>(chart.xAxisId)
-  expectType<'ownerName' | 'isOpen' | null>(chart.groupById)
+  expectType<'isOpen' | null>(chart.groupById)
   expectType<'createdAt' | null>(chart.referenceDateId)
 
   chart.setXAxis('ownerName')
@@ -49,11 +60,17 @@ function TypedSingleSourceProbe() {
   // @ts-expect-error explicit numeric hints should keep number columns out of groupBy
   chart.setGroupBy('salary')
 
+  // @ts-expect-error tool restrictions should keep undeclared groupBy IDs out of typed context
+  chart.setGroupBy('ownerName')
+
   // @ts-expect-error explicit numeric hints should keep number columns out of the X-axis API
   chart.setXAxis('salary')
 
   // @ts-expect-error explicit date hints should keep date columns out of filters
   chart.toggleFilter('createdAt', '2026-01-01')
+
+  // @ts-expect-error tool restrictions should keep undeclared metrics out of typed context
+  chart.setMetric({kind: 'count'})
 
   // @ts-expect-error excluded fields should stay unavailable through typed context
   chart.setXAxis('internalId')
@@ -68,6 +85,7 @@ function verifyChartContextTyping() {
   const chart = useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
+    tools: exampleTools,
   })
 
   return (
