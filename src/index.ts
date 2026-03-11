@@ -7,17 +7,18 @@
  *
  * @example
  * ```tsx
- * import { useChart, columns } from '@matthieumordrel/chart-studio'
+ * import { useChart } from '@matthieumordrel/chart-studio'
  * import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
  *
- * const jobColumns = [
- *   columns.date('dateAdded', { label: 'Date Added' }),
- *   columns.category('ownerName', { label: 'Consultant' }),
- *   columns.boolean('isOpen', { trueLabel: 'Open', falseLabel: 'Closed' }),
- * ]
- *
  * function MyChart({ data }) {
- *   const chart = useChart({ data, columns: jobColumns })
+ *   const chart = useChart({
+ *     data,
+ *     columnHints: {
+ *       dateAdded: { label: 'Date Added', type: 'date' },
+ *       ownerName: { label: 'Consultant' },
+ *       salary: { format: 'currency' }
+ *     }
+ *   })
  *   return (
  *     <Chart chart={chart}>
  *       <ChartToolbar />
@@ -33,6 +34,7 @@ export {
   CHART_TYPE_CONFIG,
   columns,
   defineColumns,
+  inferColumnsFromData,
   useChart,
   getSeriesColor,
   buildColorMap,
@@ -50,6 +52,12 @@ export type {
   PipelineInput,
   PipelineOutput,
   ChartColumn,
+  ChartColumnType,
+  ColumnFormatPreset,
+  ColumnHints,
+  ColumnHintFor,
+  InferableFieldKey,
+  ResolvedColumnIdFromHints,
   DateColumn,
   CategoryColumn,
   BooleanColumn,

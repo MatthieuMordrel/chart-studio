@@ -1,7 +1,7 @@
 import {fireEvent, render, screen} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {useChart} from '../core/use-chart.js'
-import {jobColumns, jobData} from '../test/chart-test-fixtures.js'
+import {jobData} from '../test/chart-test-fixtures.js'
 import {Chart, useChartContext} from './chart-context.js'
 import {ChartFilters} from './chart-filters.js'
 
@@ -19,7 +19,7 @@ function ActiveFilterCount() {
  * End-to-end harness for the chart filters UI.
  */
 function ChartFiltersHarness() {
-  const chart = useChart({data: jobData, columns: jobColumns})
+  const chart = useChart({data: jobData})
 
   return (
     <Chart chart={chart}>

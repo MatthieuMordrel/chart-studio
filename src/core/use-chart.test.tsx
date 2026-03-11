@@ -14,7 +14,7 @@ describe('useChart', () => {
   })
 
   it('resolves the default time-series axis and auto-corrects invalid chart types when the axis changes', () => {
-    const {result} = renderHook(() => useChart({data: jobData, columns: jobColumns}))
+    const {result} = renderHook(() => useChart({data: jobData}))
 
     expect(result.current.xAxisId).toBe('dateAdded')
     expect(result.current.availableChartTypes).toEqual(['bar', 'line', 'area'])
@@ -38,7 +38,7 @@ describe('useChart', () => {
   })
 
   it('removes pie and donut when grouping is enabled on categorical charts', () => {
-    const {result} = renderHook(() => useChart({data: jobData, columns: jobColumns}))
+    const {result} = renderHook(() => useChart({data: jobData}))
 
     act(() => {
       result.current.setXAxis('ownerName')
@@ -99,7 +99,7 @@ describe('useChart', () => {
       {dateAdded: '2024-01-10', ownerName: 'Alice', isOpen: true, salary: 100},
       ...jobData,
     ]
-    const {result} = renderHook(() => useChart({data: datedData, columns: jobColumns}))
+    const {result} = renderHook(() => useChart({data: datedData}))
 
     expect(result.current.transformedData).toEqual(
       expect.arrayContaining([
@@ -134,6 +134,22 @@ describe('useChart', () => {
         expect.objectContaining({xKey: '2026-03', value: 1}),
       ]),
     )
+  })
+
+  it('uses typed column hints to exclude fields and override labels', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        columnHints: {
+          ownerName: {label: 'Owner'},
+          salary: {format: 'currency'},
+          isOpen: false,
+        } as const,
+      }),
+    )
+
+    expect(result.current.columns.map((column) => column.id)).toEqual(['dateAdded', 'ownerName', 'salary'])
+    expect(result.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
   })
 
   it('throws when multi-source charts are created without sources', () => {

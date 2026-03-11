@@ -3,7 +3,14 @@
  */
 
 import {createContext, useContext, useMemo, type ReactNode} from 'react'
-import type {ChartColumn, ChartInstance, ColumnIdFromColumns, Metric} from '../core/types.js'
+import type {
+  ChartColumn,
+  ChartInstance,
+  ColumnHints,
+  ColumnIdFromColumns,
+  Metric,
+  ResolvedColumnIdFromHints,
+} from '../core/types.js'
 
 type AnyChartColumns = readonly ChartColumn<any, string>[]
 type RowFromColumns<TColumns extends AnyChartColumns> =
@@ -184,6 +191,27 @@ export function useChartContext<const TColumns extends AnyChartColumns>(columns?
   }
 
   return ctx.typedChart as TypedChartFromColumns<TColumns>
+}
+
+/**
+ * Typed single-source chart context escape hatch for inferred charts.
+ * React cannot infer provider generics through arbitrary subtrees, so callers
+ * provide the row type (and optional hint type) explicitly.
+ */
+export function useTypedChartContext<T, const THints extends ColumnHints<T> | undefined = undefined>():
+  ChartInstance<T, ResolvedColumnIdFromHints<T, THints>> {
+  const ctx = useContext(ChartContext)
+  if (!ctx) {
+    throw new Error('useTypedChartContext must be used within a <Chart> provider')
+  }
+
+  if (ctx.chart.hasMultipleSources) {
+    throw new Error(
+      'useTypedChartContext only supports single-source charts right now. Multi-source charts stay broad because the active source schema can change.',
+    )
+  }
+
+  return ctx.typedChart as ChartInstance<T, ResolvedColumnIdFromHints<T, THints>>
 }
 
 /**

@@ -16,7 +16,14 @@
  * ```
  */
 
-import type {BooleanColumn, CategoryColumn, ChartColumn, DateColumn, NumberColumn} from './types.js'
+import type {
+  BooleanColumn,
+  CategoryColumn,
+  ChartColumn,
+  ColumnFormatPreset,
+  DateColumn,
+  NumberColumn,
+} from './types.js'
 
 type Nullish = null | undefined
 
@@ -46,6 +53,8 @@ type NumberColumnKey<T> = KeysMatchingValue<T, number>
  */
 type DateColumnOptions<T> = {
   label?: string
+  format?: ColumnFormatPreset
+  formatter?: (value: string | number | Date | null | undefined, item: T) => string
   accessor?: (item: T) => string | number | Date | null | undefined
 }
 
@@ -56,6 +65,8 @@ type DateColumnOptions<T> = {
  */
 type CategoryColumnOptions<T> = {
   label?: string
+  format?: ColumnFormatPreset
+  formatter?: (value: string | null | undefined, item: T) => string
   accessor?: (item: T) => string | null | undefined
 }
 
@@ -70,6 +81,8 @@ type BooleanColumnOptions<T> = {
   trueLabel: string
   falseLabel: string
   label?: string
+  format?: ColumnFormatPreset
+  formatter?: (value: boolean | null | undefined, item: T) => string
   accessor?: (item: T) => boolean | null | undefined
 }
 
@@ -80,6 +93,8 @@ type BooleanColumnOptions<T> = {
  */
 type NumberColumnOptions<T> = {
   label?: string
+  format?: ColumnFormatPreset
+  formatter?: (value: number | null | undefined, item: T) => string
   accessor?: (item: T) => number | null | undefined
 }
 
@@ -111,6 +126,8 @@ function dateColumn<T, TKey extends DateColumnKey<T> = DateColumnKey<T>>(
     id: key,
     type: 'date',
     label: options?.label ?? humanize(key),
+    format: options?.format,
+    formatter: options?.formatter as DateColumn<T, TKey>['formatter'],
     accessor: options?.accessor ?? (defaultAccessor(key) as DateColumn<T, TKey>['accessor']),
   }
 }
@@ -124,6 +141,8 @@ function categoryColumn<T, TKey extends CategoryColumnKey<T> = CategoryColumnKey
     id: key,
     type: 'category',
     label: options?.label ?? humanize(key),
+    format: options?.format,
+    formatter: options?.formatter as CategoryColumn<T, TKey>['formatter'],
     accessor:
       options?.accessor ?? (defaultAccessor(key) as CategoryColumn<T, TKey>['accessor']),
   }
@@ -138,6 +157,8 @@ function booleanColumn<T, TKey extends BooleanColumnKey<T> = BooleanColumnKey<T>
     id: key,
     type: 'boolean',
     label: options.label ?? humanize(key),
+    format: options.format,
+    formatter: options.formatter as BooleanColumn<T, TKey>['formatter'],
     accessor: options.accessor ?? (defaultAccessor(key) as BooleanColumn<T, TKey>['accessor']),
     trueLabel: options.trueLabel,
     falseLabel: options.falseLabel,
@@ -153,6 +174,8 @@ function numberColumn<T, TKey extends NumberColumnKey<T> = NumberColumnKey<T>>(
     id: key,
     type: 'number',
     label: options?.label ?? humanize(key),
+    format: options?.format,
+    formatter: options?.formatter as NumberColumn<T, TKey>['formatter'],
     accessor: options?.accessor ?? (defaultAccessor(key) as NumberColumn<T, TKey>['accessor']),
   }
 }

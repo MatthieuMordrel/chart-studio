@@ -23,6 +23,7 @@ import {
 } from 'recharts'
 import {useChartContext} from './chart-context.js'
 import {getSeriesColor} from '../core/colors.js'
+import type {ColumnFormatPreset} from '../core/types.js'
 
 /**
  * Formats a numeric value into a compact, human-readable string.
@@ -43,6 +44,60 @@ function formatAxisNumber(value: number): string {
 }
 
 /**
+ * Format a value with a reusable preset, falling back to compact numeric labels.
+ */
+function formatByPreset(value: string | number, format: ColumnFormatPreset | undefined): string {
+  if (typeof value === 'string') {
+    if (format === 'date' || format === 'datetime') {
+      const date = new Date(value)
+      if (!Number.isNaN(date.getTime())) {
+        return new Intl.DateTimeFormat('en-US', {
+          dateStyle: 'medium',
+          ...(format === 'datetime' ? {timeStyle: 'short'} : {}),
+        }).format(date)
+      }
+    }
+
+    return value
+  }
+
+  switch (format) {
+    case 'currency':
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      }).format(value)
+    case 'percent':
+      return new Intl.NumberFormat('en-US', {
+        style: 'percent',
+        maximumFractionDigits: 1,
+      }).format(value)
+    case 'number':
+      return new Intl.NumberFormat('en-US').format(value)
+    case 'compact-number':
+      return new Intl.NumberFormat('en-US', {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      }).format(value)
+    case 'date':
+    case 'datetime': {
+      const date = new Date(value)
+      if (!Number.isNaN(date.getTime())) {
+        return new Intl.DateTimeFormat('en-US', {
+          dateStyle: 'medium',
+          ...(format === 'datetime' ? {timeStyle: 'short'} : {}),
+        }).format(date)
+      }
+
+      return String(value)
+    }
+    default:
+      return formatAxisNumber(value)
+  }
+}
+
+/**
  * Estimates the pixel width the YAxis needs so no label is ever clipped.
  * Finds the largest absolute value in the data, formats it, then multiplies
  * character count by ~7 px (text-xs) and adds 8 px of padding.
@@ -50,6 +105,7 @@ function formatAxisNumber(value: number): string {
 function estimateYAxisWidth(
   data: Record<string, string | number>[],
   series: Array<{dataKey: string}>,
+  valueFormat?: ColumnFormatPreset,
 ): number {
   let maxAbs = 0
   for (const point of data) {
@@ -58,7 +114,7 @@ function estimateYAxisWidth(
       if (typeof v === 'number' && Math.abs(v) > maxAbs) maxAbs = Math.abs(v)
     }
   }
-  const label = formatAxisNumber(maxAbs)
+  const label = formatByPreset(maxAbs, valueFormat)
   return Math.max(40, label.length * 7 + 8)
 }
 
@@ -118,6 +174,12 @@ export function ChartCanvas({height = 300, className}: ChartCanvasProps) {
   const chart = useChartContext()
   const {chartType, transformedData, series} = chart
   const {ref, width} = useContainerWidth()
+  const aggregateMetric = chart.metric.kind === 'aggregate' ? chart.metric : null
+  const metricColumn =
+    aggregateMetric
+      ? chart.columns.find((column) => column.id === aggregateMetric.columnId && column.type === 'number')
+      : null
+  const valueFormat = metricColumn?.format ?? (chart.metric.kind === 'count' ? 'compact-number' : 'number')
 
   if (transformedData.length === 0) {
     return (
@@ -141,13 +203,14 @@ export function ChartCanvas({height = 300, className}: ChartCanvasProps) {
             innerRadius={chartType === 'donut'}
             width={width}
             height={height}
+            valueFormat={valueFormat}
           />
         ) : chartType === 'line' ? (
-          <LineChartRenderer data={transformedData} series={series} width={width} height={height} />
+          <LineChartRenderer data={transformedData} series={series} width={width} height={height} valueFormat={valueFormat} />
         ) : chartType === 'area' ? (
-          <AreaChartRenderer data={transformedData} series={series} width={width} height={height} />
+          <AreaChartRenderer data={transformedData} series={series} width={width} height={height} valueFormat={valueFormat} />
         ) : (
-          <BarChartRenderer data={transformedData} series={series} width={width} height={height} />
+          <BarChartRenderer data={transformedData} series={series} width={width} height={height} valueFormat={valueFormat} />
         ))}
     </div>
   )
@@ -164,6 +227,7 @@ type RendererProps = {
   series: SeriesItem[]
   width: number
   height: number
+  valueFormat?: ColumnFormatPreset
 }
 
 /**
@@ -191,8 +255,8 @@ type CartesianShellProps = RendererProps & {
  * Owns the grid, axes, tooltip, and legend — the only things that change
  * per chart type are the root component and the series element.
  */
-function CartesianChartShell({data, series, width, height, Chart, renderSeries}: CartesianShellProps) {
-  const yAxisWidth = estimateYAxisWidth(data, series)
+function CartesianChartShell({data, series, width, height, valueFormat, Chart, renderSeries}: CartesianShellProps) {
+  const yAxisWidth = estimateYAxisWidth(data, series, valueFormat)
   return (
     <Chart data={data} width={width} height={height} margin={{top: 4, right: 8, left: 0, bottom: 0}}>
       <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -203,9 +267,9 @@ function CartesianChartShell({data, series, width, height, Chart, renderSeries}:
         tickMargin={4}
         allowDecimals={false}
         width={yAxisWidth}
-        tickFormatter={formatAxisNumber}
+        tickFormatter={(value) => (typeof value === 'number' ? formatByPreset(value, valueFormat) : String(value))}
       />
-      <Tooltip formatter={(value) => (typeof value === 'number' ? formatAxisNumber(value) : value)} />
+      <Tooltip formatter={(value) => (typeof value === 'number' ? formatByPreset(value, valueFormat) : value)} />
       {series.length > 1 && <Legend />}
       {series.map(renderSeries)}
     </Chart>
@@ -284,7 +348,7 @@ function AreaChartRenderer({data, series, width, height}: RendererProps) {
 
 type PieRendererProps = RendererProps & {innerRadius: boolean}
 
-function PieChartRenderer({data, series, innerRadius, width, height}: PieRendererProps) {
+function PieChartRenderer({data, series, innerRadius, width, height, valueFormat}: PieRendererProps) {
   const valueKey = series[0]?.dataKey
   const pieData = data.map((point, index) => {
     return {
@@ -296,7 +360,7 @@ function PieChartRenderer({data, series, innerRadius, width, height}: PieRendere
 
   return (
     <PieChart width={width} height={height}>
-      <Tooltip formatter={(value) => (typeof value === 'number' ? formatAxisNumber(value) : value)} />
+      <Tooltip formatter={(value) => (typeof value === 'number' ? formatByPreset(value, valueFormat) : value)} />
       <Legend />
       <Pie
         data={pieData}
@@ -307,7 +371,7 @@ function PieChartRenderer({data, series, innerRadius, width, height}: PieRendere
         innerRadius={innerRadius ? '40%' : 0}
         outerRadius="80%"
         label={({name, value}: {name?: string | number; value?: number}) =>
-          `${name}: ${typeof value === 'number' ? formatAxisNumber(value) : value}`
+          `${name}: ${typeof value === 'number' ? formatByPreset(value, valueFormat) : value}`
         }
         labelLine={false}
       />

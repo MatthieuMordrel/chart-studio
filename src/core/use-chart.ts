@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react'
 import { getAvailableChartTypes, type ChartAxisType } from './chart-capabilities.js'
 import { computeDateRange, filterByDateRange } from './date-utils.js'
+import { inferColumnsFromData } from './infer-columns.js'
 import { buildAvailableMetrics, DEFAULT_METRIC, resolveMetric } from './metric-utils.js'
 import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
 import type {
   ChartColumn,
   ChartInstance,
   ChartType,
-  ColumnIdFromColumns,
+  ColumnHints,
   DataSource,
   DateColumn,
   DateRange,
   DateRangeFilter,
   FilterState,
   Metric,
+  ResolvedColumnIdFromHints,
   SortConfig,
   TimeBucket
 } from './types.js'
@@ -24,14 +26,14 @@ import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-c
  * Headless React hook that manages all chart configuration, state, and derived/transformed data for chart rendering.
  *
  * There are two major usage patterns:
- * - Single source: Provide plain `data`, `columns`, and (optionally) `sourceLabel`.
+ * - Single source: Provide plain `data` and optional `columnHints`.
  * - Multi-source: Provide a `sources` array, each having an `id`, `label`, `data`, `columns`.
  *
- * @template T                            - The type of each data record in the dataset.
- * @template TColumns                     - An array of chart column definitions for the data type T.
- * @param {SingleSourceOptions<T, TColumns> | MultiSourceOptions} options
+ * @template T - The type of each data record in the dataset.
+ * @template THints - Optional per-field overrides for inferred single-source columns.
+ * @param {SingleSourceOptions<T, THints> | MultiSourceOptions} options
  *   Chart configuration options. Should provide either:
- *   - `data`, `columns`, (and optionally `sourceLabel`) for a single source
+ *   - `data`, optional `columnHints`, and (optionally) `sourceLabel` for a single source
  *   - or `sources` array for multiple sources
  *
  * @returns {ChartInstance}
@@ -55,44 +57,50 @@ import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-c
  *   - `rawData`: The raw input data for the active data source
  *   - `recordCount`: Number of records present in the current data source
  */
-export function useChart<T, const TColumns extends readonly ChartColumn<T, string>[]>(
-  options: SingleSourceOptions<T, TColumns>
-): ChartInstance<T, ColumnIdFromColumns<TColumns>>
+export function useChart<T, const THints extends ColumnHints<T> | undefined = undefined>(
+  options: SingleSourceOptions<T, THints>
+): ChartInstance<T, ResolvedColumnIdFromHints<T, THints>>
 export function useChart(options: MultiSourceOptions): ChartInstance<unknown>
-export function useChart<T, const TColumns extends readonly ChartColumn<T, string>[]>(
-  options: UseChartOptions<T, TColumns>
-): ChartInstance<T, ColumnIdFromColumns<TColumns>> | ChartInstance<unknown> {
+export function useChart<T, const THints extends ColumnHints<T> | undefined = undefined>(
+  options: UseChartOptions<T, THints>
+): ChartInstance<T, ResolvedColumnIdFromHints<T, THints>> | ChartInstance<unknown> {
   if (options.sources && options.sources.length === 0) {
     throw new Error('useChart requires at least one source')
   }
 
-  const sources = (options.sources ?? [
-    {
-      id: 'default',
-      label: options.sourceLabel ?? 'Unnamed Source',
-      data: options.data,
-      columns: options.columns
-    }
-  ]) as unknown as DataSource<T, ColumnIdFromColumns<TColumns>>[]
+  const singleSourceColumns = useMemo(
+    () => ('sources' in options ? null : inferColumnsFromData(options.data, options.columnHints)),
+    [options]
+  )
+  const sources = ('sources' in options
+    ? options.sources
+    : [
+        {
+          id: 'default',
+          label: options.sourceLabel ?? 'Unnamed Source',
+          data: options.data,
+          columns: singleSourceColumns
+        }
+      ]) as unknown as DataSource<T, ResolvedColumnIdFromHints<T, THints>>[]
   const hasMultipleSources = sources.length > 1
 
   const [activeSourceId, setActiveSource] = useState(sources[0]?.id ?? 'default')
   const [chartType, setChartTypeRaw] = useState<ChartType>('bar')
-  const [xAxisId, setXAxisRaw] = useState<ColumnIdFromColumns<TColumns> | null>(null)
-  const [groupById, setGroupBy] = useState<ColumnIdFromColumns<TColumns> | null>(null)
-  const [metric, setMetric] = useState<Metric<ColumnIdFromColumns<TColumns>>>(DEFAULT_METRIC)
+  const [xAxisId, setXAxisRaw] = useState<ResolvedColumnIdFromHints<T, THints> | null>(null)
+  const [groupById, setGroupBy] = useState<ResolvedColumnIdFromHints<T, THints> | null>(null)
+  const [metric, setMetric] = useState<Metric<ResolvedColumnIdFromHints<T, THints>>>(DEFAULT_METRIC)
   const [timeBucket, setTimeBucket] = useState<TimeBucket>(DEFAULT_TIME_BUCKET)
-  const [filters, setFilters] = useState<FilterState<ColumnIdFromColumns<TColumns>>>(() => new Map())
+  const [filters, setFilters] = useState<FilterState<ResolvedColumnIdFromHints<T, THints>>>(() => new Map())
   const [sorting, setSorting] = useState<SortConfig | null>(null)
-  const [referenceDateIdRaw, setReferenceDateId] = useState<ColumnIdFromColumns<TColumns> | null>(null)
+  const [referenceDateIdRaw, setReferenceDateId] = useState<ResolvedColumnIdFromHints<T, THints> | null>(null)
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter | null>(null)
 
   const activeSource = sources.find(s => s.id === activeSourceId) ?? sources[0]!
-  const activeColumns: readonly ChartColumn<T, ColumnIdFromColumns<TColumns>>[] = activeSource.columns
+  const activeColumns: readonly ChartColumn<T, ResolvedColumnIdFromHints<T, THints>>[] = activeSource.columns
   const rawData: readonly T[] = activeSource.data
 
   const dateColumns = useMemo(
-    () => activeColumns.filter((column): column is DateColumn<T, ColumnIdFromColumns<TColumns>> => column.type === 'date'),
+    () => activeColumns.filter((column): column is DateColumn<T, ResolvedColumnIdFromHints<T, THints>> => column.type === 'date'),
     [activeColumns]
   )
 
@@ -163,7 +171,7 @@ export function useChart<T, const TColumns extends readonly ChartColumn<T, strin
     })
   }, [effectiveData, activeColumns, resolvedXAxisId, resolvedGroupById, resolvedMetric, timeBucket, resolvedFilters, sorting])
 
-  const dateRange: DateRange<ColumnIdFromColumns<TColumns>> | null = useMemo(() => {
+  const dateRange: DateRange<ResolvedColumnIdFromHints<T, THints>> | null = useMemo(() => {
     const column = dateColumns.find(candidate => candidate.id === referenceDateId)
     if (!column) return null
 
@@ -178,14 +186,14 @@ export function useChart<T, const TColumns extends readonly ChartColumn<T, strin
     }
   }
 
-  const setXAxis = (columnId: ColumnIdFromColumns<TColumns>) => {
+  const setXAxis = (columnId: ResolvedColumnIdFromHints<T, THints>) => {
     setXAxisRaw(columnId)
     if (resolvedGroupById === columnId) {
       setGroupBy(null)
     }
   }
 
-  const toggleFilter = (columnId: ColumnIdFromColumns<TColumns>, value: string) => {
+  const toggleFilter = (columnId: ResolvedColumnIdFromHints<T, THints>, value: string) => {
     setFilters(prev => {
       const next = new Map(prev)
       const current = next.get(columnId) ?? new Set<string>()
@@ -207,7 +215,7 @@ export function useChart<T, const TColumns extends readonly ChartColumn<T, strin
     })
   }
 
-  const clearFilter = (columnId: ColumnIdFromColumns<TColumns>) => {
+  const clearFilter = (columnId: ResolvedColumnIdFromHints<T, THints>) => {
     setFilters(prev => {
       const next = new Map(prev)
       next.delete(columnId)

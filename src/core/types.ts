@@ -13,15 +13,121 @@
  */
 
 // ---------------------------------------------------------------------------
-// Column definitions
+// Inference and column definitions
 // ---------------------------------------------------------------------------
 
+type Nullish = null | undefined
+
+/** Primitive field values that chart-studio can infer directly from raw data. */
+export type InferableColumnValue = string | number | boolean | Date | Nullish
+
+/** Top-level dataset keys whose values can be charted without a custom accessor. */
+export type InferableFieldKey<T> = Extract<
+  {
+    [TKey in keyof T]-?: Exclude<T[TKey], Nullish> extends InferableColumnValue ? TKey : never
+  }[keyof T],
+  string
+>
+
+/** Display formatter presets supported by inferred and manual columns. */
+export type ColumnFormatPreset =
+  | 'number'
+  | 'compact-number'
+  | 'currency'
+  | 'percent'
+  | 'date'
+  | 'datetime'
+
+/** Column kinds understood by the chart pipeline. */
+export type ChartColumnType = 'date' | 'category' | 'boolean' | 'number'
+
+/** Confidence attached to runtime field inference. */
+export type InferenceConfidence = 'low' | 'medium' | 'high'
+
+/** Debug metadata describing how a column was inferred. */
+export type ColumnInferenceMetadata = {
+  detectedType: ChartColumnType
+  confidence: InferenceConfidence
+  hinted: boolean
+}
+
+/** Shared hint options supported by every inferred field. */
+type BaseColumnHint<T, TValue> = {
+  /** Override the humanized field key used by default in the UI. */
+  label?: string
+  /** Apply a reusable formatter preset in chart UI. */
+  format?: ColumnFormatPreset
+  /** Format values with full control per field. */
+  formatter?: (value: TValue | null | undefined, item: T) => string
+}
+
+/** Override options for string-like fields. */
+export type StringColumnHint<T> = BaseColumnHint<T, string> & {
+  type?: 'category' | 'date'
+}
+
+/** Override options for numeric fields. */
+export type NumberColumnHint<T> = BaseColumnHint<T, number> & {
+  type?: 'number' | 'date'
+}
+
+/** Override options for boolean fields. */
+export type BooleanColumnHint<T> = BaseColumnHint<T, boolean> & {
+  type?: 'boolean'
+  trueLabel?: string
+  falseLabel?: string
+}
+
+/** Override options for Date-valued fields. */
+export type DateValueColumnHint<T> = BaseColumnHint<T, string | number | Date> & {
+  type?: 'date'
+}
+
+/** Override options for mixed primitive fields when runtime values need the final say. */
+export type MixedPrimitiveColumnHint<T, TValue> = BaseColumnHint<T, TValue> & {
+  type?: ChartColumnType
+  trueLabel?: string
+  falseLabel?: string
+}
+
+/** Type-safe override options for one inferable field. */
+export type ColumnHintFor<TValue, T> =
+  [Exclude<TValue, Nullish>] extends [boolean] ? BooleanColumnHint<T>
+  : [Exclude<TValue, Nullish>] extends [Date] ? DateValueColumnHint<T>
+  : [Exclude<TValue, Nullish>] extends [number] ? NumberColumnHint<T>
+  : [Exclude<TValue, Nullish>] extends [string] ? StringColumnHint<T>
+  : MixedPrimitiveColumnHint<T, Exclude<TValue, Nullish>>
+
+/** Partial per-field overrides layered on top of automatic inference. */
+export type ColumnHints<T> = Partial<{
+  [TKey in InferableFieldKey<T>]: ColumnHintFor<T[TKey], T> | false
+}>
+
+type ExcludedHintKeys<THints> = Extract<
+  {
+    [TKey in keyof THints]-?: THints[TKey] extends false ? TKey : never
+  }[keyof THints],
+  string
+>
+
+/** Column ID union after removing any fields explicitly disabled by hints. */
+export type ResolvedColumnIdFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = Exclude<InferableFieldKey<T>, THints extends ColumnHints<T> ? ExcludedHintKeys<THints> : never>
+
 /** Base properties shared by all column types. */
-type ColumnBase<TId extends string> = {
+type ColumnBase<T, TId extends string> = {
   /** Unique identifier — typically the field key in the data object. */
   id: TId
   /** Human-readable label for the UI. */
   label: string
+  /** Optional display formatter preset used by the UI layer. */
+  format?: ColumnFormatPreset
+  /** Optional per-value formatter used by the UI layer. */
+  formatter?: (value: unknown, item: T) => string
+  /** Optional debug metadata describing how the column was inferred. */
+  inference?: ColumnInferenceMetadata
 }
 
 /**
@@ -29,7 +135,7 @@ type ColumnBase<TId extends string> = {
  *
  * @property accessor - Extracts a date value from a data item
  */
-export type DateColumn<T, TId extends string = string> = ColumnBase<TId> & {
+export type DateColumn<T, TId extends string = string> = ColumnBase<T, TId> & {
   type: 'date'
   accessor: (item: T) => string | number | Date | null | undefined
 }
@@ -39,7 +145,7 @@ export type DateColumn<T, TId extends string = string> = ColumnBase<TId> & {
  *
  * @property accessor - Extracts a string category value from a data item
  */
-export type CategoryColumn<T, TId extends string = string> = ColumnBase<TId> & {
+export type CategoryColumn<T, TId extends string = string> = ColumnBase<T, TId> & {
   type: 'category'
   accessor: (item: T) => string | null | undefined
 }
@@ -51,7 +157,7 @@ export type CategoryColumn<T, TId extends string = string> = ColumnBase<TId> & {
  * @property trueLabel - Label for the `true` group (e.g. "Open")
  * @property falseLabel - Label for the `false` group (e.g. "Closed")
  */
-export type BooleanColumn<T, TId extends string = string> = ColumnBase<TId> & {
+export type BooleanColumn<T, TId extends string = string> = ColumnBase<T, TId> & {
   type: 'boolean'
   accessor: (item: T) => boolean | null | undefined
   trueLabel: string
@@ -63,7 +169,7 @@ export type BooleanColumn<T, TId extends string = string> = ColumnBase<TId> & {
  *
  * @property accessor - Extracts a numeric value from a data item
  */
-export type NumberColumn<T, TId extends string = string> = ColumnBase<TId> & {
+export type NumberColumn<T, TId extends string = string> = ColumnBase<T, TId> & {
   type: 'number'
   accessor: (item: T) => number | null | undefined
 }

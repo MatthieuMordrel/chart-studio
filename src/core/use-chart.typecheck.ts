@@ -1,4 +1,3 @@
-import {columns} from './columns.js'
 import {useChart} from './use-chart.js'
 
 type ExampleRecord = {
@@ -6,14 +5,15 @@ type ExampleRecord = {
   ownerName: string | null
   isOpen: boolean | null
   salary: number | null
+  internalId: string
 }
 
-const exampleColumns = [
-  columns.date<ExampleRecord>('createdAt'),
-  columns.category<ExampleRecord>('ownerName'),
-  columns.boolean<ExampleRecord>('isOpen', {trueLabel: 'Open', falseLabel: 'Closed'}),
-  columns.number<ExampleRecord>('salary'),
-] as const
+const exampleHints = {
+  createdAt: {type: 'date', label: 'Created'},
+  ownerName: {label: 'Owner'},
+  salary: {format: 'currency'},
+  internalId: false,
+} as const
 
 /**
  * Compile-time helper used to assert inferred types.
@@ -27,7 +27,7 @@ function expectType<T>(_value: T): void {}
 function verifyUseChartColumnIds() {
   const chart = useChart({
     data: [] as ExampleRecord[],
-    columns: exampleColumns,
+    columnHints: exampleHints,
   })
 
   expectType<'createdAt' | 'ownerName' | 'isOpen' | 'salary' | null>(chart.xAxisId)
@@ -50,6 +50,9 @@ function verifyUseChartColumnIds() {
 
   // @ts-expect-error invalid filter column IDs should fail
   chart.toggleFilter('missingField', 'Alice')
+
+  // @ts-expect-error explicitly excluded fields should be removed from the chart API
+  chart.setXAxis('internalId')
 }
 
 void verifyUseChartColumnIds

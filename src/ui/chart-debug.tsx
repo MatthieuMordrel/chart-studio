@@ -122,6 +122,7 @@ function getDebugContent(chart: ReturnType<typeof useChartContext>, activeTab: T
         availableChartTypes: chart.availableChartTypes,
         availableGroupBys: chart.availableGroupBys,
         availableMetrics: chart.availableMetrics,
+        columns: chart.columns,
         availableFilters: chart.availableFilters.map((filter) => ({
           ...filter,
           options:

@@ -5,7 +5,7 @@
  * Use `<Chart>` as the root provider, then compose any combination of controls.
  */
 
-export {Chart, useChartContext} from './chart-context.js'
+export {Chart, useChartContext, useTypedChartContext} from './chart-context.js'
 export {ChartCanvas} from './chart-canvas.js'
 export {ChartToolbar} from './chart-toolbar.js'
 export {ChartToolbarOverflow} from './chart-toolbar-overflow.js'

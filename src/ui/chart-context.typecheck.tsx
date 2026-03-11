@@ -1,20 +1,19 @@
 import {useChart} from '../core/use-chart.js'
-import {columns} from '../core/columns.js'
-import {Chart, useChartContext} from './chart-context.js'
+import {Chart, useTypedChartContext} from './chart-context.js'
 
 type ExampleRecord = {
   createdAt: string
   ownerName: string | null
   isOpen: boolean | null
   salary: number | null
+  internalId: string
 }
 
-const exampleColumns = [
-  columns.date<ExampleRecord>('createdAt'),
-  columns.category<ExampleRecord>('ownerName'),
-  columns.boolean<ExampleRecord>('isOpen', {trueLabel: 'Open', falseLabel: 'Closed'}),
-  columns.number<ExampleRecord>('salary'),
-] as const
+const exampleHints = {
+  createdAt: {type: 'date', label: 'Created'},
+  salary: {format: 'currency'},
+  internalId: false,
+} as const
 
 /**
  * Compile-time helper used to assert inferred types.
@@ -25,7 +24,7 @@ function expectType<T>(_value: T): void {}
  * Type-only probe that verifies the typed UI context path.
  */
 function TypedSingleSourceProbe() {
-  const chart = useChartContext(exampleColumns)
+  const chart = useTypedChartContext<ExampleRecord, typeof exampleHints>()
 
   expectType<ExampleRecord[]>([...chart.rawData])
   expectType<'createdAt' | 'ownerName' | 'isOpen' | 'salary' | null>(chart.xAxisId)
@@ -45,6 +44,9 @@ function TypedSingleSourceProbe() {
   // @ts-expect-error invalid metric column IDs should fail through the typed UI context
   chart.setMetric({kind: 'aggregate', columnId: 'missingField', aggregate: 'sum'})
 
+  // @ts-expect-error excluded fields should stay unavailable through typed context
+  chart.setXAxis('internalId')
+
   return null
 }
 
@@ -54,7 +56,7 @@ function TypedSingleSourceProbe() {
 function verifyChartContextTyping() {
   const chart = useChart({
     data: [] as ExampleRecord[],
-    columns: exampleColumns,
+    columnHints: exampleHints,
   })
 
   return (

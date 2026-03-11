@@ -7,6 +7,7 @@
 export {columns, defineColumns} from './columns.js'
 export {CHART_TYPE_CONFIG} from './chart-capabilities.js'
 export {getSeriesColor, buildColorMap} from './colors.js'
+export {inferColumnsFromData} from './infer-columns.js'
 export {buildAvailableMetrics, getMetricLabel} from './metric-utils.js'
 export {runPipeline, applyFilters, extractAvailableFilters} from './pipeline.js'
 export type {PipelineInput, PipelineOutput} from './pipeline.js'
@@ -16,6 +17,12 @@ export type {ChartAxisType, ChartTypeCapabilities} from './chart-capabilities.js
 
 export type {
   ChartColumn,
+  ChartColumnType,
+  ColumnFormatPreset,
+  ColumnHints,
+  ColumnHintFor,
+  InferableFieldKey,
+  ResolvedColumnIdFromHints,
   DateColumn,
   CategoryColumn,
   BooleanColumn,
