@@ -17,7 +17,7 @@ export function SingleSourceChart() {
     <Chart chart={chart} className='space-y-4'>
       <div className='overflow-hidden rounded-2xl border border-border bg-background'>
         <div className='p-4'>
-          <ChartToolbar pinned={['chartType', 'metric', 'groupBy', 'timeBucket']} />
+          <ChartToolbar pinned={['source', 'chartType', 'metric', 'groupBy', 'timeBucket']} />
         </div>
 
         <div className='border-t border-border p-4'>
