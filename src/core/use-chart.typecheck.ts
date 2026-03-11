@@ -162,9 +162,9 @@ function verifyDeclarationTimeSchemaFailures() {
   defineChartSchema<ExampleRecord>()({
     columns: exampleSchema.columns,
     groupBy: {
+      // @ts-expect-error unknown groupBy IDs should fail at declaration time
       allowed: [
         'ownerName',
-        // @ts-expect-error unknown groupBy IDs should fail at declaration time
         'fefe',
       ],
     },
@@ -173,9 +173,9 @@ function verifyDeclarationTimeSchemaFailures() {
   defineChartSchema<ExampleRecord>()({
     columns: exampleSchema.columns,
     xAxis: {
+      // @ts-expect-error unknown xAxis IDs should fail at declaration time
       allowed: [
         'createdAt',
-        // @ts-expect-error unknown xAxis IDs should fail at declaration time
         'fefe',
       ],
     },
@@ -184,9 +184,9 @@ function verifyDeclarationTimeSchemaFailures() {
   defineChartSchema<ExampleRecord>()({
     columns: exampleSchema.columns,
     filters: {
+      // @ts-expect-error unknown filter IDs should fail at declaration time
       allowed: [
         'ownerName',
-        // @ts-expect-error unknown filter IDs should fail at declaration time
         'fefe',
       ],
     },
@@ -195,9 +195,9 @@ function verifyDeclarationTimeSchemaFailures() {
   defineChartSchema<ExampleRecord>()({
     columns: exampleSchema.columns,
     metric: {
+      // @ts-expect-error unknown metric column IDs should fail at declaration time
       allowed: [
         {kind: 'count'},
-        // @ts-expect-error unknown metric column IDs should fail at declaration time
         {kind: 'aggregate', columnId: 'fefe', aggregate: 'sum'},
       ],
     },
@@ -227,6 +227,7 @@ function verifyDeclarationTimeSchemaFailures() {
         // @ts-expect-error existing raw keys should not accept derived column definitions
         kind: 'derived',
         type: 'category',
+        // @ts-expect-error raw field schemas should reject derived-only accessors
         accessor: () => 'Owner',
       },
     },

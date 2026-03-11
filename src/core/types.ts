@@ -242,7 +242,7 @@ export type ChartConfigFromHints<
 >
 
 type ConfigSection<TConfig, TKey extends string> =
-  TConfig extends {[TResolvedKey in TKey]?: infer TSection} ? TSection : never
+  TKey extends keyof TConfig ? TConfig[TKey] : never
 
 type AllowedOptionFromControlConfig<TControlConfig> =
   TControlConfig extends {allowed?: readonly (infer TAllowedOption)[]} ? TAllowedOption : never
@@ -314,43 +314,52 @@ type IsTuple<TArray extends readonly unknown[]> = number extends TArray['length'
 
 type NarrowConfigLiteral<TValue, TWide> = IsExactly<TValue, TWide> extends true ? never : TValue
 
-type ExactShape<TExpected, TActual> =
+type RequiredKeys<TObject> = Extract<
+  {
+    [TKey in keyof TObject]-?: undefined extends TObject[TKey] ? never : TKey
+  }[keyof TObject],
+  PropertyKey
+>
+
+export type ExactShape<TExpected, TActual> =
   TExpected extends unknown
-    ? TActual extends TExpected
-      ? TActual extends readonly (infer TActualItem)[]
-        ? TExpected extends readonly (infer TExpectedItem)[]
-          ? readonly ExactShape<TExpectedItem, TActualItem>[]
-          : never
-        : TActual extends (...args: never[]) => unknown
+    ? TActual extends readonly (infer TActualItem)[]
+      ? TExpected extends readonly (infer TExpectedItem)[]
+        ? readonly ExactShape<TExpectedItem, TActualItem>[]
+        : never
+      : TActual extends (...args: never[]) => unknown
+        ? TActual extends TExpected
           ? TActual
-          : TActual extends object
-            ? TExpected extends object
-              ? {
-                  [TKey in keyof TActual]:
-                    TKey extends keyof TExpected
-                      ? ExactShape<TExpected[TKey], TActual[TKey]>
-                      : never
-                }
-              : TActual
-            : TActual
-      : never
+          : never
+        : TActual extends object
+          ? TExpected extends object
+            ? {
+                [TKey in keyof TActual]:
+                  TKey extends keyof TExpected
+                    ? ExactShape<TExpected[TKey], TActual[TKey]>
+                    : never
+              } & {
+                [TKey in Exclude<RequiredKeys<TExpected>, keyof TActual>]-?: never
+              }
+            : never
+          : TActual extends TExpected
+            ? TActual
+            : never
     : never
 
-type ValidateSchemaColumns<
+export type SchemaColumnsValidationShape<
   T,
   TColumns extends Record<string, unknown> | undefined,
 > = TColumns extends Record<string, unknown>
   ? {
-      columns?: {
-        [TKey in keyof TColumns]:
-          TKey extends InferableFieldKey<T>
-            ? ExactShape<RawColumnSchemaFor<T[TKey], T> | false, TColumns[TKey]>
-            : ExactShape<DerivedColumnSchema<T>, TColumns[TKey]>
-      }
+      [TKey in keyof TColumns]:
+        TKey extends InferableFieldKey<T>
+          ? RawColumnSchemaFor<T[TKey], T> | false
+          : DerivedColumnSchema<T>
     }
-  : unknown
+  : never
 
-type ValidateLiteralDefaultNotHidden<
+export type ValidateLiteralDefaultNotHidden<
   TSection,
   TWideOption,
   TSectionName extends string,
@@ -444,13 +453,26 @@ type ValidateChartSchemaLiterals<
     'timeBucket'
   >
 
+type ChartSchemaValidationTarget<
+  T,
+  TSchema extends ChartSchema<T, any>,
+> = {
+  columns?: SchemaColumnsValidationShape<T, ExtractSchemaColumns<TSchema>>
+  xAxis?: XAxisConfig<ResolvedXAxisColumnIdFromSchema<T, TSchema>>
+  groupBy?: GroupByConfig<ResolvedGroupByColumnIdFromSchema<T, TSchema>>
+  filters?: FiltersConfig<ResolvedFilterColumnIdFromSchema<T, TSchema>>
+  metric?: MetricConfig<ResolvedMetricColumnIdFromSchema<T, TSchema>>
+  chartType?: ChartTypeConfig
+  timeBucket?: TimeBucketConfig
+}
+
 /** Strict schema object returned by `defineChartSchema(...)`. */
 export type ValidatedChartSchema<
   T,
   TSchema,
 > = TSchema extends ChartSchema<T, any>
   ? TSchema
-    & ValidateSchemaColumns<T, ExtractSchemaColumns<TSchema>>
+    & ExactShape<ChartSchemaValidationTarget<T, TSchema>, TSchema>
     & ValidateChartSchemaLiterals<T, TSchema>
   : TSchema
 

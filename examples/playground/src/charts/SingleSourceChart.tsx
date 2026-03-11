@@ -8,8 +8,7 @@ const singleSourceChartSchema = defineChartSchema<(typeof quarterlyFinancialData
     segment: { type: 'category' },
     revenue: { type: 'number', label: 'Revenue' },
     netIncome: { type: 'number', label: 'Net Income' },
-    ebitda: { type: 'number', label: 'EBITDA' },
-    fefe: {type: 'category'}
+    ebitda: { type: 'number', label: 'EBITDA' }
   },
   xAxis: {
     allowed: ['periodEnd']
@@ -17,7 +16,7 @@ const singleSourceChartSchema = defineChartSchema<(typeof quarterlyFinancialData
   chartType: { allowed: ['bar', 'line'] },
   timeBucket: { allowed: ['year', 'quarter', 'month'] },
   groupBy: {
-    allowed: ['segment',"fefe"]
+    allowed: ['segment']
   },
   metric: {
     allowed: [
