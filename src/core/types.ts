@@ -304,11 +304,12 @@ export interface BaseColumnHint<T, TValue> {
   /**
    * Final escape hatch for fully custom display logic.
    *
-   * Receives the resolved field value and the full row. Prefer `format` first
-   * when a declarative option is enough, and use `formatter` only when the
-   * output really depends on custom business logic.
+   * Receives the resolved field value and, when the UI surface still maps to a
+   * single raw row, that source item as well. Prefer `format` first when a
+   * declarative option is enough, and use `formatter` only when the output
+   * really depends on custom business logic.
    */
-  formatter?: (value: TValue | null | undefined, item: T) => string
+  formatter?: (value: TValue | null | undefined, item?: T) => string
 }
 
 /**
@@ -947,8 +948,14 @@ type ColumnBase<T, TId extends string> = {
   label: string
   /** Optional display formatter preset used by the UI layer. */
   format?: ColumnFormat
-  /** Optional per-value formatter used by the UI layer. */
-  formatter?: (value: unknown, item: T) => string
+  /**
+   * Optional per-value formatter used by the UI layer.
+   *
+   * The source `item` is passed when the rendered value still maps to one raw
+   * row, such as filter option labels. Aggregated chart values do not have a
+   * single backing row, so `item` is optional there by design.
+   */
+  formatter?: (value: unknown, item?: T) => string
   /** Optional debug metadata describing how the column was inferred. */
   inference?: ColumnInferenceMetadata
 }

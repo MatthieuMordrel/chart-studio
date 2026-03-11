@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest'
+import {defineChartSchema} from './define-chart-schema.js'
 import {inferColumnsFromData} from './infer-columns.js'
-import {runPipeline} from './pipeline.js'
+import {extractAvailableFilters, runPipeline} from './pipeline.js'
 import type {FilterState, Metric} from './types.js'
 
 /**
@@ -101,6 +102,37 @@ describe('runPipeline', () => {
     expect(result.data).toEqual([
       expect.objectContaining({xKey: 'A', value: 10}),
       expect.objectContaining({xKey: 'B', value: 0}),
+    ])
+  })
+
+  it('passes the raw item to formatter-backed filter labels when one exists', () => {
+    type TeamRecord = {
+      team: string | null
+      region: string
+    }
+
+    const data: TeamRecord[] = [
+      {team: 'A', region: 'North'},
+      {team: 'B', region: 'South'},
+    ]
+
+    const schema = defineChartSchema<TeamRecord>()({
+      columns: {
+        team: {
+          label: 'Team',
+          formatter: (value: string | null | undefined, item?: TeamRecord) =>
+            `${item?.region ?? 'Unknown'}: ${value ?? 'Unknown'}`,
+        },
+      },
+    })
+    const chartColumns = inferColumnsFromData(data, schema)
+
+    const filters = extractAvailableFilters(data, chartColumns)
+    const teamFilter = filters.find((filter) => filter.columnId === 'team')
+
+    expect(teamFilter?.options).toEqual([
+      expect.objectContaining({value: 'A', label: 'North: A'}),
+      expect.objectContaining({value: 'B', label: 'South: B'}),
     ])
   })
 })

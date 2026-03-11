@@ -41,7 +41,7 @@ import type {ChartColumn} from '../core/types.js'
  */
 function estimateYAxisWidth(
   numericRange: NumericRange | null,
-  valueColumn: Pick<ChartColumn<any>, 'type' | 'format'>,
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format' | 'formatter'>,
 ): number {
   const labels = getYAxisLabelCandidates(numericRange, valueColumn)
   const widestLabel = labels.reduce((maxWidth, label) => Math.max(maxWidth, measureAxisLabelWidth(label)), 0)
@@ -333,7 +333,7 @@ type RendererProps = {
   series: SeriesItem[]
   width: number
   height: number
-  valueColumn: Pick<ChartColumn<any>, 'type' | 'format'>
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format' | 'formatter'>
   valueRange: NumericRange | null
   allowDecimalTicks: boolean
   xColumn: ChartColumn<any> | null
@@ -385,12 +385,13 @@ function CartesianChartShell({
     <Chart data={data} width={width} height={height} margin={getCartesianChartMargin(showDataLabels)}>
       <CartesianGrid vertical={false} strokeDasharray="3 3" />
       <XAxis
-        dataKey="xLabel"
+        dataKey="xKey"
         tickLine={false}
         axisLine={false}
         tickMargin={8}
         interval="preserveStartEnd"
         padding={CARTESIAN_X_AXIS_PADDING}
+        tickFormatter={(value) => formatXAxisValue(value, xColumn, timeBucket, 'axis')}
       />
       <YAxis
         tickLine={false}
@@ -444,18 +445,32 @@ function formatTooltipLabel(
     ? point['xKey']
     : label
 
-  if (xColumn.type === 'date' && timeBucket && typeof rawXValue === 'string') {
-    return formatTimeBucketLabel(rawXValue, timeBucket, 'tooltip')
+  return formatXAxisValue(rawXValue, xColumn, timeBucket, 'tooltip')
+}
+
+/**
+ * Format one X-axis value using the same shared column rules as the rest of the
+ * chart while preserving the special bucket labels for inferred date buckets.
+ */
+function formatXAxisValue(
+  value: string | number,
+  xColumn: ChartColumn<any> | null,
+  timeBucket: RendererProps['timeBucket'],
+  surface: 'axis' | 'tooltip',
+): string {
+  if (!xColumn) {
+    return String(value)
   }
 
-  return formatChartValue(
-    rawXValue,
-    {
-      column: xColumn,
-      surface: 'tooltip',
-      timeBucket,
-    },
-  )
+  if (xColumn.type === 'date' && timeBucket && typeof value === 'string' && !xColumn.formatter) {
+    return formatTimeBucketLabel(value, timeBucket, surface)
+  }
+
+  return formatChartValue(value, {
+    column: xColumn,
+    surface,
+    timeBucket,
+  })
 }
 
 function BarChartRenderer(props: RendererProps) {
@@ -556,12 +571,16 @@ function PieChartRenderer({
   height,
   valueColumn,
   valueRange,
+  xColumn,
+  timeBucket,
   showDataLabels,
 }: PieRendererProps) {
   const valueKey = series[0]?.dataKey
   const pieData = data.map((point, index) => {
     return {
-      name: point['xLabel'] as string,
+      name: typeof point['xKey'] === 'string' || typeof point['xKey'] === 'number'
+        ? formatXAxisValue(point['xKey'], xColumn, timeBucket, 'tooltip')
+        : String(point['xLabel']),
       value: valueKey && typeof point[valueKey] === 'number' ? point[valueKey] : 0,
       fill: getSeriesColor(index),
     }
@@ -613,7 +632,7 @@ function PieChartRenderer({
  */
 function formatDataLabel(
   value: unknown,
-  valueColumn: Pick<ChartColumn<any>, 'type' | 'format'>,
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format' | 'formatter'>,
   valueRange: NumericRange | null,
 ): string {
   if (shouldHideDataLabel(value)) {

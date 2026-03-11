@@ -27,11 +27,11 @@ const DATE_VALUE_PATTERN = /^\d{4}-\d{2}(-\d{2})?(?:[t\s].+)?$/i
 type PrimitiveSample = string | number | boolean | Date
 type RuntimeFieldKind = ChartColumnType | 'mixed' | 'empty' | 'unsupported'
 type RuntimeFormatterValue<TFormatter> =
-  TFormatter extends (value: infer TValue, item: any) => string ? TValue : never
+  TFormatter extends (value: infer TValue, item?: any) => string ? TValue : never
 type RuntimeColumnSchema<T> = {
   label?: string
   format?: ColumnFormat
-  formatter?: ((value: unknown, item: T) => string) | undefined
+  formatter?: ((value: unknown, item?: T) => string) | undefined
   type?: ChartColumnType
   trueLabel?: string
   falseLabel?: string
@@ -102,7 +102,7 @@ function toInferableFieldKey<T>(key: string): InferableFieldKey<T> {
  * hint is selected, so the formatter is widened once here instead of repeating
  * casts across each column builder.
  */
-function toRuntimeFormatter<T, TFormatter extends ((value: any, item: any) => string) | undefined>(
+function toRuntimeFormatter<T, TFormatter extends ((value: any, item?: any) => string) | undefined>(
   formatter: TFormatter,
 ): RuntimeColumnSchema<T>['formatter'] {
   if (!formatter) {

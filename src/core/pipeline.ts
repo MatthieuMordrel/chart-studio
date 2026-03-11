@@ -245,15 +245,9 @@ function formatFilterOptionLabel<T, TColumnId extends string>(
   item: T,
   column: CategoryColumn<T, TColumnId> | BooleanColumn<T, TColumnId>,
 ): string {
-  if (column.type === 'boolean') {
-    return formatChartValue(column.accessor(item), {
-      column,
-      surface: 'tooltip',
-    })
-  }
-
   return formatChartValue(column.accessor(item), {
     column,
     surface: 'tooltip',
+    item,
   })
 }

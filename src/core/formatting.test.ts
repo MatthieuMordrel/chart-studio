@@ -43,6 +43,16 @@ describe('formatting', () => {
     expect(formatChartValue(1_250_000, {column, surface: 'tooltip'})).toBe('€1,250,000')
   })
 
+  it('lets formatter override the shared defaults even when no source row is available', () => {
+    const column = {
+      type: 'number' as const,
+      formatter: (value: unknown) => value == null ? 'Missing' : `${String(value)} per seat`,
+    }
+
+    expect(formatChartValue(1_200, {column, surface: 'axis'})).toBe('1200 per seat')
+    expect(formatChartValue(null, {column, surface: 'tooltip'})).toBe('Missing')
+  })
+
   it('formats duration values compactly when the schema declares the input unit', () => {
     const minuteColumn = {
       type: 'number' as const,

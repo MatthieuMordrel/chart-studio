@@ -33,6 +33,7 @@ const DURATION_UNIT_TO_SECONDS: Record<DurationInputUnit, number> = {
 type FormatColumnLike<T> = {
   type: ChartColumn<T>['type']
   format?: ColumnFormat
+  formatter?: ChartColumn<T>['formatter']
   trueLabel?: string
   falseLabel?: string
 }
@@ -43,6 +44,7 @@ type FormatValueOptions<T> = {
   timeBucket?: TimeBucket
   numericRange?: NumericRange | null
   locale?: string
+  item?: T
 }
 
 /**
@@ -89,7 +91,11 @@ export function formatChartValue<T>(
   value: string | number | boolean | Date | null | undefined,
   options: FormatValueOptions<T>,
 ): string {
-  const {column, surface, timeBucket, numericRange, locale = 'en-US'} = options
+  const {column, surface, timeBucket, numericRange, locale = 'en-US', item} = options
+
+  if (column.formatter) {
+    return column.formatter(value, item)
+  }
 
   if (value == null) {
     return 'Unknown'
@@ -148,9 +154,19 @@ export function formatNumericSurfaceValue(
   surface: ChartValueSurface,
   numericRange?: NumericRange | null,
   format?: ColumnFormat,
+  formatter?: ChartColumn<unknown>['formatter'],
   locale = 'en-US',
 ): string {
-  return formatNumberValue(value, format, surface, numericRange, locale)
+  return formatChartValue(value, {
+    column: {
+      type: 'number',
+      format,
+      formatter,
+    },
+    surface,
+    numericRange,
+    locale,
+  })
 }
 
 /**
