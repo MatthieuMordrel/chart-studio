@@ -38,7 +38,7 @@ This is the core idea: the library infers a schema from raw data, then lets `col
 
 When you provide explicit `columnHints.type` values, that metadata also sharpens the compile-time chart API. For example, date-only helpers narrow to date columns, metric helpers narrow to numeric columns, and group/filter helpers narrow to category or boolean columns.
 
-The same metadata also powers the optional `tools` config, which lets you declaratively whitelist only some `groupBy` values or metric definitions while keeping the runtime selectors in sync.
+The same metadata also powers the optional `config` object, which lets you declaratively whitelist only some `groupBy` values or metric definitions while keeping the runtime selectors in sync.
 
 ## What `useChart()` does
 

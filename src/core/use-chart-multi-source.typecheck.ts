@@ -45,7 +45,7 @@ function verifyMultiSourceChartTyping() {
         label: 'Sales',
         data: [] as SalesRecord[],
         columnHints: salesHints,
-        tools: {
+        config: {
           groupBy: {allowed: ['region']},
           metric: {allowed: [{kind: 'aggregate', columnId: 'revenue', aggregate: 'sum'}]},
         },
@@ -55,7 +55,7 @@ function verifyMultiSourceChartTyping() {
         label: 'Users',
         data: [] as UserRecord[],
         columnHints: userHints,
-        tools: {
+        config: {
           groupBy: {allowed: ['plan', 'isActive']},
         },
       },

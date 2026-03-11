@@ -18,7 +18,7 @@ export function SingleSourceChart() {
       ebitda: { type: 'number', label: 'EBITDA' },
       grossProfit: { type: 'number', label: 'Gross Profit' }
     } as const,
-    tools: {
+    config: {
       groupBy: {
         allowed: ['segment']
       },

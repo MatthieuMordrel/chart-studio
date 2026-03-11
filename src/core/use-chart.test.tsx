@@ -189,7 +189,7 @@ describe('useChart', () => {
     expect(result.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
   })
 
-  it('supports declarative groupBy and metric tool restrictions', () => {
+  it('supports declarative groupBy and metric config restrictions', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
@@ -199,7 +199,7 @@ describe('useChart', () => {
           isOpen: {type: 'boolean'},
           salary: {type: 'number'},
         } as const,
-        tools: {
+        config: {
           groupBy: {
             allowed: ['isOpen'],
           },

@@ -4,6 +4,7 @@
  * A headless, composable charting library built on top of Recharts.
  * Pass raw data, optionally add column hints, and get a full interactive chart with
  * automatic filtering, grouping, time bucketing, and chart type switching.
+ * Move to `config` when you want the explicit chart contract to become authoritative.
  *
  * @example
  * ```tsx
@@ -57,6 +58,12 @@ export type {
   ColumnHintFor,
   InferableFieldKey,
   ResolvedColumnIdFromHints,
+  GroupByConfig,
+  MetricConfig,
+  ChartConfig,
+  ChartConfigFromHints,
+  RestrictedGroupByColumnIdFromConfig,
+  RestrictedMetricFromConfig,
   DateColumn,
   CategoryColumn,
   BooleanColumn,

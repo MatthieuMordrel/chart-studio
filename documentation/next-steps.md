@@ -11,12 +11,16 @@ The goal is:
 
 ## 1. Lock The Core API Contract
 
-- Decide whether `columnHints` remains the long-term name, or whether it should evolve into a more explicit schema name once it carries labels, types, restrictions, and later derived columns.
-- Revisit whether `tools` is the right public name, or whether a more explicit name such as `config`, `controls`, or `viewConfig` would better communicate that this object defines chart behavior, defaults, and restrictions.
-- Write down the official progression model:
-  `data only` -> `data + columnHints` -> `data + explicit config + restrictions`
-- Define which parts of the API are convenience-first and broad by design, and which parts become authoritative when explicit config is present.
-- Make this contract stable before adding more feature-specific options.
+- Keep `columnHints` as the long-term inference-layer name.
+  It stays lightweight and progressive: labels, format hints, explicit column types, and field exclusion.
+- Standardize on `config` as the public name for authoritative chart restrictions and future defaults.
+- Official progression model:
+  `data only` -> `data + columnHints` -> `data + columnHints + config`
+- Contract rule:
+  `columnHints` is convenience-first and helps inference become sharper.
+  `config` is authoritative when present and narrows both runtime options and the typed chart API.
+- Stability rule:
+  new control restrictions and defaults should extend `config` instead of adding unrelated top-level options.
 
 ## 2. Clean Up Internal Typing Boundaries
 
@@ -31,19 +35,19 @@ The goal is:
   runtime inference decides behavior when config is absent,
   explicit config defines the compile-time contract when present.
 - Keep role-aware typing derived from explicit `columnHints.type`.
-- Keep tool restriction typing derived from explicit `tools.allowed`.
+- Keep config restriction typing derived from explicit `config.groupBy.allowed` and `config.metric.allowed`.
 - Audit all public setters and available option lists to ensure they follow the same rule consistently.
 
-## 4. Generalize The `tools` Model
+## 4. Generalize The `config` Model
 
-- Decide whether `tools` is the permanent home for all control restrictions and feature toggles.
+- Treat `config` as the permanent home for control restrictions and feature toggles.
 - Standardize the shape so every tool can eventually support the same concepts where relevant:
   `allowed`, `hidden`, `default`, and possibly `locked`.
 - Extend the current approach beyond `groupBy` and `metric` only after the shape is stable.
 - Add the next declarative tool targets explicitly:
   `filters`, `timeBucket`, `xAxis`, `chartType`, and shared default selection behavior.
-- Investigate how to reject unknown `tools` keys while preserving both autocomplete and literal return-type narrowing.
-- Decide whether this should be solved with stricter exact-object typing, a helper such as `defineChartTools(...)`, or a different config typing strategy entirely.
+- Investigate how to reject unknown `config` keys while preserving both autocomplete and literal return-type narrowing.
+- Decide whether this should be solved with stricter exact-object typing, a helper such as `defineChartConfig(...)`, or a different config typing strategy entirely.
 - Define whether filter restrictions mean:
   "which columns may be filtered",
   "which values are available for a given filterable column",
@@ -114,7 +118,7 @@ The goal is:
 - Before adding labels, richer sorting, advanced filters, or new chart capabilities, decide where each feature belongs:
   core state,
   schema/config,
-  tools config,
+  chart config,
   or UI-only.
 - Avoid adding isolated top-level booleans or one-off options if they really belong to a more general extension point.
 - Prefer feature families over feature-specific knobs whenever the pattern is likely to repeat.
@@ -124,6 +128,6 @@ The goal is:
 
 1. Finalize the long-term config contract and naming.
 2. Reduce internal type escape hatches and simplify helper types.
-3. Stabilize the `tools` model as the shared restriction system.
+3. Stabilize the `config` model as the shared restriction system.
 4. Design derived columns inside that same progressive config story.
 5. Revisit multi-source ergonomics only after the single-source contract is fully solid.

@@ -102,9 +102,9 @@ export function JobsChart({ data }) {
 | `boolean`  | grouping, filtering                     |
 | `number`   | metrics such as sum, avg, min, max      |
 
-## Declarative Tool Restrictions
+## Declarative Config Restrictions
 
-If you want to expose only a subset of groupings or metrics, use the optional `tools` config:
+If you want to expose only a subset of groupings or metrics, use the optional `config` object:
 
 ```tsx
 const chart = useChart({
@@ -115,7 +115,7 @@ const chart = useChart({
     revenue: {type: 'number'},
     netIncome: {type: 'number'},
   } as const,
-  tools: {
+  config: {
     groupBy: {
       allowed: ['segment'],
     },

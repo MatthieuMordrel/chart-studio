@@ -5,9 +5,9 @@
 import {createContext, useContext, useMemo, type ReactElement, type ReactNode} from 'react'
 import type {
   ChartColumn,
+  ChartConfigFromHints,
   ChartInstance,
   ChartInstanceFromConfig,
-  ChartToolsConfigFromHints,
   ColumnHints,
   Metric,
 } from '../core/types.js'
@@ -192,8 +192,8 @@ export function useChartContext() {
 export function useTypedChartContext<
   T,
   const THints extends ColumnHints<T> | undefined = undefined,
-  const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
->(): ChartInstanceFromConfig<T, THints, TTools> {
+  const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+>(): ChartInstanceFromConfig<T, THints, TConfig> {
   const ctx = useContext(ChartContext)
   if (!ctx) {
     throw new Error('useTypedChartContext must be used within a <Chart> provider')
@@ -205,7 +205,7 @@ export function useTypedChartContext<
     )
   }
 
-  return ctx.typedChart as ChartInstanceFromConfig<T, THints, TTools>
+  return ctx.typedChart as ChartInstanceFromConfig<T, THints, TConfig>
 }
 
 /**

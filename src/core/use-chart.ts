@@ -6,8 +6,8 @@ import { buildAvailableMetrics, DEFAULT_METRIC, resolveMetric, restrictAvailable
 import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
 import type {
   ChartColumn,
+  ChartConfigFromHints,
   ChartInstanceFromConfig,
-  ChartToolsConfigFromHints,
   ChartType,
   ColumnHints,
   DateColumn,
@@ -70,17 +70,17 @@ export function useChart<const TSources extends NonEmptyChartSourceOptions>(
 export function useChart<
   T,
   const THints extends ColumnHints<T> | undefined = undefined,
-  const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+  const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 >(
-  options: SingleSourceOptions<T, THints> & {tools?: TTools}
-): ChartInstanceFromConfig<T, THints, TTools>
+  options: SingleSourceOptions<T, THints> & {config?: TConfig}
+): ChartInstanceFromConfig<T, THints, TConfig>
 export function useChart<
   T,
   const THints extends ColumnHints<T> | undefined = undefined,
-  const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+  const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 >(
-  options: (SingleSourceOptions<T, THints> & {tools?: TTools}) | MultiSourceOptions
-): ChartInstanceFromConfig<T, THints, TTools> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
+  options: (SingleSourceOptions<T, THints> & {config?: TConfig}) | MultiSourceOptions
+): ChartInstanceFromConfig<T, THints, TConfig> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
   if ('sources' in options && options.sources?.length === 0) {
     throw new Error('useChart requires at least one source')
   }
@@ -92,7 +92,7 @@ export function useChart<
         label: source.label,
         data: source.data,
         columns: inferColumnsFromData(source.data, source.columnHints),
-        tools: source.tools,
+        config: source.config,
       }))
     }
 
@@ -102,7 +102,7 @@ export function useChart<
         label: options.sourceLabel ?? 'Unnamed Source',
         data: options.data,
         columns: inferColumnsFromData(options.data, options.columnHints),
-        tools: options.tools,
+        config: options.config,
       },
     ]
   }, [options])
@@ -166,7 +166,7 @@ export function useChart<
 
   const availableGroupBys = useMemo(
     () => {
-      const allowedGroupByIds = activeSource.tools?.groupBy?.allowed
+      const allowedGroupByIds = activeSource.config?.groupBy?.allowed
       const allowedGroupByIdSet = allowedGroupByIds ? new Set(allowedGroupByIds) : null
 
       return activeColumns
@@ -174,13 +174,13 @@ export function useChart<
         .filter(column => (allowedGroupByIdSet ? allowedGroupByIdSet.has(column.id) : true))
         .map(column => ({ id: column.id, label: column.label }))
     },
-    [activeColumns, activeSource.tools, resolvedXAxisId]
+    [activeColumns, activeSource.config, resolvedXAxisId]
   )
 
   const resolvedGroupById = groupById && availableGroupBys.some(column => column.id === groupById) ? groupById : null
   const availableMetrics = useMemo(
-    () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.tools?.metric?.allowed),
-    [activeColumns, activeSource.tools]
+    () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.config?.metric?.allowed),
+    [activeColumns, activeSource.config]
   )
   const resolvedMetric = useMemo(
     () => resolveMetric(metric, activeColumns, availableMetrics),
@@ -309,5 +309,5 @@ export function useChart<
     columns: activeColumns,
     rawData,
     recordCount: rawData.length
-  } as unknown as ChartInstanceFromConfig<T, THints, TTools> | MultiSourceChartInstance<NonEmptyChartSourceOptions>
+  } as unknown as ChartInstanceFromConfig<T, THints, TConfig> | MultiSourceChartInstance<NonEmptyChartSourceOptions>
 }

@@ -72,7 +72,7 @@ function verifyToolRestrictionsTyping() {
   const chart = useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    tools: {
+    config: {
       groupBy: {
         allowed: ['ownerName', 'isOpen'],
       },
@@ -91,18 +91,18 @@ function verifyToolRestrictionsTyping() {
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
 
-  // @ts-expect-error tools.groupBy.allowed should narrow the setter to the declared subset
+  // @ts-expect-error config.groupBy.allowed should narrow the setter to the declared subset
   chart.setGroupBy('createdAt')
 
-  // @ts-expect-error tools.metric.allowed should narrow the setter to the declared metric subset
+  // @ts-expect-error config.metric.allowed should narrow the setter to the declared metric subset
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'min'})
 
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    tools: {
+    config: {
       groupBy: {
-        // @ts-expect-error explicit numeric hints should keep numeric IDs out of groupBy tool restrictions
+        // @ts-expect-error explicit numeric hints should keep numeric IDs out of groupBy config
         allowed: ['salary'],
       },
     },
@@ -111,10 +111,10 @@ function verifyToolRestrictionsTyping() {
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    tools: {
+    config: {
       metric: {
         allowed: [
-          // @ts-expect-error non-metric IDs should fail inside declarative metric restrictions
+          // @ts-expect-error non-metric IDs should fail inside declarative metric config
           {kind: 'aggregate', columnId: 'ownerName', aggregate: 'sum'},
         ],
       },
@@ -122,5 +122,18 @@ function verifyToolRestrictionsTyping() {
   })
 }
 
+function verifyConfigTypechecks() {
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    config: {
+      groupBy: {
+        allowed: ['ownerName'],
+      },
+    },
+  })
+}
+
 void verifyUseChartColumnIds
 void verifyToolRestrictionsTyping
+void verifyConfigTypechecks

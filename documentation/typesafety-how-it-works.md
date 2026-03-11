@@ -41,9 +41,9 @@ When `columnHints.type` is explicit, the chart API can also narrow role-aware su
 - metric IDs (`number`)
 - reference date IDs (`date`)
 
-That same information is also used to type-check declarative tool restrictions such as `tools.groupBy.allowed` and `tools.metric.allowed`.
+That same information is also used to type-check explicit config such as `config.groupBy.allowed` and `config.metric.allowed`.
 
-In the single-source path, literal `tools.allowed` values can also narrow the returned setter APIs further. For example, if `tools.groupBy.allowed` is `['segment'] as const`, then `setGroupBy(...)` narrows to that subset rather than all groupable columns.
+In the single-source path, literal `config` values can also narrow the returned setter APIs further. For example, if `config.groupBy.allowed` is `['segment'] as const`, then `setGroupBy(...)` narrows to that subset rather than all groupable columns.
 
 That is why `columnHints` are not just presentation overrides. They also shape the final typed chart API.
 

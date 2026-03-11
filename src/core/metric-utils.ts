@@ -149,7 +149,7 @@ export function normalizeMetricAllowances<TColumnId extends string>(
  * Apply a declarative metric whitelist to the inferred metric options.
  *
  * Metrics are matched structurally so callers can safely pass fresh object
- * literals in `tools.metric.allowed`. The final order follows the declarative
+ * literals in `config.metric.allowed`. The final order follows the declarative
  * restriction list, so the first allowed metric becomes the default.
  */
 export function restrictAvailableMetrics<TColumnId extends string>(

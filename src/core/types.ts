@@ -181,22 +181,22 @@ export type ResolvedDateColumnIdFromHints<
   THints extends ColumnHints<T> | undefined = undefined,
 > = ColumnIdsMatchingPotentialTypes<T, THints, 'date'>
 
-/** Tool restriction config derived from the resolved role-aware IDs for one dataset. */
-export type ChartToolsConfigFromHints<
+/** Explicit config derived from the resolved role-aware IDs for one dataset. */
+export type ChartConfigFromHints<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
-> = ChartToolsConfig<
+> = ChartConfig<
   ResolvedGroupByColumnIdFromHints<T, THints>,
   ResolvedMetricColumnIdFromHints<T, THints>
 >
 
-type AllowedGroupByColumnIdFromTools<TTools> = Extract<
-  TTools extends {groupBy?: {allowed?: readonly (infer TAllowedGroupById)[]}} ? TAllowedGroupById : never,
+type AllowedGroupByColumnIdFromConfig<TConfig> = Extract<
+  TConfig extends {groupBy?: {allowed?: readonly (infer TAllowedGroupById)[]}} ? TAllowedGroupById : never,
   string
 >
 
-type AllowedMetricFromTools<TTools> =
-  TTools extends {metric?: {allowed?: readonly (infer TAllowedMetric)[]}} ? TAllowedMetric : never
+type AllowedMetricFromConfig<TConfig> =
+  TConfig extends {metric?: {allowed?: readonly (infer TAllowedMetric)[]}} ? TAllowedMetric : never
 
 type ExpandMetricAllowance<TMetricAllowance> =
   TMetricAllowance extends CountMetric ? CountMetric
@@ -233,23 +233,23 @@ type MetricColumnIdFromMetric<TMetric> = Extract<
   string
 >
 
-/** GroupBy IDs narrowed by explicit tool restrictions when present. */
-export type RestrictedGroupByColumnIdFromTools<
+/** GroupBy IDs narrowed by explicit config when present. */
+export type RestrictedGroupByColumnIdFromConfig<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
-  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 > = RestrictUnionOrFallback<
-  AllowedGroupByColumnIdFromTools<TTools>,
+  AllowedGroupByColumnIdFromConfig<TConfig>,
   ResolvedGroupByColumnIdFromHints<T, THints>
 >
 
-/** Metric union narrowed by explicit tool restrictions when present. */
-export type RestrictedMetricFromTools<
+/** Metric union narrowed by explicit config when present. */
+export type RestrictedMetricFromConfig<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
-  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 > = RestrictUnionOrFallback<
-  ExpandMetricAllowance<AllowedMetricFromTools<TTools>>,
+  ExpandMetricAllowance<AllowedMetricFromConfig<TConfig>>,
   Metric<ResolvedMetricColumnIdFromHints<T, THints>>
 >
 
@@ -381,7 +381,7 @@ export type AggregateMetric<TColumnId extends string = string> = {
 export type Metric<TColumnId extends string = string> = CountMetric | AggregateMetric<TColumnId>
 
 /**
- * Aggregate metric restriction accepted by `tools.metric.allowed`.
+ * Aggregate metric restriction accepted by `config.metric.allowed`.
  *
  * Unlike `AggregateMetric`, the `aggregate` field may be either one aggregate
  * or an array shorthand that expands into several allowed metrics.
@@ -393,42 +393,45 @@ export type AggregateMetricAllowance<TColumnId extends string = string> = {
   includeZeros?: boolean
 }
 
-/** One declarative metric entry accepted by `tools.metric.allowed`. */
+/** One declarative metric entry accepted by `config.metric.allowed`. */
 export type MetricAllowance<TColumnId extends string = string> =
   | CountMetric
   | AggregateMetricAllowance<TColumnId>
 
 // ---------------------------------------------------------------------------
-// Tool restrictions
+// Chart config
 // ---------------------------------------------------------------------------
 
 /**
- * Declarative restrictions for the groupBy tool.
+ * Declarative config for the groupBy control.
  *
  * @property allowed - Optional whitelist of groupable column IDs.
  */
-export type GroupByToolConfig<TColumnId extends string = string> = {
+export type GroupByConfig<TColumnId extends string = string> = {
   allowed?: readonly TColumnId[]
 }
 
 /**
- * Declarative restrictions for the metric tool.
+ * Declarative config for the metric control.
  *
  * @property allowed - Optional whitelist of metrics that may be selected.
  */
-export type MetricToolConfig<TColumnId extends string = string> = {
+export type MetricConfig<TColumnId extends string = string> = {
   allowed?: readonly MetricAllowance<TColumnId>[]
 }
 
 /**
- * Declarative tool restrictions supported by `useChart()`.
+ * Explicit chart config supported by `useChart()`.
+ *
+ * `columnHints` stays convenience-first and influences inference.
+ * `config` becomes authoritative when callers want to restrict the public chart contract.
  */
-export type ChartToolsConfig<
+export type ChartConfig<
   TGroupByColumnId extends string = string,
   TMetricColumnId extends string = string,
 > = {
-  groupBy?: GroupByToolConfig<TGroupByColumnId>
-  metric?: MetricToolConfig<TMetricColumnId>
+  groupBy?: GroupByConfig<TGroupByColumnId>
+  metric?: MetricConfig<TMetricColumnId>
 }
 
 // ---------------------------------------------------------------------------
@@ -481,7 +484,7 @@ export type ChartSourceOptions<
   label: string
   data: readonly T[]
   columnHints?: THints
-  tools?: ChartToolsConfigFromHints<T, THints>
+  config?: ChartConfigFromHints<T, THints>
 }
 
 /** Convenience alias for any multi-source input definition. */
@@ -490,7 +493,7 @@ export type AnyChartSourceOptions = {
   label: string
   data: readonly any[]
   columnHints?: any
-  tools?: any
+  config?: any
 }
 
 /** Multi-source charts require at least one source so an active source always exists. */
@@ -516,7 +519,7 @@ export type ResolvedChartSource<T, TColumnId extends string = string> = {
   label: string
   data: readonly T[]
   columns: readonly ChartColumn<T, TColumnId>[]
-  tools?: ChartToolsConfig<string, string>
+  config?: ChartConfig<string, string>
 }
 
 // ---------------------------------------------------------------------------
@@ -708,21 +711,21 @@ export type ChartInstanceFromHints<
   ResolvedDateColumnIdFromHints<T, THints>
 >
 
-/** Single-source chart instance narrowed by both explicit hints and explicit tool restrictions. */
+/** Single-source chart instance narrowed by both explicit hints and explicit config. */
 export type ChartInstanceFromConfig<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
-  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 > = ChartInstance<
   T,
   ResolvedColumnIdFromHints<T, THints>,
   ResolvedXAxisColumnIdFromHints<T, THints>,
-  RestrictedGroupByColumnIdFromTools<T, THints, TTools>,
+  RestrictedGroupByColumnIdFromConfig<T, THints, TConfig>,
   Extract<
-    MetricColumnIdFromMetric<RestrictedMetricFromTools<T, THints, TTools>>,
+    MetricColumnIdFromMetric<RestrictedMetricFromConfig<T, THints, TConfig>>,
     ResolvedMetricColumnIdFromHints<T, THints>
   >,
-  RestrictedMetricFromTools<T, THints, TTools>,
+  RestrictedMetricFromConfig<T, THints, TConfig>,
   ResolvedFilterColumnIdFromHints<T, THints>,
   ResolvedDateColumnIdFromHints<T, THints>
 >
