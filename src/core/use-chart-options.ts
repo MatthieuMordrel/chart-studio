@@ -15,7 +15,6 @@ export type SingleSourceOptions<
   columnHints?: THints
   sourceLabel?: string
   sources?: never
-  columns?: never
 }
 
 /**
@@ -27,7 +26,6 @@ export type MultiSourceOptions<TSources extends NonEmptyChartSourceOptions = Non
   data?: never
   columnHints?: never
   sourceLabel?: never
-  columns?: never
   sources: TSources
 }
 

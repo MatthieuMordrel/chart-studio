@@ -31,7 +31,7 @@ bun add @matthieumordrel/chart-studio react
 Import from:
 
 ```tsx
-import {useChart} from '@matthieumordrel/chart-studio'
+import { useChart } from '@matthieumordrel/chart-studio'
 ```
 
 ### 2. Ready-made UI
@@ -55,39 +55,27 @@ bun add @matthieumordrel/chart-studio react recharts lucide-react
 Then import the package theme once in your app stylesheet:
 
 ```css
-@import "tailwindcss";
-@import "@matthieumordrel/chart-studio/ui/theme.css";
+@import 'tailwindcss';
+@import '@matthieumordrel/chart-studio/ui/theme.css';
 ```
 
 Import from:
 
 ```tsx
-import {useChart} from '@matthieumordrel/chart-studio'
-import {Chart, ChartToolbar, ChartCanvas} from '@matthieumordrel/chart-studio/ui'
+import { useChart } from '@matthieumordrel/chart-studio'
+import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
 ```
 
-## Smallest Working Example
+## Smallest Working Example (Single Source)
 
 ```tsx
-import {useChart} from '@matthieumordrel/chart-studio'
-import {Chart, ChartToolbar, ChartCanvas} from '@matthieumordrel/chart-studio/ui'
+import { useChart } from '@matthieumordrel/chart-studio'
+import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
+import { data } from './data.json'
 
-type Job = {
-  dateAdded: string
-  ownerName: string
-  isOpen: boolean
-  salary: number
-}
-
-export function JobsChart({data}: {data: Job[]}) {
+export function JobsChart({ data }) {
   const chart = useChart({
-    data,
-    columnHints: {
-      dateAdded: {type: 'date', label: 'Date Added'},
-      ownerName: {label: 'Consultant'},
-      isOpen: {trueLabel: 'Open', falseLabel: 'Closed'},
-      salary: {label: 'Salary'},
-    },
+    data
   })
 
   return (
@@ -119,7 +107,7 @@ export function JobsChart({data}: {data: Job[]}) {
 If you want to render your own UI or your own charting library, use only the core state:
 
 ```tsx
-import {useChart} from '@matthieumordrel/chart-studio'
+import { useChart } from '@matthieumordrel/chart-studio'
 
 type Job = {
   dateAdded: string
@@ -127,14 +115,14 @@ type Job = {
   salary: number
 }
 
-export function JobsChartHeadless({data}: {data: Job[]}) {
+export function JobsChartHeadless({ data }: { data: Job[] }) {
   const chart = useChart({
     data,
     columnHints: {
-      dateAdded: {type: 'date', label: 'Date Added'},
-      ownerName: {label: 'Consultant'},
-      salary: {label: 'Salary'},
-    },
+      dateAdded: { type: 'date', label: 'Date Added' },
+      ownerName: { label: 'Consultant' },
+      salary: { label: 'Salary' }
+    }
   })
 
   return (
@@ -168,8 +156,8 @@ You can use `ui` in two ways:
 This is the easiest setup:
 
 ```css
-@import "tailwindcss";
-@import "@matthieumordrel/chart-studio/ui/theme.css";
+@import 'tailwindcss';
+@import '@matthieumordrel/chart-studio/ui/theme.css';
 ```
 
 This does three things for you:
@@ -202,18 +190,18 @@ If your app already defines some of these variables, your values override the de
 
 These are the tokens currently expected by the UI layer:
 
-| Token | Purpose |
-| --- | --- |
-| `background` | control backgrounds and input surfaces |
-| `foreground` | primary text |
-| `muted` | subtle backgrounds and hover states |
-| `muted-foreground` | secondary text and icons |
-| `border` | outlines and separators |
-| `popover` | dropdowns and floating panels |
-| `popover-foreground` | popover text color |
-| `primary` | selected and active states |
-| `primary-foreground` | text on filled primary surfaces |
-| `ring` | focus-visible ring color |
+| Token                | Purpose                                |
+| -------------------- | -------------------------------------- |
+| `background`         | control backgrounds and input surfaces |
+| `foreground`         | primary text                           |
+| `muted`              | subtle backgrounds and hover states    |
+| `muted-foreground`   | secondary text and icons               |
+| `border`             | outlines and separators                |
+| `popover`            | dropdowns and floating panels          |
+| `popover-foreground` | popover text color                     |
+| `primary`            | selected and active states             |
+| `primary-foreground` | text on filled primary surfaces        |
+| `ring`               | focus-visible ring color               |
 
 Minimal example:
 
@@ -245,13 +233,13 @@ That makes the package usable out of the box while still being easy to theme.
 
 Chart series colors also support shadcn-style chart variables:
 
-| Token | Purpose |
-| --- | --- |
-| `chart-1` | first series color |
+| Token     | Purpose             |
+| --------- | ------------------- |
+| `chart-1` | first series color  |
 | `chart-2` | second series color |
-| `chart-3` | third series color |
+| `chart-3` | third series color  |
 | `chart-4` | fourth series color |
-| `chart-5` | fifth series color |
+| `chart-5` | fifth series color  |
 
 These are also optional when you import `ui/theme.css`.
 
@@ -303,10 +291,10 @@ const chart = useChart({
       id: 'jobs',
       label: 'Jobs',
       data: jobs,
-      columnHints: {dateAdded: {type: 'date', label: 'Date Added'}},
+      columnHints: { dateAdded: { type: 'date', label: 'Date Added' } }
     },
-    {id: 'candidates', label: 'Candidates', data: candidates},
-  ],
+    { id: 'candidates', label: 'Candidates', data: candidates }
+  ]
 })
 ```
 
@@ -325,8 +313,8 @@ If the components render but look plain, compressed, or layout incorrectly, the 
 Start with:
 
 ```css
-@import "tailwindcss";
-@import "@matthieumordrel/chart-studio/ui/theme.css";
+@import 'tailwindcss';
+@import '@matthieumordrel/chart-studio/ui/theme.css';
 ```
 
 If you are importing the package source directly in a local playground or monorepo, make sure Tailwind is scanning those source files too.

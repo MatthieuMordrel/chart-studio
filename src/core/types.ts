@@ -181,10 +181,6 @@ export type ChartColumn<T, TId extends string = string> =
   | BooleanColumn<T, TId>
   | NumberColumn<T, TId>
 
-/** Extract the union of IDs from a readonly column tuple. */
-export type ColumnIdFromColumns<TColumns extends readonly ChartColumn<any, string>[]> =
-  TColumns[number]['id']
-
 // ---------------------------------------------------------------------------
 // Chart type
 // ---------------------------------------------------------------------------
@@ -304,18 +300,18 @@ export type NonEmptyChartSourceOptions = readonly [
 ]
 
 // ---------------------------------------------------------------------------
-// Data source
+// Resolved source
 // ---------------------------------------------------------------------------
 
 /**
- * A named data source for multi-source charts.
+ * Internal normalized source shape after inference has resolved columns.
  *
  * @property id - Unique identifier for this source
  * @property label - Display label in the source switcher
  * @property data - Array of raw data items
  * @property columns - Column definitions for this source
  */
-export type DataSource<T, TColumnId extends string = string> = {
+export type ResolvedChartSource<T, TColumnId extends string = string> = {
   id: string
   label: string
   data: readonly T[]

@@ -9,7 +9,6 @@ import type {
   ChartInstance,
   ChartType,
   ColumnHints,
-  DataSource,
   DateColumn,
   DateRange,
   DateRangeFilter,
@@ -17,6 +16,7 @@ import type {
   Metric,
   MultiSourceChartInstance,
   NonEmptyChartSourceOptions,
+  ResolvedChartSource,
   ResolvedColumnIdFromHints,
   SortConfig,
   TimeBucket
@@ -72,7 +72,7 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
     throw new Error('useChart requires at least one source')
   }
 
-  const sources = useMemo<DataSource<any, string>[]>(() => {
+  const sources = useMemo<ResolvedChartSource<any, string>[]>(() => {
     if ('sources' in options && options.sources) {
       return options.sources.map(source => ({
         id: source.id,

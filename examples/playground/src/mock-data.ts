@@ -1,5 +1,3 @@
-import type { ChartSourceOptions } from '@matthieumordrel/chart-studio'
-
 import { generateEventProgramData } from './mock-data/generate-event-program-data'
 import { generateQuarterlyFinancialData } from './mock-data/generate-quarterly-financial-data'
 import { generateRecipeLogData } from './mock-data/generate-recipe-log-data'
@@ -35,13 +33,6 @@ export type EventProgramRecord = {
   attendees: number
   ticketRevenue: number
 }
-
-/**
- * Named playground source with its own schema and data shape.
- */
-export type PlaygroundSource = {
-  description: string
-} & ChartSourceOptions<string, any, any>
 
 /**
  * Home cooking dataset – simple, relatable records.
@@ -102,4 +93,4 @@ export const playgroundSources = [
       ticketRevenue: { format: 'currency' }
     } as const
   }
-] satisfies readonly [PlaygroundSource, ...PlaygroundSource[]]
+] as const
