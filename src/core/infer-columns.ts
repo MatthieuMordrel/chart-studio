@@ -40,8 +40,13 @@ type InferenceSignal = {
  * Humanize an object key into a UI label.
  */
 function humanizeKey(key: string): string {
-  const normalized = key.replace(/[_-]+/g, ' ').replace(/([A-Z])/g, ' $1').trim()
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+  return key
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }
 
 /**
@@ -284,6 +289,21 @@ function createInferenceMetadata(
 }
 
 /**
+ * Normalize numeric timestamps so second-based Unix values also behave like dates.
+ */
+function normalizeDateValue(value: string | number | Date): string | number | Date {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return value
+  }
+
+  if (value >= 1e9 && value < 1e12) {
+    return value * 1000
+  }
+
+  return value
+}
+
+/**
  * Build a date column for one field.
  */
 function createDateColumn<T, TId extends string>(
@@ -303,7 +323,7 @@ function createDateColumn<T, TId extends string>(
     accessor: (item: T) => {
       const value = accessor(item)
       return value instanceof Date || typeof value === 'string' || typeof value === 'number'
-        ? value
+        ? normalizeDateValue(value)
         : null
     },
   }

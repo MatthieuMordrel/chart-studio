@@ -107,10 +107,18 @@ function defaultAccessor<T, TKey extends keyof T>(key: TKey): (item: T) => T[TKe
   return (item: T) => item[key]
 }
 
-/** Capitalize the first letter and add spaces before uppercase letters. */
+/**
+ * Humanize object keys into title-cased labels.
+ * Handles camelCase, snake_case, and kebab-case consistently.
+ */
 function humanize(key: string): string {
-  const spaced = key.replace(/([A-Z])/g, ' $1')
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+  return key
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }
 
 // ---------------------------------------------------------------------------

@@ -152,6 +152,54 @@ describe('useChart', () => {
     expect(result.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
   })
 
+  it('handles complex single-source inference with timestamps, hints, and unsupported fields', () => {
+    const data = [
+      {
+        bookedAt: 1767225600,
+        region: 'EMEA',
+        isActive: true,
+        revenue: 1200,
+        conversionRate: 0.12,
+        internalId: 'acct-1',
+        metadata: {owner: 'Alice'},
+      },
+      {
+        bookedAt: 1769904000,
+        region: 'NA',
+        isActive: false,
+        revenue: 900,
+        conversionRate: 0.18,
+        internalId: 'acct-2',
+        metadata: {owner: 'Bob'},
+      },
+    ] as const
+
+    const {result} = renderHook(() =>
+      useChart({
+        data,
+        columnHints: {
+          revenue: {label: 'Revenue'},
+          internalId: false,
+        } as const,
+      }),
+    )
+
+    expect(result.current.xAxisId).toBe('bookedAt')
+    expect(result.current.availableDateColumns).toEqual([{id: 'bookedAt', label: 'Booked At'}])
+    expect(result.current.columns.find((column) => column.id === 'bookedAt')?.type).toBe('date')
+    expect(result.current.columns.find((column) => column.id === 'revenue')?.format).toBe('currency')
+    expect(result.current.columns.find((column) => column.id === 'conversionRate')?.format).toBe('percent')
+    const columnIds = result.current.columns.map((column) => column.id)
+    expect(columnIds).not.toContain('internalId')
+    expect(columnIds).not.toContain('metadata')
+    expect(result.current.transformedData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({xKey: '2026-01', value: 1}),
+        expect.objectContaining({xKey: '2026-02', value: 1}),
+      ]),
+    )
+  })
+
   it('throws when multi-source charts are created without sources', () => {
     expect(() =>
       renderHook(() =>

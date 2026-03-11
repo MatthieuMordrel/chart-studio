@@ -8,9 +8,11 @@ import {MinimalChart} from './MinimalChart'
 import minimalSource from './MinimalChart.tsx?raw'
 import {OverflowToolbarChart} from './OverflowToolbarChart'
 import overflowToolbarSource from './OverflowToolbarChart.tsx?raw'
+import {SingleSourceChart} from './SingleSourceChart'
+import singleSourceSource from './SingleSourceChart.tsx?raw'
 import {ThemeToggle} from './ThemeToggle'
 
-type ScenarioId = 'kitchen-sink' | 'overflow-toolbar' | 'minimal' | 'headless'
+type ScenarioId = 'kitchen-sink' | 'single-source' | 'overflow-toolbar' | 'minimal' | 'headless'
 
 const SCENARIOS = [
   {
@@ -19,6 +21,13 @@ const SCENARIOS = [
     description:
       'Interactive ChartToolbar documentation inside the playground. Toggle each control between ' +
       'pinned, ellipsis, and hidden to understand the full API and the available controls.',
+  },
+  {
+    id: 'single-source' as const,
+    label: 'Single Source',
+    description:
+      'Inference-first single-source mode. Pass raw data directly to useChart and add typed columnHints only ' +
+      'for nicer labels, formatting, or the rare field that needs an override.',
   },
   {
     id: 'overflow-toolbar' as const,
@@ -46,6 +55,7 @@ const SCENARIOS = [
 /** Map each scenario id to its raw source string for the code panel. */
 const SCENARIO_SOURCE: Record<ScenarioId, string> = {
   'kitchen-sink': kitchenSinkSource,
+  'single-source': singleSourceSource,
   'overflow-toolbar': overflowToolbarSource,
   minimal: minimalSource,
   headless: headlessSource,
@@ -90,6 +100,7 @@ function App() {
         </header>
 
         {scenarioId === 'kitchen-sink' && <KitchenSinkChart />}
+        {scenarioId === 'single-source' && <SingleSourceChart />}
         {scenarioId === 'overflow-toolbar' && <OverflowToolbarChart />}
         {scenarioId === 'minimal' && <MinimalChart />}
         {scenarioId === 'headless' && <HeadlessChart />}
