@@ -6,6 +6,7 @@
 
 export {CHART_TYPE_CONFIG} from './chart-capabilities.js'
 export {getSeriesColor, buildColorMap} from './colors.js'
+export {defineChartConfig} from './define-chart-config.js'
 export {inferColumnsFromData} from './infer-columns.js'
 export {buildAvailableMetrics, getMetricLabel} from './metric-utils.js'
 export {runPipeline, applyFilters, extractAvailableFilters} from './pipeline.js'

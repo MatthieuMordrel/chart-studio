@@ -1,4 +1,4 @@
-import type {ChartConfigFromHints, ValidatedChartConfigFromHints} from './types.js'
+import {defineChartConfig} from './define-chart-config.js'
 import {useChart} from './use-chart.js'
 
 type ExampleRecord = {
@@ -17,20 +17,12 @@ const exampleHints = {
   internalId: false,
 } as const
 
+const defineExampleConfig = defineChartConfig<ExampleRecord, typeof exampleHints>()
+
 /**
  * Compile-time helper used to assert inferred types.
  */
 function expectType<T>(_value: T): void {}
-
-/**
- * Compile-time helper used to validate config literals without affecting
- * `useChart()` inference.
- */
-function expectValidConfig<
-  const TConfig extends ChartConfigFromHints<ExampleRecord, typeof exampleHints>,
->(
-  _config: ValidatedChartConfigFromHints<ExampleRecord, typeof exampleHints, TConfig>,
-): void {}
 
 /**
  * This function never runs.
@@ -145,7 +137,7 @@ function verifyConfigTypechecks() {
   })
 
   // @ts-expect-error explicit defaults should not also be hidden
-  expectValidConfig({
+  defineExampleConfig({
     chartType: {
       allowed: ['bar', 'line'],
       hidden: ['line'],
@@ -161,7 +153,81 @@ function verifyConfigTypechecks() {
   } as const
 
   // @ts-expect-error extracted config literals should also reject hidden defaults
-  expectValidConfig(conflictingConfig)
+  defineExampleConfig(conflictingConfig)
+
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    // @ts-expect-error invalid top-level config keys should fail inline
+    config: defineExampleConfig({
+      groupBy: {
+        allowed: ['ownerName'],
+      },
+      grouping: {
+        allowed: ['isOpen'],
+      },
+    }),
+  })
+
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    // @ts-expect-error invalid nested config keys should fail inline
+    config: defineExampleConfig({
+      groupBy: {
+        allowed: ['ownerName'],
+        fallback: 'ownerName',
+      },
+    }),
+  })
+
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    // @ts-expect-error invalid nested metric keys should fail inline
+    config: defineExampleConfig({
+      metric: {
+        allowed: [
+          {
+            kind: 'aggregate',
+            columnId: 'salary',
+            aggregate: 'sum',
+            label: 'Revenue',
+          },
+        ],
+      },
+    }),
+  })
+
+  const invalidTopLevelConfig = {
+    groupBy: {
+      allowed: ['ownerName'],
+    },
+    grouping: {
+      allowed: ['isOpen'],
+    },
+  } as const
+
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    // @ts-expect-error extracted config objects should reject invalid top-level keys
+    config: defineExampleConfig(invalidTopLevelConfig),
+  })
+
+  const invalidNestedConfig = {
+    groupBy: {
+      allowed: ['ownerName'],
+      fallback: 'ownerName',
+    },
+  } as const
+
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    // @ts-expect-error extracted config objects should reject invalid nested keys
+    config: defineExampleConfig(invalidNestedConfig),
+  })
 }
 
 function verifyGeneralizedConfigTyping() {

@@ -2,6 +2,8 @@ import { useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
 import { quarterlyFinancialData } from '../mock-data'
 
+
+
 /**
  * Dedicated single-source example for the inference-first API.
  * The raw dataset is passed directly to useChart and only the fields that need
@@ -22,7 +24,6 @@ export function SingleSourceChart() {
       xAxis: {
         allowed: ['periodEnd']
       },
-      
       timeBucket: { allowed: ['year', 'quarter', 'month'] },
       chartType: { allowed: ['bar', 'line'] },
       groupBy: {

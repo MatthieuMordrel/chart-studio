@@ -265,6 +265,28 @@ type IsTuple<TArray extends readonly unknown[]> = number extends TArray['length'
 
 type NarrowConfigLiteral<TValue, TWide> = IsExactly<TValue, TWide> extends true ? never : TValue
 
+type ExactShape<TExpected, TActual> =
+  [TActual] extends [TExpected]
+    ? [TActual] extends [undefined]
+      ? TActual
+      : [NonNullable<TExpected>] extends [readonly (infer TExpectedItem)[]]
+      ? [NonNullable<TActual>] extends [readonly (infer TActualItem)[]]
+        ? readonly ExactShape<TExpectedItem, TActualItem>[]
+        : never
+      : [NonNullable<TExpected>] extends [(...args: never[]) => unknown]
+        ? TActual
+        : [NonNullable<TExpected>] extends [object]
+          ? [NonNullable<TActual>] extends [object]
+            ? {
+                [TKey in keyof NonNullable<TActual>]:
+                  TKey extends keyof NonNullable<TExpected>
+                    ? ExactShape<NonNullable<TExpected>[TKey], NonNullable<TActual>[TKey]>
+                    : never
+              }
+            : never
+          : TActual
+    : never
+
 type ValidateLiteralDefaultNotHidden<
   TSection,
   TWideOption,
@@ -315,9 +337,11 @@ type ValidateChartConfigLiterals<
 export type ValidatedChartConfigFromHints<
   T,
   THints extends ColumnHints<T> | undefined,
-  TConfig extends ChartConfigFromHints<T, THints> | undefined,
+  TConfig,
 > = TConfig extends ChartConfigFromHints<T, THints>
-  ? TConfig & ValidateChartConfigLiterals<T, THints, TConfig>
+  ? ExactShape<ChartConfigFromHints<T, THints>, TConfig>
+    & TConfig
+    & ValidateChartConfigLiterals<T, THints, TConfig>
   : TConfig
 
 /** GroupBy IDs narrowed by explicit config when present. */

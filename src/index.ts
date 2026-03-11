@@ -33,6 +33,7 @@
 // Headless charting API.
 export {
   CHART_TYPE_CONFIG,
+  defineChartConfig,
   inferColumnsFromData,
   useChart,
   getSeriesColor,
