@@ -189,6 +189,42 @@ describe('useChart', () => {
     expect(result.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
   })
 
+  it('supports declarative groupBy and metric tool restrictions', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        columnHints: {
+          dateAdded: {type: 'date'},
+          ownerName: {type: 'category'},
+          isOpen: {type: 'boolean'},
+          salary: {type: 'number'},
+        } as const,
+        tools: {
+          groupBy: {
+            allowed: ['isOpen'],
+          },
+          metric: {
+            allowed: [
+              {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+            ],
+          },
+        },
+      }),
+    )
+
+    expect(result.current.availableGroupBys).toEqual([{id: 'isOpen', label: 'Is Open'}])
+    expect(result.current.availableMetrics).toEqual([{kind: 'aggregate', columnId: 'salary', aggregate: 'sum'}])
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+
+    act(() => {
+      result.current.setGroupBy('ownerName' as Parameters<typeof result.current.setGroupBy>[0])
+      result.current.setMetric({kind: 'count'} as Parameters<typeof result.current.setMetric>[0])
+    })
+
+    expect(result.current.groupById).toBeNull()
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+  })
+
   it('handles complex single-source inference with timestamps, hints, and unsupported fields', () => {
     const data = [
       {

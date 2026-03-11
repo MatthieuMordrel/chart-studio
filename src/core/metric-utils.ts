@@ -22,6 +22,29 @@ export function isAggregateMetric<TColumnId extends string>(
 }
 
 /**
+ * Compare two metric definitions for semantic equality.
+ */
+export function isSameMetric<TColumnId extends string>(
+  left: Metric<TColumnId>,
+  right: Metric<TColumnId>,
+): boolean {
+  if (left.kind !== right.kind) {
+    return false
+  }
+
+  if (left.kind === 'count') {
+    return true
+  }
+
+  return (
+    right.kind === 'aggregate'
+    && left.columnId === right.columnId
+    && left.aggregate === right.aggregate
+    && (left.includeZeros ?? true) === (right.includeZeros ?? true)
+  )
+}
+
+/**
  * Human-readable label for a numeric aggregate.
  */
 export function getAggregateMetricLabel(
@@ -86,12 +109,40 @@ export function buildAvailableMetrics<T, TColumnId extends string>(
 }
 
 /**
+ * Apply a declarative metric whitelist to the inferred metric options.
+ *
+ * Metrics are matched structurally so callers can safely pass fresh object
+ * literals in `tools.metric.allowed`.
+ */
+export function restrictAvailableMetrics<TColumnId extends string>(
+  metrics: readonly Metric<TColumnId>[],
+  allowedMetrics?: readonly Metric<TColumnId>[],
+): Metric<TColumnId>[] {
+  if (!allowedMetrics) {
+    return [...metrics]
+  }
+
+  const restricted = metrics.filter(metric =>
+    allowedMetrics.some(allowedMetric => isSameMetric(metric, allowedMetric))
+  )
+
+  // A chart always needs one active metric. Fall back to the inferred default if
+  // the whitelist ends up empty or does not match the active source.
+  return restricted.length > 0 ? restricted : [metrics[0] ?? DEFAULT_METRIC]
+}
+
+/**
  * Validate a metric against the active source.
  */
 export function resolveMetric<T, TColumnId extends string>(
   metric: Metric<TColumnId>,
   columns: readonly ChartColumn<T, TColumnId>[],
+  availableMetrics?: readonly Metric<TColumnId>[],
 ): Metric<TColumnId> {
+  if (availableMetrics && availableMetrics.length > 0) {
+    return availableMetrics.find(candidate => isSameMetric(candidate, metric)) ?? availableMetrics[0]!
+  }
+
   if (!isAggregateMetric(metric)) {
     return DEFAULT_METRIC
   }

@@ -41,6 +41,8 @@ When `columnHints.type` is explicit, the chart API can also narrow role-aware su
 - metric IDs (`number`)
 - reference date IDs (`date`)
 
+That same information is also used to type-check declarative tool restrictions such as `tools.groupBy.allowed` and `tools.metric.allowed`.
+
 That is why `columnHints` are not just presentation overrides. They also shape the final typed chart API.
 
 ## What is still broad

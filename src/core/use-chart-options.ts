@@ -1,10 +1,11 @@
-import type {ChartSourceOptions, ColumnHints, NonEmptyChartSourceOptions} from './types.js'
+import type {ChartSourceOptions, ChartToolsConfigFromHints, ColumnHints, NonEmptyChartSourceOptions} from './types.js'
 
 /**
  * Single-source options for useChart.
  *
  * @property data - Array of raw data items
  * @property columnHints - Optional per-field overrides layered on top of automatic inference
+ * @property tools - Optional declarative restrictions for groupBy and metric tools
  * @property sourceLabel - Human-readable label for the data source (e.g. "Jobs", "Placements"). Defaults to "Unnamed Source".
  */
 export type SingleSourceOptions<
@@ -13,6 +14,7 @@ export type SingleSourceOptions<
 > = {
   data: readonly T[]
   columnHints?: THints
+  tools?: ChartToolsConfigFromHints<T, THints>
   sourceLabel?: string
   sources?: never
 }

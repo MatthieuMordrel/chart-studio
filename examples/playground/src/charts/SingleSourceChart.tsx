@@ -5,12 +5,33 @@ import { quarterlyFinancialData } from '../mock-data'
 /**
  * Dedicated single-source example for the inference-first API.
  * The raw dataset is passed directly to useChart and only the fields that need
- * nicer labels or formatting receive lightweight hints.
+ * nicer labels, stronger typing, or tool restrictions receive lightweight hints.
  */
 export function SingleSourceChart() {
   const chart = useChart({
     data: quarterlyFinancialData,
-    sourceLabel: 'Quarterly Financials'
+    columnHints: {
+      periodEnd: {type: 'date', label: 'Period End'},
+      segment: {type: 'category'},
+      revenue: {type: 'number', label: 'Revenue'},
+      netIncome: {type: 'number', label: 'Net Income'},
+      ebitda: {type: 'number', label: 'EBITDA'},
+      grossProfit: {type: 'number', label: 'Gross Profit'},
+    } as const,
+    tools: {
+      groupBy: {
+        allowed: ['segment'],
+      },
+      metric: {
+        allowed: [
+          {kind: 'count'},
+          {kind: 'aggregate', columnId: 'revenue', aggregate: 'sum'},
+          {kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum'},
+          {kind: 'aggregate', columnId: 'ebitda', aggregate: 'avg'},
+        ],
+      },
+    },
+    sourceLabel: 'Quarterly Financials',
   })
 
   return (

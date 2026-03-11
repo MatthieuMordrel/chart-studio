@@ -10,7 +10,7 @@ import type {ReactNode} from 'react'
 import {useMemo} from 'react'
 import {ArrowDownToLine, ArrowUpToLine, Divide, Hash, Sigma} from 'lucide-react'
 import {DEFAULT_METRIC, isAggregateMetric} from '../core/metric-utils.js'
-import type {ChartColumn, NumericAggregateFunction, NumberColumn} from '../core/types.js'
+import type {ChartColumn, Metric, NumericAggregateFunction, NumberColumn} from '../core/types.js'
 import {useChartContext} from './chart-context.js'
 
 // ---------------------------------------------------------------------------
@@ -60,6 +60,34 @@ function getNumberColumns(columns: readonly ChartColumn<unknown>[]): NumberColum
   return columns.filter((column): column is NumberColumn<unknown> => column.type === 'number')
 }
 
+/**
+ * Group the allowed aggregate metrics by number column while preserving column order.
+ */
+function getMetricColumnGroups(
+  availableMetrics: readonly Metric<string>[],
+  columns: readonly ChartColumn<unknown>[],
+): Array<{columnId: string; label: string; aggregates: NumericAggregateFunction[]}> {
+  const aggregateMap = new Map<string, Set<NumericAggregateFunction>>()
+
+  for (const metric of availableMetrics) {
+    if (metric.kind !== 'aggregate') {
+      continue
+    }
+
+    const aggregates = aggregateMap.get(metric.columnId) ?? new Set<NumericAggregateFunction>()
+    aggregates.add(metric.aggregate)
+    aggregateMap.set(metric.columnId, aggregates)
+  }
+
+  return getNumberColumns(columns)
+    .filter(column => aggregateMap.has(column.id))
+    .map(column => ({
+      columnId: column.id,
+      label: column.label,
+      aggregates: [...(aggregateMap.get(column.id) ?? new Set<NumericAggregateFunction>())],
+    }))
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -73,7 +101,7 @@ function MetricColumnGroup({
   onSelectAggregate,
   onToggleZeros,
 }: {
-  group: {columnId: string; label: string}
+  group: {columnId: string; label: string; aggregates: NumericAggregateFunction[]}
   isActiveColumn: boolean
   activeAggregate: NumericAggregateFunction | null
   includeZeros: boolean
@@ -140,7 +168,7 @@ function MetricColumnGroup({
 
       {/* Aggregate buttons */}
       <div className="grid grid-cols-2 gap-1.5">
-        {AGGREGATE_OPTIONS.map((opt) => {
+        {AGGREGATE_OPTIONS.filter(opt => group.aggregates.includes(opt.fn)).map((opt) => {
           const isActive = isActiveColumn && activeAggregate === opt.fn
           return (
             <button
@@ -174,13 +202,24 @@ function MetricColumnGroup({
  * @property className - Additional CSS classes
  */
 export function ChartMetricPanel({onClose, className}: {onClose?: () => void; className?: string}) {
-  const {metric, setMetric, columns} = useChartContext()
-  const numberColumns = useMemo(() => getNumberColumns(columns), [columns])
+  const {metric, setMetric, columns, availableMetrics} = useChartContext()
+  const countMetricEnabled = useMemo(
+    () => availableMetrics.some(candidate => candidate.kind === 'count'),
+    [availableMetrics]
+  )
+  const metricColumnGroups = useMemo(
+    () => getMetricColumnGroups(availableMetrics, columns),
+    [availableMetrics, columns]
+  )
 
   const isCount = metric.kind === 'count'
   const includeZeros = isAggregateMetric(metric) ? (metric.includeZeros ?? true) : true
 
   const handleSelectCount = () => {
+    if (!countMetricEnabled) {
+      return
+    }
+
     setMetric(DEFAULT_METRIC)
     onClose?.()
   }
@@ -205,40 +244,42 @@ export function ChartMetricPanel({onClose, className}: {onClose?: () => void; cl
   return (
     <div className={className}>
       {/* Count option */}
-      <button
-        onClick={handleSelectCount}
-        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
-          isCount ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted'
-        }`}
-      >
-        <div
-          className={`flex h-6 w-6 items-center justify-center rounded-md ${
-            isCount ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+      {countMetricEnabled && (
+        <button
+          onClick={handleSelectCount}
+          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
+            isCount ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted'
           }`}
         >
-          <Hash className="h-3.5 w-3.5" />
-        </div>
-        <div>
-          <div className="font-medium">Count</div>
-          <div className="text-[10px] text-muted-foreground">Number of items</div>
-        </div>
-      </button>
+          <div
+            className={`flex h-6 w-6 items-center justify-center rounded-md ${
+              isCount ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            <Hash className="h-3.5 w-3.5" />
+          </div>
+          <div>
+            <div className="font-medium">Count</div>
+            <div className="text-[10px] text-muted-foreground">Number of items</div>
+          </div>
+        </button>
+      )}
 
       {/* Separator */}
-      {numberColumns.length > 0 && <div className="my-4 border-t border-border" />}
+      {countMetricEnabled && metricColumnGroups.length > 0 && <div className="my-4 border-t border-border" />}
 
       {/* Number column groups */}
       <div className="space-y-4">
-        {numberColumns.map((group) => (
+        {metricColumnGroups.map((group) => (
           <MetricColumnGroup
-            key={group.id}
-            group={{columnId: group.id, label: group.label}}
-            isActiveColumn={isAggregateMetric(metric) && metric.columnId === group.id}
+            key={group.columnId}
+            group={group}
+            isActiveColumn={isAggregateMetric(metric) && metric.columnId === group.columnId}
             activeAggregate={
-              isAggregateMetric(metric) && metric.columnId === group.id ? metric.aggregate : null
+              isAggregateMetric(metric) && metric.columnId === group.columnId ? metric.aggregate : null
             }
             includeZeros={includeZeros}
-            onSelectAggregate={(fn) => handleSelectAggregate(group.id, fn)}
+            onSelectAggregate={(fn) => handleSelectAggregate(group.columnId, fn)}
             onToggleZeros={handleToggleZeros}
           />
         ))}

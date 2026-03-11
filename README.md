@@ -102,6 +102,36 @@ export function JobsChart({ data }) {
 | `boolean`  | grouping, filtering                     |
 | `number`   | metrics such as sum, avg, min, max      |
 
+## Declarative Tool Restrictions
+
+If you want to expose only a subset of groupings or metrics, use the optional `tools` config:
+
+```tsx
+const chart = useChart({
+  data,
+  columnHints: {
+    periodEnd: {type: 'date'},
+    segment: {type: 'category'},
+    revenue: {type: 'number'},
+    netIncome: {type: 'number'},
+  } as const,
+  tools: {
+    groupBy: {
+      allowed: ['segment'],
+    },
+    metric: {
+      allowed: [
+        {kind: 'count'},
+        {kind: 'aggregate', columnId: 'revenue', aggregate: 'sum'},
+        {kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum'},
+      ],
+    },
+  },
+})
+```
+
+With explicit `columnHints.type`, those restrictions are also type-checked.
+
 ## Headless Example
 
 If you want to render your own UI or your own charting library, use only the core state:

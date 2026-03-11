@@ -68,4 +68,47 @@ function verifyUseChartColumnIds() {
   chart.setXAxis('internalId')
 }
 
+function verifyToolRestrictionsTyping() {
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    tools: {
+      groupBy: {
+        allowed: ['ownerName', 'isOpen'],
+      },
+      metric: {
+        allowed: [
+          {kind: 'count'},
+          {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+        ],
+      },
+    },
+  })
+
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    tools: {
+      groupBy: {
+        // @ts-expect-error explicit numeric hints should keep numeric IDs out of groupBy tool restrictions
+        allowed: ['salary'],
+      },
+    },
+  })
+
+  useChart({
+    data: [] as ExampleRecord[],
+    columnHints: exampleHints,
+    tools: {
+      metric: {
+        allowed: [
+          // @ts-expect-error non-metric IDs should fail inside declarative metric restrictions
+          {kind: 'aggregate', columnId: 'ownerName', aggregate: 'sum'},
+        ],
+      },
+    },
+  })
+}
+
 void verifyUseChartColumnIds
+void verifyToolRestrictionsTyping

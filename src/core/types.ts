@@ -181,6 +181,15 @@ export type ResolvedDateColumnIdFromHints<
   THints extends ColumnHints<T> | undefined = undefined,
 > = ColumnIdsMatchingPotentialTypes<T, THints, 'date'>
 
+/** Tool restriction config derived from the resolved role-aware IDs for one dataset. */
+export type ChartToolsConfigFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = ChartToolsConfig<
+  ResolvedGroupByColumnIdFromHints<T, THints>,
+  ResolvedMetricColumnIdFromHints<T, THints>
+>
+
 /** Base properties shared by all column types. */
 type ColumnBase<T, TId extends string> = {
   /** Unique identifier — typically the field key in the data object. */
@@ -304,6 +313,39 @@ export type AggregateMetric<TColumnId extends string = string> = {
 export type Metric<TColumnId extends string = string> = CountMetric | AggregateMetric<TColumnId>
 
 // ---------------------------------------------------------------------------
+// Tool restrictions
+// ---------------------------------------------------------------------------
+
+/**
+ * Declarative restrictions for the groupBy tool.
+ *
+ * @property allowed - Optional whitelist of groupable column IDs.
+ */
+export type GroupByToolConfig<TColumnId extends string = string> = {
+  allowed?: readonly TColumnId[]
+}
+
+/**
+ * Declarative restrictions for the metric tool.
+ *
+ * @property allowed - Optional whitelist of metrics that may be selected.
+ */
+export type MetricToolConfig<TColumnId extends string = string> = {
+  allowed?: readonly Metric<TColumnId>[]
+}
+
+/**
+ * Declarative tool restrictions supported by `useChart()`.
+ */
+export type ChartToolsConfig<
+  TGroupByColumnId extends string = string,
+  TMetricColumnId extends string = string,
+> = {
+  groupBy?: GroupByToolConfig<TGroupByColumnId>
+  metric?: MetricToolConfig<TMetricColumnId>
+}
+
+// ---------------------------------------------------------------------------
 // Filter state
 // ---------------------------------------------------------------------------
 
@@ -348,15 +390,17 @@ export type ChartSourceOptions<
   TId extends string = string,
   T = unknown,
   THints extends ColumnHints<T> | undefined = undefined,
+  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
 > = {
   id: TId
   label: string
   data: readonly T[]
   columnHints?: THints
+  tools?: TTools
 }
 
 /** Convenience alias for any multi-source input definition. */
-export type AnyChartSourceOptions = ChartSourceOptions<string, any, any>
+export type AnyChartSourceOptions = ChartSourceOptions<string, any, any, any>
 
 /** Multi-source charts require at least one source so an active source always exists. */
 export type NonEmptyChartSourceOptions = readonly [
@@ -381,6 +425,7 @@ export type ResolvedChartSource<T, TColumnId extends string = string> = {
   label: string
   data: readonly T[]
   columns: readonly ChartColumn<T, TColumnId>[]
+  tools?: ChartToolsConfig<string, string>
 }
 
 // ---------------------------------------------------------------------------
@@ -572,29 +617,29 @@ export type ChartInstanceFromHints<
 
 type SourceIdFromSource<TSource extends AnyChartSourceOptions> = TSource['id']
 type SourceRowFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, any> ? TRow : never
+  TSource extends ChartSourceOptions<string, infer TRow, any, any> ? TRow : never
 type SourceColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceXAxisColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedXAxisColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceGroupByColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedGroupByColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceMetricColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedMetricColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceFilterColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedFilterColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceDateColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedDateColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceIdFromSources<TSources extends NonEmptyChartSourceOptions> =

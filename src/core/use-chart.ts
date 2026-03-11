@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { getAvailableChartTypes, type ChartAxisType } from './chart-capabilities.js'
 import { computeDateRange, filterByDateRange } from './date-utils.js'
 import { inferColumnsFromData } from './infer-columns.js'
-import { buildAvailableMetrics, DEFAULT_METRIC, resolveMetric } from './metric-utils.js'
+import { buildAvailableMetrics, DEFAULT_METRIC, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
 import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
 import type {
   ChartColumn,
@@ -78,6 +78,7 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
         label: source.label,
         data: source.data,
         columns: inferColumnsFromData(source.data, source.columnHints),
+        tools: source.tools,
       }))
     }
 
@@ -87,6 +88,7 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
         label: options.sourceLabel ?? 'Unnamed Source',
         data: options.data,
         columns: inferColumnsFromData(options.data, options.columnHints),
+        tools: options.tools,
       },
     ]
   }, [options])
@@ -149,16 +151,27 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
   )
 
   const availableGroupBys = useMemo(
-    () =>
-      activeColumns
+    () => {
+      const allowedGroupByIds = activeSource.tools?.groupBy?.allowed
+      const allowedGroupByIdSet = allowedGroupByIds ? new Set(allowedGroupByIds) : null
+
+      return activeColumns
         .filter(column => (column.type === 'category' || column.type === 'boolean') && column.id !== resolvedXAxisId)
-        .map(column => ({ id: column.id, label: column.label })),
-    [activeColumns, resolvedXAxisId]
+        .filter(column => (allowedGroupByIdSet ? allowedGroupByIdSet.has(column.id) : true))
+        .map(column => ({ id: column.id, label: column.label }))
+    },
+    [activeColumns, activeSource.tools, resolvedXAxisId]
   )
 
   const resolvedGroupById = groupById && availableGroupBys.some(column => column.id === groupById) ? groupById : null
-  const availableMetrics = useMemo(() => buildAvailableMetrics(activeColumns), [activeColumns])
-  const resolvedMetric = useMemo(() => resolveMetric(metric, activeColumns), [metric, activeColumns])
+  const availableMetrics = useMemo(
+    () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.tools?.metric?.allowed),
+    [activeColumns, activeSource.tools]
+  )
+  const resolvedMetric = useMemo(
+    () => resolveMetric(metric, activeColumns, availableMetrics),
+    [metric, activeColumns, availableMetrics]
+  )
   const resolvedFilters = useMemo(() => sanitizeFilters(filters, activeColumns), [filters, activeColumns])
   const availableChartTypes = useMemo(
     () =>

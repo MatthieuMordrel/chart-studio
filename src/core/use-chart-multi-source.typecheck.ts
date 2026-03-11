@@ -45,12 +45,19 @@ function verifyMultiSourceChartTyping() {
         label: 'Sales',
         data: [] as SalesRecord[],
         columnHints: salesHints,
+        tools: {
+          groupBy: {allowed: ['region']},
+          metric: {allowed: [{kind: 'aggregate', columnId: 'revenue', aggregate: 'sum'}]},
+        },
       },
       {
         id: 'users',
         label: 'Users',
         data: [] as UserRecord[],
         columnHints: userHints,
+        tools: {
+          groupBy: {allowed: ['plan', 'isActive']},
+        },
       },
     ] as const,
   })
