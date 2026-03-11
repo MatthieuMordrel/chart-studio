@@ -1,6 +1,6 @@
-import {useChart} from '@matthieumordrel/chart-studio'
-import {Chart, ChartCanvas, ChartToolbar} from '@matthieumordrel/chart-studio/ui'
-import {recipeLogColumns, recipeLogData} from './mock-data'
+import { useChart } from '@matthieumordrel/chart-studio'
+import { Chart, ChartCanvas, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
+import { recipeLogColumns, recipeLogData } from './mock-data'
 
 /**
  * Minimal chart composition: a canvas with a partially pinned toolbar.
@@ -12,15 +12,15 @@ export function MinimalChart() {
   const chart = useChart({
     data: recipeLogData,
     columns: recipeLogColumns,
-    sourceLabel: 'Home Cooking',
+    sourceLabel: 'Home Cooking'
   })
 
   return (
-    <Chart chart={chart} className="space-y-4">
+    <Chart chart={chart} className='space-y-4'>
       {/* Pin only the most useful controls for the compact embed; the rest stay in overflow. */}
       <ChartToolbar pinned={['chartType', 'timeBucket', 'groupBy']} />
 
-      <div className="rounded-2xl border border-border bg-background p-4">
+      <div className='rounded-2xl border border-border bg-background p-4'>
         <ChartCanvas height={320} />
       </div>
     </Chart>
