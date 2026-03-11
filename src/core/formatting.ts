@@ -135,10 +135,10 @@ export function formatTimeBucketLabel(
       return `${prefix}${formatDateWithOptions(date, locale, getBucketWeekOptions(surface))}`
     }
     case 'month':
-      return formatDateWithOptions(parseBucketMonth(key), locale, {month: 'short', year: 'numeric'})
+      return formatDateWithOptions(parseBucketMonth(key), locale, {month: 'short', year: '2-digit'})
     case 'quarter': {
       const {year, quarter} = parseQuarterKey(key)
-      return `Q${quarter} ${year}`
+      return `Q${quarter} ${year.slice(-2)}`
     }
     case 'year':
       return key
@@ -478,9 +478,7 @@ function getDateValueOptions(
       : {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}
   }
 
-  return surface === 'tooltip'
-    ? {dateStyle: 'medium'}
-    : {month: 'short', day: 'numeric', year: 'numeric'}
+  return {month: 'short', day: 'numeric', year: '2-digit'}
 }
 
 /**
@@ -496,9 +494,9 @@ function getBucketDateOptions(
     case 'week':
       return getBucketWeekOptions(surface)
     case 'month':
-      return {month: 'short', year: 'numeric'}
+      return {month: 'short', year: '2-digit'}
     case 'quarter':
-      return {month: 'short', year: 'numeric'}
+      return {month: 'short', year: '2-digit'}
     case 'year':
       return {year: 'numeric'}
   }
@@ -509,7 +507,7 @@ function getBucketDateOptions(
  */
 function getBucketDayOptions(surface: ChartValueSurface): Intl.DateTimeFormatOptions {
   return surface === 'tooltip'
-    ? {month: 'short', day: 'numeric', year: 'numeric'}
+    ? {month: 'short', day: 'numeric', year: '2-digit'}
     : {month: 'short', day: 'numeric'}
 }
 
@@ -518,7 +516,7 @@ function getBucketDayOptions(surface: ChartValueSurface): Intl.DateTimeFormatOpt
  */
 function getBucketWeekOptions(surface: ChartValueSurface): Intl.DateTimeFormatOptions {
   return surface === 'tooltip'
-    ? {month: 'short', day: 'numeric', year: 'numeric'}
+    ? {month: 'short', day: 'numeric', year: '2-digit'}
     : {month: 'short', day: 'numeric'}
 }
 

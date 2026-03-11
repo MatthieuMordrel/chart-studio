@@ -32,6 +32,7 @@ import {
 import {useChartContext} from './chart-context.js'
 import {getSeriesColor} from '../core/colors.js'
 import type {ChartColumn} from '../core/types.js'
+import {selectVisibleXAxisTicks} from './chart-axis-ticks.js'
 
 /**
  * Estimates the pixel width the YAxis needs so no label is ever clipped.
@@ -68,6 +69,11 @@ const MIN_Y_AXIS_WIDTH = 48
  * Extra space for tick margin plus a small anti-clipping buffer.
  */
 const Y_AXIS_WIDTH_GUTTER = 18
+
+/**
+ * Horizontal breathing room kept between two visible X-axis labels.
+ */
+const X_AXIS_MINIMUM_TICK_GAP = 8
 
 /**
  * Build a small set of realistic axis labels and size for the widest one.
@@ -144,6 +150,32 @@ function measureAxisLabelWidth(label: string): number {
 
   context.font = AXIS_TICK_FONT
   return context.measureText(label).width
+}
+
+/**
+ * Approximate the drawable X-axis width after margins, Y-axis labels, and axis
+ * padding have taken their share of the SVG width.
+ */
+function getCartesianPlotWidth(totalWidth: number, yAxisWidth: number): number {
+  return Math.max(
+    1,
+    totalWidth
+      - yAxisWidth
+      - CARTESIAN_BASE_MARGIN.left
+      - CARTESIAN_BASE_MARGIN.right
+      - CARTESIAN_X_AXIS_PADDING.left
+      - CARTESIAN_X_AXIS_PADDING.right,
+  )
+}
+
+/**
+ * Resolve the raw categorical tick value used by Recharts for one transformed
+ * pipeline point.
+ */
+function getXAxisTickValue(point: Record<string, string | number>): string | number {
+  return typeof point['xKey'] === 'string' || typeof point['xKey'] === 'number'
+    ? point['xKey']
+    : String(point['xLabel'])
 }
 
 /**
@@ -381,6 +413,13 @@ function CartesianChartShell({
   renderSeries,
 }: CartesianShellProps) {
   const yAxisWidth = estimateYAxisWidth(valueRange, valueColumn)
+  const xAxisTickValues = selectVisibleXAxisTicks({
+    values: data.map(getXAxisTickValue),
+    labels: data.map((point) => formatXAxisValue(getXAxisTickValue(point), xColumn, timeBucket, 'axis')),
+    plotWidth: getCartesianPlotWidth(width, yAxisWidth),
+    minimumTickGap: X_AXIS_MINIMUM_TICK_GAP,
+    measureLabelWidth: measureAxisLabelWidth,
+  })
   return (
     <Chart data={data} width={width} height={height} margin={getCartesianChartMargin(showDataLabels)}>
       <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -389,8 +428,9 @@ function CartesianChartShell({
         tickLine={false}
         axisLine={false}
         tickMargin={8}
-        interval="preserveStartEnd"
+        interval={0}
         padding={CARTESIAN_X_AXIS_PADDING}
+        ticks={xAxisTickValues}
         tickFormatter={(value) => formatXAxisValue(value, xColumn, timeBucket, 'axis')}
       />
       <YAxis

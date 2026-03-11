@@ -11,12 +11,12 @@ import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
 import {ChartDateRangePanel, resolvePresetLabel} from './chart-date-range-panel.js'
 
-/** Format a Date into a compact, readable string (e.g. "Jan 5, 2025"). */
+/** Format a Date into a compact, readable string (e.g. "Jan 5, 25"). */
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
+    year: '2-digit',
   })
 }
 

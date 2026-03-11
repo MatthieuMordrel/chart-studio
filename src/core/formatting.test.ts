@@ -75,8 +75,8 @@ describe('formatting', () => {
   })
 
   it('formats time buckets differently for axes and tooltips', () => {
-    expect(formatTimeBucketLabel('2026-03', 'month', 'axis')).toBe('Mar 2026')
-    expect(formatTimeBucketLabel('2026-03-11', 'day', 'tooltip')).toBe('Mar 11, 2026')
-    expect(formatTimeBucketLabel('2026-Q1', 'quarter', 'axis')).toBe('Q1 2026')
+    expect(formatTimeBucketLabel('2026-03', 'month', 'axis')).toBe('Mar 26')
+    expect(formatTimeBucketLabel('2026-03-11', 'day', 'tooltip')).toBe('Mar 11, 26')
+    expect(formatTimeBucketLabel('2026-Q1', 'quarter', 'axis')).toBe('Q1 26')
   })
 })

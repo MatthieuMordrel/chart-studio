@@ -75,9 +75,9 @@ const chart = useChart({data})
 
 Result:
 
-- `day` -> `Mar 11, 2026`
-- `month` -> `Mar 2026`
-- `quarter` -> `Q1 2026`
+- `day` -> `Mar 11, 26`
+- `month` -> `Mar 26`
+- `quarter` -> `Q1 26`
 - `year` -> `2026`
 
 ### `category`
@@ -174,7 +174,7 @@ const schema = defineChartSchema<Row>()({
 Result:
 
 - `1200000` displays as `$1,200,000`
-- `2026-03-11T00:00:00.000Z` displays as `Mar 2026`
+- `2026-03-11T00:00:00.000Z` displays as `Mar 26`
 
 ## Escape Hatch
 
