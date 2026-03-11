@@ -205,7 +205,7 @@ describe('useChart', () => {
           },
           metric: {
             allowed: [
-              {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+              {kind: 'aggregate', columnId: 'salary', aggregate: ['avg', 'sum']},
             ],
           },
         },
@@ -213,16 +213,24 @@ describe('useChart', () => {
     )
 
     expect(result.current.availableGroupBys).toEqual([{id: 'isOpen', label: 'Is Open'}])
-    expect(result.current.availableMetrics).toEqual([{kind: 'aggregate', columnId: 'salary', aggregate: 'sum'}])
-    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+    expect(result.current.availableMetrics).toEqual([
+      {kind: 'aggregate', columnId: 'salary', aggregate: 'avg'},
+      {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+    ])
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
 
     act(() => {
+      const unsafeSetMetric = result.current.setMetric as (
+        metric:
+          | {kind: 'count'}
+          | {kind: 'aggregate'; columnId: string; aggregate: 'sum' | 'avg' | 'min' | 'max'}
+      ) => void
       result.current.setGroupBy('ownerName' as Parameters<typeof result.current.setGroupBy>[0])
-      result.current.setMetric({kind: 'count'} as unknown as Parameters<typeof result.current.setMetric>[0])
+      unsafeSetMetric({kind: 'count'})
     })
 
     expect(result.current.groupById).toBeNull()
-    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
   })
 
   it('handles complex single-source inference with timestamps, hints, and unsupported fields', () => {

@@ -3,6 +3,7 @@ import type {
   CountMetric,
   ChartColumn,
   Metric,
+  MetricAllowance,
   NumberColumn,
   NumericAggregateFunction,
 } from './types.js'
@@ -109,21 +110,59 @@ export function buildAvailableMetrics<T, TColumnId extends string>(
 }
 
 /**
+ * Expand declarative metric restriction entries into the normalized metric list
+ * used by the runtime and typed chart state.
+ */
+export function normalizeMetricAllowances<TColumnId extends string>(
+  allowedMetrics?: readonly MetricAllowance<TColumnId>[],
+): Metric<TColumnId>[] | undefined {
+  if (!allowedMetrics) {
+    return undefined
+  }
+
+  const normalized: Metric<TColumnId>[] = []
+
+  for (const allowedMetric of allowedMetrics) {
+    if (allowedMetric.kind === 'count') {
+      normalized.push(allowedMetric)
+      continue
+    }
+
+    const aggregates = Array.isArray(allowedMetric.aggregate)
+      ? allowedMetric.aggregate
+      : [allowedMetric.aggregate]
+
+    for (const aggregate of aggregates) {
+      normalized.push({
+        kind: 'aggregate',
+        columnId: allowedMetric.columnId,
+        aggregate,
+        includeZeros: allowedMetric.includeZeros,
+      } as AggregateMetric<TColumnId>)
+    }
+  }
+
+  return normalized
+}
+
+/**
  * Apply a declarative metric whitelist to the inferred metric options.
  *
  * Metrics are matched structurally so callers can safely pass fresh object
- * literals in `tools.metric.allowed`.
+ * literals in `tools.metric.allowed`. The final order follows the declarative
+ * restriction list, so the first allowed metric becomes the default.
  */
 export function restrictAvailableMetrics<TColumnId extends string>(
   metrics: readonly Metric<TColumnId>[],
-  allowedMetrics?: readonly Metric<TColumnId>[],
+  allowedMetrics?: readonly MetricAllowance<TColumnId>[],
 ): Metric<TColumnId>[] {
-  if (!allowedMetrics) {
+  const normalizedAllowedMetrics = normalizeMetricAllowances(allowedMetrics)
+  if (!normalizedAllowedMetrics) {
     return [...metrics]
   }
 
-  const restricted = metrics.filter(metric =>
-    allowedMetrics.some(allowedMetric => isSameMetric(metric, allowedMetric))
+  const restricted = normalizedAllowedMetrics.filter(allowedMetric =>
+    metrics.some(metric => isSameMetric(metric, allowedMetric))
   )
 
   // A chart always needs one active metric. Fall back to the inferred default if

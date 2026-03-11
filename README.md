@@ -122,7 +122,7 @@ const chart = useChart({
     metric: {
       allowed: [
         {kind: 'count'},
-        {kind: 'aggregate', columnId: 'revenue', aggregate: 'sum'},
+        {kind: 'aggregate', columnId: 'revenue', aggregate: ['sum', 'avg']},
         {kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum'},
       ],
     },
@@ -130,7 +130,7 @@ const chart = useChart({
 })
 ```
 
-With explicit `columnHints.type`, those restrictions are also type-checked, and in the single-source path they also narrow setters like `setGroupBy(...)` and `setMetric(...)` to the declared subset.
+With explicit `columnHints.type`, those restrictions are also type-checked, and in the single-source path they also narrow setters like `setGroupBy(...)` and `setMetric(...)` to the declared subset. Metric restrictions preserve the order you declare, so the first allowed metric becomes the default.
 
 ## Headless Example
 

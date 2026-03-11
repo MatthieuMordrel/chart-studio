@@ -79,7 +79,7 @@ function verifyToolRestrictionsTyping() {
       metric: {
         allowed: [
           {kind: 'count'},
-          {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+          {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
         ],
       },
     },
@@ -89,12 +89,13 @@ function verifyToolRestrictionsTyping() {
   chart.setGroupBy('isOpen')
   chart.setMetric({kind: 'count'})
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
 
   // @ts-expect-error tools.groupBy.allowed should narrow the setter to the declared subset
   chart.setGroupBy('createdAt')
 
   // @ts-expect-error tools.metric.allowed should narrow the setter to the declared metric subset
-  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
+  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'min'})
 
   useChart({
     data: [] as ExampleRecord[],

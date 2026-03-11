@@ -198,6 +198,33 @@ type AllowedGroupByColumnIdFromTools<TTools> = Extract<
 type AllowedMetricFromTools<TTools> =
   TTools extends {metric?: {allowed?: readonly (infer TAllowedMetric)[]}} ? TAllowedMetric : never
 
+type ExpandMetricAllowance<TMetricAllowance> =
+  TMetricAllowance extends CountMetric ? CountMetric
+  : TMetricAllowance extends {
+      kind: 'aggregate'
+      columnId: infer TColumnId extends string
+      aggregate: infer TAggregate
+      includeZeros?: infer TIncludeZeros
+    }
+    ? TAggregate extends readonly NumericAggregateFunction[]
+      ? {
+          [TSelectedAggregate in TAggregate[number]]: {
+            kind: 'aggregate'
+            columnId: TColumnId
+            aggregate: TSelectedAggregate
+            includeZeros?: Extract<TIncludeZeros, boolean | undefined>
+          }
+        }[TAggregate[number]]
+      : TAggregate extends NumericAggregateFunction
+        ? {
+            kind: 'aggregate'
+            columnId: TColumnId
+            aggregate: TAggregate
+            includeZeros?: Extract<TIncludeZeros, boolean | undefined>
+          }
+        : never
+    : never
+
 type RestrictUnionOrFallback<TAllowed, TFallback> =
   [Extract<TAllowed, TFallback>] extends [never] ? TFallback : Extract<TAllowed, TFallback>
 
@@ -222,7 +249,7 @@ export type RestrictedMetricFromTools<
   THints extends ColumnHints<T> | undefined = undefined,
   TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
 > = RestrictUnionOrFallback<
-  AllowedMetricFromTools<TTools>,
+  ExpandMetricAllowance<AllowedMetricFromTools<TTools>>,
   Metric<ResolvedMetricColumnIdFromHints<T, THints>>
 >
 
@@ -321,6 +348,11 @@ export type AggregateFunction = 'count' | 'sum' | 'avg' | 'min' | 'max'
 /** Numeric aggregation functions that operate on number columns. */
 export type NumericAggregateFunction = Exclude<AggregateFunction, 'count'>
 
+/** One or many numeric aggregates accepted by declarative metric restrictions. */
+export type NumericAggregateSelection =
+  | NumericAggregateFunction
+  | readonly NumericAggregateFunction[]
+
 /**
  * A metric definition — what the Y-axis measures.
  *
@@ -348,6 +380,24 @@ export type AggregateMetric<TColumnId extends string = string> = {
 /** Metric union returned by the chart hook. */
 export type Metric<TColumnId extends string = string> = CountMetric | AggregateMetric<TColumnId>
 
+/**
+ * Aggregate metric restriction accepted by `tools.metric.allowed`.
+ *
+ * Unlike `AggregateMetric`, the `aggregate` field may be either one aggregate
+ * or an array shorthand that expands into several allowed metrics.
+ */
+export type AggregateMetricAllowance<TColumnId extends string = string> = {
+  kind: 'aggregate'
+  columnId: TColumnId
+  aggregate: NumericAggregateSelection
+  includeZeros?: boolean
+}
+
+/** One declarative metric entry accepted by `tools.metric.allowed`. */
+export type MetricAllowance<TColumnId extends string = string> =
+  | CountMetric
+  | AggregateMetricAllowance<TColumnId>
+
 // ---------------------------------------------------------------------------
 // Tool restrictions
 // ---------------------------------------------------------------------------
@@ -367,7 +417,7 @@ export type GroupByToolConfig<TColumnId extends string = string> = {
  * @property allowed - Optional whitelist of metrics that may be selected.
  */
 export type MetricToolConfig<TColumnId extends string = string> = {
-  allowed?: readonly Metric<TColumnId>[]
+  allowed?: readonly MetricAllowance<TColumnId>[]
 }
 
 /**

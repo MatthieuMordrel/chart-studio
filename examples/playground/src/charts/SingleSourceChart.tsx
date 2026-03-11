@@ -11,27 +11,26 @@ export function SingleSourceChart() {
   const chart = useChart({
     data: quarterlyFinancialData,
     columnHints: {
-      periodEnd: {type: 'date', label: 'Period End'},
-      segment: {type: 'category'},
-      revenue: {type: 'number', label: 'Revenue'},
-      netIncome: {type: 'number', label: 'Net Income'},
-      ebitda: {type: 'number', label: 'EBITDA'},
-      grossProfit: {type: 'number', label: 'Gross Profit'},
+      periodEnd: { type: 'date', label: 'Period End' },
+      segment: { type: 'category' },
+      revenue: { type: 'number', label: 'Revenue' },
+      netIncome: { type: 'number', label: 'Net Income' },
+      ebitda: { type: 'number', label: 'EBITDA' },
+      grossProfit: { type: 'number', label: 'Gross Profit' }
     } as const,
     tools: {
       groupBy: {
-        allowed: ['segment'],
+        allowed: ['segment']
       },
       metric: {
         allowed: [
-          {kind: 'count'},
-          {kind: 'aggregate', columnId: 'revenue', aggregate: 'sum'},
-          {kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum'},
-          {kind: 'aggregate', columnId: 'ebitda', aggregate: 'avg'},
-        ],
-      },
+          { kind: 'aggregate', columnId: 'ebitda', aggregate: ['sum', 'avg'] },
+          { kind: 'aggregate', columnId: 'revenue', aggregate: 'sum' },
+          { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
+        ]
+      }
     },
-    sourceLabel: 'Quarterly Financials',
+    sourceLabel: 'Quarterly Financials'
   })
 
   return (
