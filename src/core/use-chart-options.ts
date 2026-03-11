@@ -11,11 +11,10 @@ import type {ChartSourceOptions, ChartToolsConfigFromHints, ColumnHints, NonEmpt
 export type SingleSourceOptions<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
-  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
 > = {
   data: readonly T[]
   columnHints?: THints
-  tools?: TTools
+  tools?: ChartToolsConfigFromHints<T, THints>
   sourceLabel?: string
   sources?: never
 }
@@ -38,8 +37,7 @@ export type MultiSourceOptions<TSources extends NonEmptyChartSourceOptions = Non
 export type UseChartOptions<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
-  TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
-> = SingleSourceOptions<T, THints, TTools> | MultiSourceOptions
+> = SingleSourceOptions<T, THints> | MultiSourceOptions
 
 export type {ChartSourceOptions}
 

@@ -7,7 +7,6 @@ import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.j
 import type {
   ChartColumn,
   ChartInstanceFromConfig,
-  ChartInstanceFromHints,
   ChartToolsConfigFromHints,
   ChartType,
   ColumnHints,
@@ -22,7 +21,7 @@ import type {
   SortConfig,
   TimeBucket
 } from './types.js'
-import { DEFAULT_TIME_BUCKET, type MultiSourceOptions, type SingleSourceOptions, type UseChartOptions } from './use-chart-options.js'
+import { DEFAULT_TIME_BUCKET, type MultiSourceOptions, type SingleSourceOptions } from './use-chart-options.js'
 import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-chart-resolvers.js'
 
 /**
@@ -60,25 +59,27 @@ import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-c
  *   - `rawData`: The raw input data for the active data source
  *   - `recordCount`: Number of records present in the current data source
  */
-export function useChart<T, const THints extends ColumnHints<T> | undefined = undefined>(
-  options: SingleSourceOptions<T, THints>
-): ChartInstanceFromHints<T, THints>
-export function useChart<
-  T,
-  const THints extends ColumnHints<T> | undefined = undefined,
-  const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
->(
-  options: SingleSourceOptions<T, THints, TTools>
-): ChartInstanceFromConfig<T, THints, TTools>
 export function useChart<const TSources extends NonEmptyChartSourceOptions>(
-  options: MultiSourceOptions<TSources>
+  options: {
+    data?: never
+    columnHints?: never
+    sourceLabel?: never
+    sources: TSources
+  }
 ): MultiSourceChartInstance<TSources>
 export function useChart<
   T,
   const THints extends ColumnHints<T> | undefined = undefined,
   const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
 >(
-  options: UseChartOptions<T, THints, TTools>
+  options: SingleSourceOptions<T, THints> & {tools?: TTools}
+): ChartInstanceFromConfig<T, THints, TTools>
+export function useChart<
+  T,
+  const THints extends ColumnHints<T> | undefined = undefined,
+  const TTools extends ChartToolsConfigFromHints<T, THints> | undefined = undefined,
+>(
+  options: (SingleSourceOptions<T, THints> & {tools?: TTools}) | MultiSourceOptions
 ): ChartInstanceFromConfig<T, THints, TTools> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
   if ('sources' in options && options.sources?.length === 0) {
     throw new Error('useChart requires at least one source')

@@ -41,6 +41,8 @@ The goal is:
 - Extend the current approach beyond `groupBy` and `metric` only after the shape is stable.
 - Add the next declarative tool targets explicitly:
   `filters`, `timeBucket`, `xAxis`, `chartType`, and shared default selection behavior.
+- Investigate how to reject unknown `tools` keys while preserving both autocomplete and literal return-type narrowing.
+- Decide whether this should be solved with stricter exact-object typing, a helper such as `defineChartTools(...)`, or a different config typing strategy entirely.
 - Define whether filter restrictions mean:
   "which columns may be filtered",
   "which values are available for a given filterable column",
