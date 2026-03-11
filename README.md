@@ -18,7 +18,7 @@ Use this if you already have your own design system or chart renderer.
 You get:
 
 - `useChart`
-- typed `columnHints`
+- optional `schema` via `defineChartSchema`
 - transformed chart data
 - filtering, grouping, metrics, and time bucketing logic
 
@@ -73,10 +73,8 @@ import { useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
 import { data } from './data.json'
 
-export function JobsChart({ data }) {
-  const chart = useChart({
-    data
-  })
+export function JobsChart() {
+  const chart = useChart({ data })
 
   return (
     <Chart chart={chart}>
@@ -90,7 +88,7 @@ export function JobsChart({ data }) {
 ## How It Works
 
 1. Pass your raw data to `useChart()`.
-2. Add `columnHints` only when labels or inference need help. Explicit `columnHints.type` values also sharpen the compile-time API for metrics, grouping, filters, and date controls.
+2. Add an optional `schema` with `defineChartSchema<Row>()(...)` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
 3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
 
 ## Column Types
@@ -102,49 +100,44 @@ export function JobsChart({ data }) {
 | `boolean`  | grouping, filtering                     |
 | `number`   | metrics such as sum, avg, min, max      |
 
-## Declarative Config Restrictions
+## Declarative Schema and Control Restrictions
 
-If you want to expose only a subset of groupings or metrics, the recommended explicit-config pattern is:
-
-- define `columnHints` as a named `const`
-- pass those hints to `useChart`
-- wrap the explicit config with `defineChartConfig<Row, typeof columnHints>(...)`
-
-Raw inline `config: { ... }` is not the supported strict path.
+If you want to expose only a subset of groupings, metrics, chart types, or axes, use `defineChartSchema<Row>()()` with the control sections:
 
 ```tsx
-import { defineChartConfig, useChart } from '@matthieumordrel/chart-studio'
+import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
 
-const columnHints = {
-  periodEnd: {type: 'date'},
-  segment: {type: 'category'},
-  revenue: {type: 'number'},
-  netIncome: {type: 'number'},
-} as const
+type Row = { periodEnd: string; segment: string; revenue: number; netIncome: number }
 
-const chart = useChart({
-  data,
-  columnHints,
-  config: defineChartConfig<Row, typeof columnHints>({
-    groupBy: {
-      allowed: ['segment'],
-    },
-    metric: {
-      allowed: [
-        {kind: 'count'},
-        {kind: 'aggregate', columnId: 'revenue', aggregate: ['sum', 'avg']},
-        {kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum'},
-      ],
-    },
-  }),
+const schema = defineChartSchema<Row>()({
+  columns: {
+    periodEnd: { type: 'date', label: 'Period End' },
+    segment: { type: 'category' },
+    revenue: { type: 'number' },
+    netIncome: { type: 'number' }
+  },
+  xAxis: { allowed: ['periodEnd'] },
+  groupBy: { allowed: ['segment'] },
+  metric: {
+    allowed: [
+      { kind: 'count' },
+      { kind: 'aggregate', columnId: 'revenue', aggregate: ['sum', 'avg'] },
+      { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
+    ]
+  },
+  chartType: { allowed: ['bar', 'line'] },
+  timeBucket: { allowed: ['year', 'quarter', 'month'] }
 })
+
+const chart = useChart({ data, schema })
 ```
 
 Why this pattern:
 
-- `typeof columnHints` gives the config helper access to the same role information as `useChart`
-- invalid top-level and nested config keys are rejected at compile time
-- explicit config still narrows setters like `setGroupBy(...)` and `setMetric(...)`
+- `columns` defines types, labels, and formats for raw fields; use `false` to exclude a column from the chart
+- Derived columns use `{ kind: 'derived', type, label?, accessor, format? }` for computed values from each row
+- `xAxis`, `groupBy`, `metric`, `chartType`, `timeBucket` restrict the allowed options
+- invalid column IDs and config keys are rejected at compile time
 - metric restrictions preserve the order you declare, so the first allowed metric becomes the default
 
 ## Headless Example
@@ -152,7 +145,7 @@ Why this pattern:
 If you want to render your own UI or your own charting library, use only the core state:
 
 ```tsx
-import { useChart } from '@matthieumordrel/chart-studio'
+import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
 
 type Job = {
   dateAdded: string
@@ -160,15 +153,16 @@ type Job = {
   salary: number
 }
 
+const jobSchema = defineChartSchema<Job>()({
+  columns: {
+    dateAdded: { type: 'date', label: 'Date Added' },
+    ownerName: { type: 'category', label: 'Consultant' },
+    salary: { type: 'number', label: 'Salary' }
+  }
+})
+
 export function JobsChartHeadless({ data }: { data: Job[] }) {
-  const chart = useChart({
-    data,
-    columnHints: {
-      dateAdded: { type: 'date', label: 'Date Added' },
-      ownerName: { type: 'category', label: 'Consultant' },
-      salary: { type: 'number', label: 'Salary' }
-    }
-  })
+  const chart = useChart({ data, schema: jobSchema })
 
   return (
     <div>
@@ -330,13 +324,17 @@ Only for the UI layer. The headless core does not require it.
 Yes:
 
 ```tsx
+import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
+
 const chart = useChart({
   sources: [
     {
       id: 'jobs',
       label: 'Jobs',
       data: jobs,
-      columnHints: { dateAdded: { type: 'date', label: 'Date Added' } }
+      schema: defineChartSchema<Job>()({
+        columns: { dateAdded: { type: 'date', label: 'Date Added' } }
+      })
     },
     { id: 'candidates', label: 'Candidates', data: candidates }
   ]
