@@ -18,7 +18,7 @@ Use this if you already have your own design system or chart renderer.
 You get:
 
 - `useChart`
-- typed column helpers
+- typed `columnHints`
 - transformed chart data
 - filtering, grouping, metrics, and time bucketing logic
 
@@ -31,7 +31,7 @@ bun add @matthieumordrel/chart-studio react
 Import from:
 
 ```tsx
-import {useChart, columns} from '@matthieumordrel/chart-studio'
+import {useChart} from '@matthieumordrel/chart-studio'
 ```
 
 ### 2. Ready-made UI
@@ -62,14 +62,14 @@ Then import the package theme once in your app stylesheet:
 Import from:
 
 ```tsx
-import {useChart, columns} from '@matthieumordrel/chart-studio'
+import {useChart} from '@matthieumordrel/chart-studio'
 import {Chart, ChartToolbar, ChartCanvas} from '@matthieumordrel/chart-studio/ui'
 ```
 
 ## Smallest Working Example
 
 ```tsx
-import {useChart, columns} from '@matthieumordrel/chart-studio'
+import {useChart} from '@matthieumordrel/chart-studio'
 import {Chart, ChartToolbar, ChartCanvas} from '@matthieumordrel/chart-studio/ui'
 
 type Job = {
@@ -79,17 +79,15 @@ type Job = {
   salary: number
 }
 
-const jobColumns = [
-  columns.date<Job>('dateAdded', {label: 'Date Added'}),
-  columns.category<Job>('ownerName', {label: 'Consultant'}),
-  columns.boolean<Job>('isOpen', {trueLabel: 'Open', falseLabel: 'Closed'}),
-  columns.number<Job>('salary', {label: 'Salary'}),
-]
-
 export function JobsChart({data}: {data: Job[]}) {
   const chart = useChart({
     data,
-    columns: jobColumns,
+    columnHints: {
+      dateAdded: {type: 'date', label: 'Date Added'},
+      ownerName: {label: 'Consultant'},
+      isOpen: {trueLabel: 'Open', falseLabel: 'Closed'},
+      salary: {label: 'Salary'},
+    },
   })
 
   return (
@@ -103,8 +101,8 @@ export function JobsChart({data}: {data: Job[]}) {
 
 ## How It Works
 
-1. Define columns for the fields you want to chart.
-2. Call `useChart()` with your data and columns.
+1. Pass your raw data to `useChart()`.
+2. Add `columnHints` only when labels or inference need help.
 3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
 
 ## Column Types
@@ -121,7 +119,7 @@ export function JobsChart({data}: {data: Job[]}) {
 If you want to render your own UI or your own charting library, use only the core state:
 
 ```tsx
-import {useChart, columns} from '@matthieumordrel/chart-studio'
+import {useChart} from '@matthieumordrel/chart-studio'
 
 type Job = {
   dateAdded: string
@@ -129,14 +127,15 @@ type Job = {
   salary: number
 }
 
-const jobColumns = [
-  columns.date<Job>('dateAdded', {label: 'Date Added'}),
-  columns.category<Job>('ownerName', {label: 'Consultant'}),
-  columns.number<Job>('salary', {label: 'Salary'}),
-]
-
 export function JobsChartHeadless({data}: {data: Job[]}) {
-  const chart = useChart({data, columns: jobColumns})
+  const chart = useChart({
+    data,
+    columnHints: {
+      dateAdded: {type: 'date', label: 'Date Added'},
+      ownerName: {label: 'Consultant'},
+      salary: {label: 'Salary'},
+    },
+  })
 
   return (
     <div>
@@ -300,8 +299,13 @@ Yes:
 ```tsx
 const chart = useChart({
   sources: [
-    {id: 'jobs', label: 'Jobs', data: jobs, columns: jobColumns},
-    {id: 'candidates', label: 'Candidates', data: candidates, columns: candidateColumns},
+    {
+      id: 'jobs',
+      label: 'Jobs',
+      data: jobs,
+      columnHints: {dateAdded: {type: 'date', label: 'Date Added'}},
+    },
+    {id: 'candidates', label: 'Candidates', data: candidates},
   ],
 })
 ```

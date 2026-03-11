@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {columns, defineColumns} from './columns.js'
+import {inferColumnsFromData} from './infer-columns.js'
 import {runPipeline} from './pipeline.js'
 import type {FilterState, Metric} from './types.js'
 
@@ -25,12 +25,12 @@ describe('runPipeline', () => {
       {dateAdded: '2025-03-02', ownerName: 'Alice', salary: 200, isOpen: true},
     ]
 
-    const chartColumns = defineColumns<RevenueRecord>([
-      columns.date('dateAdded', {label: 'Date Added'}),
-      columns.category('ownerName', {label: 'Owner'}),
-      columns.boolean('isOpen', {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'}),
-      columns.number('salary', {label: 'Salary'}),
-    ])
+    const chartColumns = inferColumnsFromData(data, {
+      dateAdded: {type: 'date', label: 'Date Added'},
+      ownerName: {label: 'Owner'},
+      isOpen: {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'},
+      salary: {label: 'Salary'},
+    })
 
     const metric: Metric = {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'}
     const result = runPipeline({
@@ -67,11 +67,11 @@ describe('runPipeline', () => {
       {team: 'B', isOpen: true, score: 0},
     ]
 
-    const chartColumns = defineColumns<ScoreRecord>([
-      columns.category('team', {label: 'Team'}),
-      columns.boolean('isOpen', {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'}),
-      columns.number('score', {label: 'Score'}),
-    ])
+    const chartColumns = inferColumnsFromData(data, {
+      team: {label: 'Team'},
+      isOpen: {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'},
+      score: {label: 'Score'},
+    })
 
     const metric: Metric = {
       kind: 'aggregate',

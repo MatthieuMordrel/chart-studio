@@ -499,7 +499,7 @@ export function inferColumnsFromData<T, const THints extends ColumnHints<T> | un
   }
 
   if (inferredColumns.length === 0) {
-    warn('No inferable primitive fields were found. Provide non-empty data, columnHints, or explicit multi-source columns.')
+    warn('No inferable primitive fields were found. Provide non-empty data or columnHints.')
   }
 
   return sortResolvedColumns(inferredColumns) as unknown as readonly ChartColumn<

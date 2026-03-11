@@ -52,7 +52,7 @@ Think of context as a shared backpack.
 So this:
 
 ```tsx
-const chart = useChart({data, columns})
+const chart = useChart({data, columnHints})
 
 return (
   <Chart chart={chart}>
@@ -111,7 +111,7 @@ The chart is strongly typed when `useChart()` creates it.
 Example:
 
 ```tsx
-const chart = useChart({data, columns})
+const chart = useChart({data, columnHints})
 ```
 
 At that moment, TypeScript knows:
@@ -135,7 +135,7 @@ That is the core problem.
 So for this code:
 
 ```tsx
-const chart = useChart({data, columns})
+const chart = useChart({data, columnHints})
 
 return (
   <Chart chart={chart}>

@@ -9,7 +9,7 @@ The strongest type safety lives in the headless single-source path.
 When you write:
 
 ```tsx
-const chart = useChart({data, columns})
+const chart = useChart({data, columnHints})
 ```
 
 TypeScript can know:
@@ -29,13 +29,13 @@ That means methods like these can be strongly typed:
 
 This is the best developer experience in the package today.
 
-## Why columns matter so much
+## Why inferred column IDs matter so much
 
-Type safety comes from the column definitions.
+Type safety comes from the resolved column IDs.
 
-If the columns are preserved as a literal tuple, TypeScript can carry those exact IDs through the chart instance.
+If the data shape and `columnHints` are preserved, TypeScript can carry those exact IDs through the chart instance.
 
-That is why the column list is not just configuration. It is also the main typing input.
+That is why `columnHints` are not just presentation overrides. They also shape the final typed chart API.
 
 ## What is still broad
 
@@ -43,7 +43,7 @@ Some parts stay intentionally broad today.
 
 Examples:
 
-- multi-source `useChart(...)` returns a broader chart instance
+- direct multi-source `useChart(...)` usage narrows by `activeSourceId`, but the shared UI context stays broad
 - transformed output rows use dynamic string keys
 - `SortConfig.key` is still just `string`
 - the default UI context hook is broad
@@ -133,7 +133,7 @@ This package currently favors:
 
 ## Short version
 
-- Best type safety: single-source `useChart({data, columns})`
+- Best type safety: single-source `useChart({data, columnHints?})`
 - Hardest area: shared UI context
 - Broadest area: multi-source and dynamic output shapes
 - Main rule: the package tries to be honest, not artificially precise

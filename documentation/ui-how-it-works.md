@@ -28,7 +28,7 @@ The usual setup is:
 Example:
 
 ```tsx
-const chart = useChart({data, columns})
+const chart = useChart({data, columnHints})
 
 return (
   <Chart chart={chart}>

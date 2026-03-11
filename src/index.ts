@@ -2,7 +2,7 @@
  * chart-studio — TanStack Table for charts.
  *
  * A headless, composable charting library built on top of Recharts.
- * Define columns, pass data, and get a full interactive chart with
+ * Pass raw data, optionally add column hints, and get a full interactive chart with
  * automatic filtering, grouping, time bucketing, and chart type switching.
  *
  * @example
@@ -32,8 +32,6 @@
 // Headless charting API.
 export {
   CHART_TYPE_CONFIG,
-  columns,
-  defineColumns,
   inferColumnsFromData,
   useChart,
   getSeriesColor,

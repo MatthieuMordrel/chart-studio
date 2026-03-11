@@ -1,5 +1,3 @@
-import {columns, defineColumns} from '../core/columns.js'
-
 /**
  * Test record used by chart-studio hook and UI tests.
  */
@@ -9,16 +7,6 @@ export type JobRecord = {
   isOpen: boolean | null
   salary: number | null
 }
-
-/**
- * Stable single-source fixture with both date and categorical columns.
- */
-export const jobColumns = defineColumns<JobRecord>([
-  columns.date('dateAdded', {label: 'Date Added'}),
-  columns.category('ownerName', {label: 'Owner'}),
-  columns.boolean('isOpen', {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'}),
-  columns.number('salary', {label: 'Salary'}),
-])
 
 /**
  * Records used by hook and UI tests.
@@ -38,16 +26,6 @@ export type CandidateRecord = {
   isActive: boolean | null
   expectedSalary: number | null
 }
-
-/**
- * Candidate columns intentionally omit dates to exercise categorical fallback.
- */
-export const candidateColumns = defineColumns<CandidateRecord>([
-  columns.category('stage', {label: 'Stage'}),
-  columns.category('city', {label: 'City'}),
-  columns.boolean('isActive', {label: 'Status', trueLabel: 'Active', falseLabel: 'Inactive'}),
-  columns.number('expectedSalary', {label: 'Expected Salary'}),
-])
 
 /**
  * Candidate records for multi-source tests.

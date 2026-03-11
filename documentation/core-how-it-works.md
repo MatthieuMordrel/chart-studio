@@ -8,7 +8,7 @@ The core is everything that works without the UI package.
 
 Its main pieces are:
 
-- column definitions
+- column inference plus optional hints
 - the `useChart()` hook
 - the transformation pipeline
 - shared chart types
@@ -19,22 +19,22 @@ The core does not render controls or charts. It only manages state and produces 
 
 The normal flow is:
 
-1. You describe your data with columns.
-2. You call `useChart({data, columns})`.
+1. You pass raw data into `useChart({data, columnHints?})`.
+2. The hook infers columns from that data and optional hints.
 3. The hook stores user state such as chart type, x-axis, group by, filters, and date range.
 4. The hook derives transformed data from the raw rows.
 5. You either render your own UI or pass the chart instance to the optional UI package.
 
-## Columns are the contract
+## Inferred columns are the contract
 
-Columns tell the library what each field means.
+The resolved columns tell the library what each field means.
 
 - `date` columns can be used for time-series x-axes and date range logic
 - `category` columns can be used for x-axis, group by, and filters
 - `boolean` columns can be used for group by and filters
 - `number` columns can be aggregated as metrics
 
-This is the core idea: the library does not guess from raw data alone. It uses the column definitions as the source of truth.
+This is the core idea: the library infers a schema from raw data, then lets `columnHints` override labels or types when needed.
 
 ## What `useChart()` does
 
@@ -95,8 +95,8 @@ Multi-source:
 
 - several datasets
 - active source can change
-- more flexible at runtime
-- broader typing today
+- each source infers its own schema
+- runtime state still has to be sanitized on source changes
 
 ## What the core returns
 

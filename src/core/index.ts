@@ -1,10 +1,9 @@
 /**
  * Core exports for chart-studio.
  *
- * The headless layer: types, column helpers, pipeline, and the useChart hook.
+ * The headless layer: types, inference, pipeline, and the useChart hook.
  */
 
-export {columns, defineColumns} from './columns.js'
 export {CHART_TYPE_CONFIG} from './chart-capabilities.js'
 export {getSeriesColor, buildColorMap} from './colors.js'
 export {inferColumnsFromData} from './infer-columns.js'

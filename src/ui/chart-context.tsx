@@ -7,18 +7,9 @@ import type {
   ChartColumn,
   ChartInstance,
   ColumnHints,
-  ColumnIdFromColumns,
   Metric,
   ResolvedColumnIdFromHints,
 } from '../core/types.js'
-
-type AnyChartColumns = readonly ChartColumn<any, string>[]
-type RowFromColumns<TColumns extends AnyChartColumns> =
-  TColumns[number] extends ChartColumn<infer TRow, string> ? TRow : never
-type TypedChartFromColumns<TColumns extends AnyChartColumns> = ChartInstance<
-  RowFromColumns<TColumns>,
-  ColumnIdFromColumns<TColumns>
->
 
 /**
  * Type-erased chart instance stored in React context.
@@ -85,16 +76,6 @@ function isKnownColumnId<TColumnId extends string>(
   columnId: string,
 ): columnId is TColumnId {
   return columnIds.has(columnId)
-}
-
-/**
- * Compare a typed column tuple with the active chart columns.
- */
-function hasMatchingColumns(expectedColumns: AnyChartColumns, actualColumns: readonly ChartColumn<any, string>[]) {
-  return (
-    expectedColumns.length === actualColumns.length &&
-    expectedColumns.every((column, index) => column.id === actualColumns[index]?.id)
-  )
 }
 
 /**
@@ -189,36 +170,17 @@ function createChartContextChart(chart: AnyChartInstance): ChartContextChart {
  * Hook to access the chart instance from context.
  * Must be used within a `<Chart>` provider.
  *
- * Pass the original single-source column tuple to recover the full chart type
- * safely across the React context boundary.
+ * This hook stays intentionally broad so the default UI primitives remain safe
+ * for both single-source and multi-source charts.
  */
 export function useChartContext(): ChartContextChart
-export function useChartContext<const TColumns extends AnyChartColumns>(
-  columns: TColumns,
-): TypedChartFromColumns<TColumns>
-export function useChartContext<const TColumns extends AnyChartColumns>(columns?: TColumns) {
+export function useChartContext() {
   const ctx = useContext(ChartContext)
   if (!ctx) {
     throw new Error('useChartContext must be used within a <Chart> provider')
   }
 
-  if (!columns) {
-    return ctx.chart
-  }
-
-  if (ctx.chart.hasMultipleSources) {
-    throw new Error(
-      'useChartContext(columns) only supports single-source charts right now. Multi-source charts stay broad because the active source schema can change.',
-    )
-  }
-
-  if (!hasMatchingColumns(columns, ctx.chart.columns)) {
-    throw new Error(
-      'useChartContext(columns) must receive the same column tuple that was passed to useChart().',
-    )
-  }
-
-  return ctx.typedChart as TypedChartFromColumns<TColumns>
+  return ctx.chart
 }
 
 /**

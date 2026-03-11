@@ -6,7 +6,7 @@
 
 The hard part is React context, not `useChart()`.
 
-- `useChart({data, columns})` knows the row type and literal column IDs at the point where the chart instance is created.
+- `useChart({data, columnHints?})` knows the row type and resolved column IDs at the point where the chart instance is created.
 - `<Chart chart={chart}>` can accept that typed instance without trouble.
 - But a plain `useChartContext()` call inside an arbitrary descendant cannot automatically recover the generic type from the provider above it.
 
@@ -41,7 +41,7 @@ The current compromise is:
 
 - keep `Chart` simple
 - keep the default context broad and safe
-- allow single-source consumers to recover strong typing with extra compile-time information
+- allow single-source consumers to recover strong typing with `useTypedChartContext()`
 - keep multi-source broad until a dedicated typed API exists
 
 This is honest, but it is not the same as a magically typed zero-argument `useChartContext()`.
