@@ -6,9 +6,9 @@ import {createContext, useContext, useMemo, type ReactElement, type ReactNode} f
 import type {
   ChartColumn,
   ChartInstance,
+  ChartInstanceFromHints,
   ColumnHints,
   Metric,
-  ResolvedColumnIdFromHints,
 } from '../core/types.js'
 
 /**
@@ -189,7 +189,7 @@ export function useChartContext() {
  * provide the row type (and optional hint type) explicitly.
  */
 export function useTypedChartContext<T, const THints extends ColumnHints<T> | undefined = undefined>():
-  ChartInstance<T, ResolvedColumnIdFromHints<T, THints>> {
+  ChartInstanceFromHints<T, THints> {
   const ctx = useContext(ChartContext)
   if (!ctx) {
     throw new Error('useTypedChartContext must be used within a <Chart> provider')
@@ -201,7 +201,7 @@ export function useTypedChartContext<T, const THints extends ColumnHints<T> | un
     )
   }
 
-  return ctx.typedChart as ChartInstance<T, ResolvedColumnIdFromHints<T, THints>>
+  return ctx.typedChart as ChartInstanceFromHints<T, THints>
 }
 
 /**

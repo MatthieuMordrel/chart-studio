@@ -16,7 +16,7 @@ TypeScript can know:
 
 - the row shape
 - the literal column IDs
-- which column IDs are valid for x-axis, filters, metrics, and date range functions
+- when explicit `columnHints.type` values are present, which column IDs are valid for x-axis, filters, metrics, and date range functions
 
 That means methods like these can be strongly typed:
 
@@ -34,6 +34,12 @@ This is the best developer experience in the package today.
 Type safety comes from the resolved column IDs.
 
 If the data shape and `columnHints` are preserved, TypeScript can carry those exact IDs through the chart instance.
+
+When `columnHints.type` is explicit, the chart API can also narrow role-aware subsets such as:
+
+- groupable/filterable IDs (`category` + `boolean`)
+- metric IDs (`number`)
+- reference date IDs (`date`)
 
 That is why `columnHints` are not just presentation overrides. They also shape the final typed chart API.
 

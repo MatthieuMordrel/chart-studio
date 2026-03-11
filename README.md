@@ -90,7 +90,7 @@ export function JobsChart({ data }) {
 ## How It Works
 
 1. Pass your raw data to `useChart()`.
-2. Add `columnHints` only when labels or inference need help.
+2. Add `columnHints` only when labels or inference need help. Explicit `columnHints.type` values also sharpen the compile-time API for metrics, grouping, filters, and date controls.
 3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
 
 ## Column Types
@@ -120,8 +120,8 @@ export function JobsChartHeadless({ data }: { data: Job[] }) {
     data,
     columnHints: {
       dateAdded: { type: 'date', label: 'Date Added' },
-      ownerName: { label: 'Consultant' },
-      salary: { label: 'Salary' }
+      ownerName: { type: 'category', label: 'Consultant' },
+      salary: { type: 'number', label: 'Salary' }
     }
   })
 

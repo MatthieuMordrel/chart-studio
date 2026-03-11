@@ -10,8 +10,9 @@ type ExampleRecord = {
 
 const exampleHints = {
   createdAt: {type: 'date', label: 'Created'},
-  ownerName: {label: 'Owner'},
-  salary: {format: 'currency'},
+  ownerName: {type: 'category', label: 'Owner'},
+  isOpen: {type: 'boolean'},
+  salary: {type: 'number', format: 'currency'},
   internalId: false,
 } as const
 
@@ -30,9 +31,9 @@ function verifyUseChartColumnIds() {
     columnHints: exampleHints,
   })
 
-  expectType<'createdAt' | 'ownerName' | 'isOpen' | 'salary' | null>(chart.xAxisId)
-  expectType<'createdAt' | 'ownerName' | 'isOpen' | 'salary' | null>(chart.groupById)
-  expectType<'createdAt' | 'ownerName' | 'isOpen' | 'salary' | null>(chart.referenceDateId)
+  expectType<'createdAt' | 'ownerName' | 'isOpen' | null>(chart.xAxisId)
+  expectType<'ownerName' | 'isOpen' | null>(chart.groupById)
+  expectType<'createdAt' | null>(chart.referenceDateId)
 
   chart.setXAxis('ownerName')
   chart.setGroupBy('isOpen')
@@ -50,6 +51,18 @@ function verifyUseChartColumnIds() {
 
   // @ts-expect-error invalid filter column IDs should fail
   chart.toggleFilter('missingField', 'Alice')
+
+  // @ts-expect-error number columns should not be groupable when explicit hints say they are numeric
+  chart.setGroupBy('salary')
+
+  // @ts-expect-error explicit numeric hints should keep number columns out of the X-axis API
+  chart.setXAxis('salary')
+
+  // @ts-expect-error date columns should not be filterable when explicit hints say they are dates
+  chart.toggleFilter('createdAt', '2026-01-01')
+
+  // @ts-expect-error non-date columns should not be usable as reference dates when explicit hints say otherwise
+  chart.setReferenceDateId('ownerName')
 
   // @ts-expect-error explicitly excluded fields should be removed from the chart API
   chart.setXAxis('internalId')

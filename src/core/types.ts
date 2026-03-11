@@ -116,6 +116,71 @@ export type ResolvedColumnIdFromHints<
   THints extends ColumnHints<T> | undefined = undefined,
 > = Exclude<InferableFieldKey<T>, THints extends ColumnHints<T> ? ExcludedHintKeys<THints> : never>
 
+type ExplicitHintedColumnType<THint> = Extract<
+  THint extends {type?: infer TType} ? TType : never,
+  ChartColumnType
+>
+
+type PotentialColumnTypeFromValue<TValue> =
+  [Exclude<TValue, Nullish>] extends [boolean] ? 'boolean'
+  : [Exclude<TValue, Nullish>] extends [Date] ? 'date'
+  : [Exclude<TValue, Nullish>] extends [number] ? 'date' | 'number'
+  : [Exclude<TValue, Nullish>] extends [string] ? 'date' | 'category'
+  : ChartColumnType
+
+type PotentialColumnTypeFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined,
+  TKey extends ResolvedColumnIdFromHints<T, THints>,
+> =
+  THints extends ColumnHints<T>
+    ? [ExplicitHintedColumnType<THints[TKey]>] extends [never]
+      ? PotentialColumnTypeFromValue<T[TKey]>
+      : ExplicitHintedColumnType<THints[TKey]>
+    : PotentialColumnTypeFromValue<T[TKey]>
+
+type ColumnIdsMatchingPotentialTypes<
+  T,
+  THints extends ColumnHints<T> | undefined,
+  TAllowedType extends ChartColumnType,
+> = Extract<
+  {
+    [TKey in ResolvedColumnIdFromHints<T, THints>]:
+      Extract<PotentialColumnTypeFromHints<T, THints, TKey>, TAllowedType> extends never ? never : TKey
+  }[ResolvedColumnIdFromHints<T, THints>],
+  string
+>
+
+/** Column IDs that can safely be treated as X-axis candidates from static information. */
+export type ResolvedXAxisColumnIdFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = ColumnIdsMatchingPotentialTypes<T, THints, 'date' | 'category' | 'boolean'>
+
+/** Column IDs that can safely be treated as groupBy candidates from static information. */
+export type ResolvedGroupByColumnIdFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = ColumnIdsMatchingPotentialTypes<T, THints, 'category' | 'boolean'>
+
+/** Column IDs that can safely be treated as filter candidates from static information. */
+export type ResolvedFilterColumnIdFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = ColumnIdsMatchingPotentialTypes<T, THints, 'category' | 'boolean'>
+
+/** Column IDs that can safely be treated as metric candidates from static information. */
+export type ResolvedMetricColumnIdFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = ColumnIdsMatchingPotentialTypes<T, THints, 'number'>
+
+/** Column IDs that can safely be treated as date candidates from static information. */
+export type ResolvedDateColumnIdFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = ColumnIdsMatchingPotentialTypes<T, THints, 'date'>
+
 /** Base properties shared by all column types. */
 type ColumnBase<T, TId extends string> = {
   /** Unique identifier — typically the field key in the data object. */
@@ -387,7 +452,15 @@ export type DateRangeFilter = {
  * Full chart state returned by the useChart hook.
  * Contains both controlled state and derived computations.
  */
-export type ChartInstance<T, TColumnId extends string = string> = {
+export type ChartInstance<
+  T,
+  TColumnId extends string = string,
+  TXAxisId extends TColumnId = TColumnId,
+  TGroupById extends TColumnId = TColumnId,
+  TMetricColumnId extends TColumnId = TColumnId,
+  TFilterColumnId extends TColumnId = TColumnId,
+  TDateColumnId extends TColumnId = TColumnId,
+> = {
   // -- Source --
   /** Active source ID (only relevant for multi-source). */
   activeSourceId: string
@@ -408,27 +481,27 @@ export type ChartInstance<T, TColumnId extends string = string> = {
 
   // -- X-axis --
   /** Current X-axis column ID. */
-  xAxisId: TColumnId | null
+  xAxisId: TXAxisId | null
   /** Change the X-axis column. */
-  setXAxis: (columnId: TColumnId) => void
+  setXAxis: (columnId: TXAxisId) => void
   /** Columns eligible for X-axis (date + category). */
-  availableXAxes: Array<{id: TColumnId; label: string; type: 'date' | 'category' | 'boolean'}>
+  availableXAxes: Array<{id: TXAxisId; label: string; type: 'date' | 'category' | 'boolean'}>
 
   // -- Group by --
   /** Current groupBy column ID (null = no grouping). */
-  groupById: TColumnId | null
+  groupById: TGroupById | null
   /** Change the groupBy column. */
-  setGroupBy: (columnId: TColumnId | null) => void
+  setGroupBy: (columnId: TGroupById | null) => void
   /** Columns eligible for groupBy (category + boolean, excluding current X-axis). */
-  availableGroupBys: Array<{id: TColumnId; label: string}>
+  availableGroupBys: Array<{id: TGroupById; label: string}>
 
   // -- Metric --
   /** Current metric (what the Y-axis measures). */
-  metric: Metric<TColumnId>
+  metric: Metric<TMetricColumnId>
   /** Change the metric. */
-  setMetric: (metric: Metric<TColumnId>) => void
+  setMetric: (metric: Metric<TMetricColumnId>) => void
   /** Available metrics (count + one per number column with sum/avg/min/max). */
-  availableMetrics: Metric<TColumnId>[]
+  availableMetrics: Metric<TMetricColumnId>[]
 
   // -- Time bucket --
   /** Current time bucket (only relevant when X-axis is date). */
@@ -440,15 +513,15 @@ export type ChartInstance<T, TColumnId extends string = string> = {
 
   // -- Filters --
   /** Active filter values per column. */
-  filters: FilterState<TColumnId>
+  filters: FilterState<TFilterColumnId>
   /** Toggle a specific filter value on/off for a column. */
-  toggleFilter: (columnId: TColumnId, value: string) => void
+  toggleFilter: (columnId: TFilterColumnId, value: string) => void
   /** Clear all filters for a column. */
-  clearFilter: (columnId: TColumnId) => void
+  clearFilter: (columnId: TFilterColumnId) => void
   /** Clear all filters. */
   clearAllFilters: () => void
   /** Available filter options extracted from the data. */
-  availableFilters: AvailableFilter<TColumnId>[]
+  availableFilters: AvailableFilter<TFilterColumnId>[]
 
   // -- Sorting --
   /** Current sort configuration (null = default order). */
@@ -458,13 +531,13 @@ export type ChartInstance<T, TColumnId extends string = string> = {
 
   // -- Date range --
   /** Date range for the active reference date column (computed from filtered data). */
-  dateRange: DateRange<TColumnId> | null
+  dateRange: DateRange<TDateColumnId> | null
   /** Which date column provides the visible date range context. */
-  referenceDateId: TColumnId | null
+  referenceDateId: TDateColumnId | null
   /** Change the reference date column. */
-  setReferenceDateId: (columnId: TColumnId) => void
+  setReferenceDateId: (columnId: TDateColumnId) => void
   /** All date columns available as reference dates. */
-  availableDateColumns: Array<{id: TColumnId; label: string}>
+  availableDateColumns: Array<{id: TDateColumnId; label: string}>
   /** Active date range filter (null = all time). */
   dateRangeFilter: DateRangeFilter | null
   /** Set the date range filter. Pass null to clear (show all time). */
@@ -483,12 +556,46 @@ export type ChartInstance<T, TColumnId extends string = string> = {
   recordCount: number
 }
 
+/** Single-source chart instance whose role-aware IDs are derived from `columnHints`. */
+export type ChartInstanceFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = ChartInstance<
+  T,
+  ResolvedColumnIdFromHints<T, THints>,
+  ResolvedXAxisColumnIdFromHints<T, THints>,
+  ResolvedGroupByColumnIdFromHints<T, THints>,
+  ResolvedMetricColumnIdFromHints<T, THints>,
+  ResolvedFilterColumnIdFromHints<T, THints>,
+  ResolvedDateColumnIdFromHints<T, THints>
+>
+
 type SourceIdFromSource<TSource extends AnyChartSourceOptions> = TSource['id']
 type SourceRowFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, any> ? TRow : never
 type SourceColumnIdFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, infer THints>
     ? ResolvedColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+    : never
+type SourceXAxisColumnIdFromSource<TSource extends AnyChartSourceOptions> =
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+    ? ResolvedXAxisColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+    : never
+type SourceGroupByColumnIdFromSource<TSource extends AnyChartSourceOptions> =
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+    ? ResolvedGroupByColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+    : never
+type SourceMetricColumnIdFromSource<TSource extends AnyChartSourceOptions> =
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+    ? ResolvedMetricColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+    : never
+type SourceFilterColumnIdFromSource<TSource extends AnyChartSourceOptions> =
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+    ? ResolvedFilterColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+    : never
+type SourceDateColumnIdFromSource<TSource extends AnyChartSourceOptions> =
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+    ? ResolvedDateColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceIdFromSources<TSources extends NonEmptyChartSourceOptions> =
   Extract<TSources[number]['id'], string>
@@ -503,7 +610,10 @@ type MultiSourceChartBranch<
   TSources extends NonEmptyChartSourceOptions,
   TSource extends AnyChartSourceOptions,
 > = Omit<
-  ChartInstance<SourceRowFromSource<TSource>, SourceColumnIdFromSources<TSources>>,
+  ChartInstance<
+    SourceRowFromSource<TSource>,
+    SourceColumnIdFromSources<TSources>
+  >,
   | 'activeSourceId'
   | 'setActiveSource'
   | 'sources'
@@ -529,23 +639,23 @@ type MultiSourceChartBranch<
   activeSourceId: SourceIdFromSource<TSource>
   setActiveSource: (sourceId: SourceIdFromSources<TSources>) => void
   sources: Array<{id: SourceIdFromSources<TSources>; label: string}>
-  xAxisId: SourceColumnIdFromSource<TSource> | null
+  xAxisId: SourceXAxisColumnIdFromSource<TSource> | null
   setXAxis: (columnId: SourceColumnIdFromSources<TSources>) => void
-  availableXAxes: Array<{id: SourceColumnIdFromSource<TSource>; label: string; type: 'date' | 'category' | 'boolean'}>
-  groupById: SourceColumnIdFromSource<TSource> | null
+  availableXAxes: Array<{id: SourceXAxisColumnIdFromSource<TSource>; label: string; type: 'date' | 'category' | 'boolean'}>
+  groupById: SourceGroupByColumnIdFromSource<TSource> | null
   setGroupBy: (columnId: SourceColumnIdFromSources<TSources> | null) => void
-  availableGroupBys: Array<{id: SourceColumnIdFromSource<TSource>; label: string}>
-  metric: Metric<SourceColumnIdFromSource<TSource>>
+  availableGroupBys: Array<{id: SourceGroupByColumnIdFromSource<TSource>; label: string}>
+  metric: Metric<SourceMetricColumnIdFromSource<TSource>>
   setMetric: (metric: Metric<SourceColumnIdFromSources<TSources>>) => void
-  availableMetrics: Metric<SourceColumnIdFromSource<TSource>>[]
-  filters: FilterState<SourceColumnIdFromSource<TSource>>
+  availableMetrics: Metric<SourceMetricColumnIdFromSource<TSource>>[]
+  filters: FilterState<SourceFilterColumnIdFromSource<TSource>>
   toggleFilter: (columnId: SourceColumnIdFromSources<TSources>, value: string) => void
   clearFilter: (columnId: SourceColumnIdFromSources<TSources>) => void
-  availableFilters: AvailableFilter<SourceColumnIdFromSource<TSource>>[]
-  dateRange: DateRange<SourceColumnIdFromSource<TSource>> | null
-  referenceDateId: SourceColumnIdFromSource<TSource> | null
+  availableFilters: AvailableFilter<SourceFilterColumnIdFromSource<TSource>>[]
+  dateRange: DateRange<SourceDateColumnIdFromSource<TSource>> | null
+  referenceDateId: SourceDateColumnIdFromSource<TSource> | null
   setReferenceDateId: (columnId: SourceColumnIdFromSources<TSources>) => void
-  availableDateColumns: Array<{id: SourceColumnIdFromSource<TSource>; label: string}>
+  availableDateColumns: Array<{id: SourceDateColumnIdFromSource<TSource>; label: string}>
   columns: readonly ChartColumn<SourceRowFromSource<TSource>, SourceColumnIdFromSource<TSource>>[]
 }
 

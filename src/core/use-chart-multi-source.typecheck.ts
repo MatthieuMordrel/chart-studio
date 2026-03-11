@@ -16,12 +16,15 @@ type UserRecord = {
 
 const salesHints = {
   createdAt: {type: 'date', label: 'Created'},
-  revenue: {format: 'currency'},
+  region: {type: 'category'},
+  revenue: {type: 'number', format: 'currency'},
   internalId: false,
 } as const
 
 const userHints = {
   signedUpAt: {type: 'date', label: 'Signed Up'},
+  plan: {type: 'category'},
+  isActive: {type: 'boolean'},
   city: false,
 } as const
 
@@ -62,9 +65,9 @@ function verifyMultiSourceChartTyping() {
 
   if (chart.activeSourceId === 'sales') {
     expectType<readonly SalesRecord[]>(chart.rawData)
-    expectType<'createdAt' | 'region' | 'revenue' | null>(chart.xAxisId)
-    expectType<'createdAt' | 'region' | 'revenue' | null>(chart.groupById)
-    expectType<'createdAt' | 'region' | 'revenue' | null>(chart.referenceDateId)
+    expectType<'createdAt' | 'region' | null>(chart.xAxisId)
+    expectType<'region' | null>(chart.groupById)
+    expectType<'createdAt' | null>(chart.referenceDateId)
 
     chart.setXAxis('region')
     chart.setGroupBy('region')
@@ -79,8 +82,8 @@ function verifyMultiSourceChartTyping() {
   } else {
     expectType<readonly UserRecord[]>(chart.rawData)
     expectType<'signedUpAt' | 'plan' | 'isActive' | null>(chart.xAxisId)
-    expectType<'signedUpAt' | 'plan' | 'isActive' | null>(chart.groupById)
-    expectType<'signedUpAt' | 'plan' | 'isActive' | null>(chart.referenceDateId)
+    expectType<'plan' | 'isActive' | null>(chart.groupById)
+    expectType<'signedUpAt' | null>(chart.referenceDateId)
 
     chart.setXAxis('plan')
     chart.setGroupBy('isActive')

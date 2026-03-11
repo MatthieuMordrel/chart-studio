@@ -23,6 +23,11 @@ export type {
   ColumnHintFor,
   InferableFieldKey,
   ResolvedColumnIdFromHints,
+  ResolvedXAxisColumnIdFromHints,
+  ResolvedGroupByColumnIdFromHints,
+  ResolvedFilterColumnIdFromHints,
+  ResolvedMetricColumnIdFromHints,
+  ResolvedDateColumnIdFromHints,
   DateColumn,
   CategoryColumn,
   BooleanColumn,
@@ -46,4 +51,5 @@ export type {
   TransformedDataPoint,
   AvailableFilter,
   ChartInstance,
+  ChartInstanceFromHints,
 } from './types.js'

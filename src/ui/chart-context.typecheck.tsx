@@ -11,7 +11,9 @@ type ExampleRecord = {
 
 const exampleHints = {
   createdAt: {type: 'date', label: 'Created'},
-  salary: {format: 'currency'},
+  ownerName: {type: 'category', label: 'Owner'},
+  isOpen: {type: 'boolean'},
+  salary: {type: 'number', format: 'currency'},
   internalId: false,
 } as const
 
@@ -27,9 +29,9 @@ function TypedSingleSourceProbe() {
   const chart = useTypedChartContext<ExampleRecord, typeof exampleHints>()
 
   expectType<ExampleRecord[]>([...chart.rawData])
-  expectType<'createdAt' | 'ownerName' | 'isOpen' | 'salary' | null>(chart.xAxisId)
-  expectType<'createdAt' | 'ownerName' | 'isOpen' | 'salary' | null>(chart.groupById)
-  expectType<'createdAt' | 'ownerName' | 'isOpen' | 'salary' | null>(chart.referenceDateId)
+  expectType<'createdAt' | 'ownerName' | 'isOpen' | null>(chart.xAxisId)
+  expectType<'ownerName' | 'isOpen' | null>(chart.groupById)
+  expectType<'createdAt' | null>(chart.referenceDateId)
 
   chart.setXAxis('ownerName')
   chart.setGroupBy('isOpen')
@@ -43,6 +45,15 @@ function TypedSingleSourceProbe() {
 
   // @ts-expect-error invalid metric column IDs should fail through the typed UI context
   chart.setMetric({kind: 'aggregate', columnId: 'missingField', aggregate: 'sum'})
+
+  // @ts-expect-error explicit numeric hints should keep number columns out of groupBy
+  chart.setGroupBy('salary')
+
+  // @ts-expect-error explicit numeric hints should keep number columns out of the X-axis API
+  chart.setXAxis('salary')
+
+  // @ts-expect-error explicit date hints should keep date columns out of filters
+  chart.toggleFilter('createdAt', '2026-01-01')
 
   // @ts-expect-error excluded fields should stay unavailable through typed context
   chart.setXAxis('internalId')

@@ -36,6 +36,8 @@ The resolved columns tell the library what each field means.
 
 This is the core idea: the library infers a schema from raw data, then lets `columnHints` override labels or types when needed.
 
+When you provide explicit `columnHints.type` values, that metadata also sharpens the compile-time chart API. For example, date-only helpers narrow to date columns, metric helpers narrow to numeric columns, and group/filter helpers narrow to category or boolean columns.
+
 ## What `useChart()` does
 
 `useChart()` is the main engine.
