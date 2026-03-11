@@ -7,6 +7,7 @@ import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.j
 import type {
   ChartColumn,
   ChartConfigFromHints,
+  ChartInstance,
   ChartInstanceFromConfig,
   ChartType,
   ColumnHints,
@@ -23,6 +24,37 @@ import type {
 } from './types.js'
 import { DEFAULT_TIME_BUCKET, type MultiSourceOptions, type SingleSourceOptions } from './use-chart-options.js'
 import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-chart-resolvers.js'
+
+type RuntimeChartInstance = ChartInstance<any, string>
+
+/**
+ * Reapply the public overload return type after the hook has built a broad
+ * runtime chart instance.
+ *
+ * The implementation must be able to execute for both single-source and
+ * multi-source inputs, so React state is assembled once with broad internal
+ * types and then narrowed back to the caller-facing contract at this boundary.
+ */
+function finalizeChartReturn<const TSources extends NonEmptyChartSourceOptions>(
+  _options: {sources: TSources},
+  chart: RuntimeChartInstance,
+): MultiSourceChartInstance<TSources>
+function finalizeChartReturn<
+  T,
+  const THints extends ColumnHints<T> | undefined = undefined,
+  const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+>(
+  _options: SingleSourceOptions<T, THints> & {config?: TConfig},
+  chart: RuntimeChartInstance,
+): ChartInstanceFromConfig<T, THints, TConfig>
+function finalizeChartReturn(
+  _options: SingleSourceOptions<any, any> | MultiSourceOptions,
+  chart: RuntimeChartInstance,
+): ChartInstanceFromConfig<any, any, any> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
+  return chart as unknown as
+    | ChartInstanceFromConfig<any, any, any>
+    | MultiSourceChartInstance<NonEmptyChartSourceOptions>
+}
 
 /**
  * Headless React hook that manages all chart configuration, state, and derived/transformed data for chart rendering.
@@ -271,7 +303,7 @@ export function useChart<
     setFilters(new Map())
   }
 
-  return {
+  const chart: RuntimeChartInstance = {
     activeSourceId,
     setActiveSource,
     hasMultipleSources,
@@ -309,5 +341,11 @@ export function useChart<
     columns: activeColumns,
     rawData,
     recordCount: rawData.length
-  } as unknown as ChartInstanceFromConfig<T, THints, TConfig> | MultiSourceChartInstance<NonEmptyChartSourceOptions>
+  }
+
+  if ('sources' in options && options.sources) {
+    return finalizeChartReturn(options, chart)
+  }
+
+  return finalizeChartReturn(options, chart)
 }

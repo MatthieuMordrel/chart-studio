@@ -22,6 +22,8 @@ const DATE_VALUE_PATTERN = /^\d{4}-\d{2}(-\d{2})?(?:[t\s].+)?$/i
 
 type PrimitiveSample = string | number | boolean | Date
 type RuntimeFieldKind = ChartColumnType | 'mixed' | 'empty' | 'unsupported'
+type RuntimeFormatterValue<TFormatter> =
+  TFormatter extends (value: infer TValue, item: any) => string ? TValue : never
 type RuntimeColumnHint<T> = {
   label?: string
   format?: ColumnFormatPreset
@@ -76,6 +78,88 @@ function getFieldValue<T>(item: T, key: string): unknown {
  */
 function createAccessor<T>(key: string): (item: T) => unknown {
   return (item: T) => getFieldValue(item, key)
+}
+
+/**
+ * Treat one runtime string key as an inferable top-level field key.
+ *
+ * `collectFieldKeys()` only emits keys from the raw data objects and from the
+ * `columnHints` object, so this cast is the narrow boundary between runtime
+ * string discovery and the strongly typed inference pipeline.
+ */
+function toInferableFieldKey<T>(key: string): InferableFieldKey<T> {
+  return key as InferableFieldKey<T>
+}
+
+/**
+ * Adapt a strongly typed field formatter to the looser runtime formatter shape.
+ *
+ * The runtime inference layer does not know the exact field value type after a
+ * hint is selected, so the formatter is widened once here instead of repeating
+ * casts across each column builder.
+ */
+function toRuntimeFormatter<T, TFormatter extends ((value: any, item: T) => string) | undefined>(
+  formatter: TFormatter,
+): RuntimeColumnHint<T>['formatter'] {
+  if (!formatter) {
+    return undefined
+  }
+
+  return (value, item) => formatter(value as RuntimeFormatterValue<TFormatter>, item)
+}
+
+/**
+ * Normalize a typed field hint into the runtime shape used by the inference layer.
+ *
+ * Hint formatters are intentionally more specific than the runtime pipeline can
+ * express, so this helper contains the one widening step that keeps the rest of
+ * the implementation free of repeated formatter casts.
+ */
+function toRuntimeColumnHint<T, TId extends InferableFieldKey<T>>(
+  hint: ColumnHints<T>[TId] | undefined,
+): RuntimeColumnHint<T> | undefined {
+  if (!hint || hint === false) {
+    return undefined
+  }
+
+  return {
+    ...hint,
+    formatter: toRuntimeFormatter(hint.formatter),
+  }
+}
+
+/**
+ * Extract only string samples after runtime classification has selected the
+ * string/category path.
+ */
+function getStringSamples(samples: readonly PrimitiveSample[]): readonly string[] {
+  return samples.filter((value): value is string => typeof value === 'string')
+}
+
+/**
+ * Extract only numeric samples after runtime classification has selected the
+ * numeric path.
+ */
+function getNumberSamples(samples: readonly PrimitiveSample[]): readonly number[] {
+  return samples.filter((value): value is number => typeof value === 'number')
+}
+
+/**
+ * Narrow the final inferred columns array back to the literal column-id union
+ * derived from the caller's hints.
+ *
+ * Inference happens over runtime strings, but every column in this array was
+ * constructed from keys collected by `collectFieldKeys()` and filtered through
+ * `buildColumn()`. This cast is therefore the final boundary between runtime
+ * discovery and the exported literal-id API.
+ */
+function finalizeInferredColumns<
+  T,
+  const THints extends ColumnHints<T> | undefined,
+>(
+  columns: readonly ChartColumn<T, string>[],
+): readonly ChartColumn<T, ResolvedColumnIdFromHints<T, THints>>[] {
+  return columns as unknown as readonly ChartColumn<T, ResolvedColumnIdFromHints<T, THints>>[]
 }
 
 /**
@@ -240,11 +324,11 @@ function inferColumnType(
     case 'date':
       return {type: 'date', confidence: 'high', looksDateLike: true}
     case 'number': {
-      const signal = detectNumericDateSignal(key, samples as readonly number[])
+      const signal = detectNumericDateSignal(key, getNumberSamples(samples))
       return {type: signal.type, confidence: signal.confidence, looksDateLike: signal.looksDateLike}
     }
     case 'category': {
-      const signal = detectStringDateSignal(key, samples as readonly string[])
+      const signal = detectStringDateSignal(key, getStringSamples(samples))
       return {type: signal.type, confidence: signal.confidence, looksDateLike: signal.looksDateLike}
     }
     case 'empty':
@@ -318,7 +402,7 @@ function createDateColumn<T, TId extends string>(
     type: 'date',
     label: typeof hint === 'object' && hint?.label ? hint.label : humanizeKey(key),
     format: typeof hint === 'object' && hint?.format ? hint.format : inferDefaultFormat(key, 'date'),
-    formatter: typeof hint === 'object' ? (hint.formatter as DateColumn<T, TId>['formatter']) : undefined,
+    formatter: hint?.formatter,
     inference: createInferenceMetadata('date', confidence, hinted),
     accessor: (item: T) => {
       const value = accessor(item)
@@ -344,9 +428,7 @@ function createCategoryColumn<T, TId extends string>(
     type: 'category',
     label: typeof hint === 'object' && hint?.label ? hint.label : humanizeKey(key),
     format: typeof hint === 'object' ? hint.format : undefined,
-    formatter: typeof hint === 'object'
-      ? (hint.formatter as CategoryColumn<T, TId>['formatter'])
-      : undefined,
+    formatter: hint?.formatter,
     inference: createInferenceMetadata('category', confidence, hinted),
     accessor: (item: T) => {
       const value = accessor(item)
@@ -373,9 +455,7 @@ function createBooleanColumn<T, TId extends string>(
     type: 'boolean',
     label: typeof hint === 'object' && hint?.label ? hint.label : humanizeKey(key),
     format: typeof hint === 'object' ? hint.format : undefined,
-    formatter: typeof hint === 'object'
-      ? (hint.formatter as BooleanColumn<T, TId>['formatter'])
-      : undefined,
+    formatter: hint?.formatter,
     inference: createInferenceMetadata('boolean', confidence, hinted),
     trueLabel,
     falseLabel,
@@ -401,7 +481,7 @@ function createNumberColumn<T, TId extends string>(
     type: 'number',
     label: typeof hint === 'object' && hint?.label ? hint.label : humanizeKey(key),
     format: typeof hint === 'object' && hint?.format ? hint.format : inferDefaultFormat(key, 'number'),
-    formatter: typeof hint === 'object' ? (hint.formatter as NumberColumn<T, TId>['formatter']) : undefined,
+    formatter: hint?.formatter,
     inference: createInferenceMetadata('number', confidence, hinted),
     accessor: (item: T) => {
       const value = accessor(item)
@@ -422,7 +502,7 @@ function buildColumn<T, TId extends InferableFieldKey<T>>(
     return null
   }
 
-  const runtimeHint = hint ? (hint as unknown as RuntimeColumnHint<T>) : undefined
+  const runtimeHint = toRuntimeColumnHint(hint)
   const inferred = inferColumnType(key, samples)
   const hintedType = runtimeHint?.type
   const resolvedType = hintedType ?? inferred.type
@@ -492,7 +572,8 @@ export function inferColumnsFromData<T, const THints extends ColumnHints<T> | un
 
   for (const field of fields) {
     const samples = collectSamples(data, field)
-    const column = buildColumn(field as InferableFieldKey<T>, samples, columnHints?.[field as InferableFieldKey<T>])
+    const typedField = toInferableFieldKey<T>(field)
+    const column = buildColumn(typedField, samples, columnHints?.[typedField])
     if (column) {
       inferredColumns.push(column)
     }
@@ -502,8 +583,5 @@ export function inferColumnsFromData<T, const THints extends ColumnHints<T> | un
     warn('No inferable primitive fields were found. Provide non-empty data or columnHints.')
   }
 
-  return sortResolvedColumns(inferredColumns) as unknown as readonly ChartColumn<
-    T,
-    ResolvedColumnIdFromHints<T, THints>
-  >[]
+  return finalizeInferredColumns<T, THints>(sortResolvedColumns(inferredColumns))
 }

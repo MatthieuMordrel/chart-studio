@@ -9,7 +9,7 @@ The goal is:
 - preserve strong type safety when users provide explicit config
 - make future features additive rather than forcing another API rewrite
 
-## 1. Lock The Core API Contract
+## 1. Lock The Core API Contract - DONE
 
 - Keep `columnHints` as the long-term inference-layer name.
   It stays lightweight and progressive: labels, format hints, explicit column types, and field exclusion.
