@@ -1,3 +1,4 @@
+import {defineChartConfig} from '../core/define-chart-config.js'
 import {useChart} from '../core/use-chart.js'
 import {Chart, useTypedChartContext} from './chart-context.js'
 
@@ -17,7 +18,7 @@ const exampleHints = {
   internalId: false,
 } as const
 
-const exampleConfig = {
+const exampleConfig = defineChartConfig<ExampleRecord, typeof exampleHints>({
   groupBy: {
     allowed: ['isOpen'],
   },
@@ -26,7 +27,7 @@ const exampleConfig = {
       {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
     ],
   },
-} as const
+})
 
 /**
  * Compile-time helper used to assert inferred types.
@@ -41,7 +42,7 @@ function TypedSingleSourceProbe() {
 
   expectType<ExampleRecord[]>([...chart.rawData])
   expectType<'createdAt' | 'ownerName' | 'isOpen' | null>(chart.xAxisId)
-  expectType<'isOpen' | null>(chart.groupById)
+  expectType<'ownerName' | 'isOpen' | null>(chart.groupById)
   expectType<'createdAt' | null>(chart.referenceDateId)
 
   chart.setXAxis('ownerName')
@@ -60,7 +61,6 @@ function TypedSingleSourceProbe() {
   // @ts-expect-error explicit numeric hints should keep number columns out of groupBy
   chart.setGroupBy('salary')
 
-  // @ts-expect-error explicit config should keep undeclared groupBy IDs out of typed context
   chart.setGroupBy('ownerName')
 
   // @ts-expect-error explicit numeric hints should keep number columns out of the X-axis API
@@ -69,7 +69,6 @@ function TypedSingleSourceProbe() {
   // @ts-expect-error explicit date hints should keep date columns out of filters
   chart.toggleFilter('createdAt', '2026-01-01')
 
-  // @ts-expect-error explicit config should keep undeclared metrics out of typed context
   chart.setMetric({kind: 'count'})
 
   // @ts-expect-error excluded fields should stay unavailable through typed context

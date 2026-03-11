@@ -266,25 +266,25 @@ type IsTuple<TArray extends readonly unknown[]> = number extends TArray['length'
 type NarrowConfigLiteral<TValue, TWide> = IsExactly<TValue, TWide> extends true ? never : TValue
 
 type ExactShape<TExpected, TActual> =
-  [TActual] extends [TExpected]
-    ? [TActual] extends [undefined]
-      ? TActual
-      : [NonNullable<TExpected>] extends [readonly (infer TExpectedItem)[]]
-      ? [NonNullable<TActual>] extends [readonly (infer TActualItem)[]]
-        ? readonly ExactShape<TExpectedItem, TActualItem>[]
-        : never
-      : [NonNullable<TExpected>] extends [(...args: never[]) => unknown]
-        ? TActual
-        : [NonNullable<TExpected>] extends [object]
-          ? [NonNullable<TActual>] extends [object]
-            ? {
-                [TKey in keyof NonNullable<TActual>]:
-                  TKey extends keyof NonNullable<TExpected>
-                    ? ExactShape<NonNullable<TExpected>[TKey], NonNullable<TActual>[TKey]>
-                    : never
-              }
-            : never
-          : TActual
+  TExpected extends unknown
+    ? TActual extends TExpected
+      ? TActual extends readonly (infer TActualItem)[]
+        ? TExpected extends readonly (infer TExpectedItem)[]
+          ? readonly ExactShape<TExpectedItem, TActualItem>[]
+          : never
+        : TActual extends (...args: never[]) => unknown
+          ? TActual
+          : TActual extends object
+            ? TExpected extends object
+              ? {
+                  [TKey in keyof TActual]:
+                    TKey extends keyof TExpected
+                      ? ExactShape<TExpected[TKey], TActual[TKey]>
+                      : never
+                }
+              : TActual
+            : TActual
+      : never
     : never
 
 type ValidateLiteralDefaultNotHidden<
@@ -343,6 +343,16 @@ export type ValidatedChartConfigFromHints<
     & TConfig
     & ValidateChartConfigLiterals<T, THints, TConfig>
   : TConfig
+
+/** Strict config object returned by `defineChartConfig(...)`. */
+export type DefinedChartConfigFromHints<
+  T,
+  THints extends ColumnHints<T> | undefined = undefined,
+  TConfig extends ChartConfigFromHints<T, THints> = ChartConfigFromHints<T, THints>,
+> = ValidatedChartConfigFromHints<T, THints, TConfig> & ChartConfigDefinitionBrand
+
+export type ResolvedChartConfigFromDefinition<TConfig> =
+  TConfig extends DefinedChartConfigFromHints<any, any, infer TResolvedConfig> ? TResolvedConfig : undefined
 
 /** GroupBy IDs narrowed by explicit config when present. */
 export type RestrictedGroupByColumnIdFromConfig<
@@ -613,6 +623,10 @@ export type ChartConfig<
   timeBucket?: TimeBucketConfig
 }
 
+type ChartConfigDefinitionBrand = {
+  readonly __chartConfigBrand: 'chart-config-definition'
+}
+
 // ---------------------------------------------------------------------------
 // Filter state
 // ---------------------------------------------------------------------------
@@ -658,12 +672,13 @@ export type ChartSourceOptions<
   TId extends string = string,
   T = unknown,
   THints extends ColumnHints<T> | undefined = undefined,
+  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 > = {
   id: TId
   label: string
   data: readonly T[]
   columnHints?: THints
-  config?: ChartConfigFromHints<T, THints>
+  config?: DefinedChartConfigFromHints<T, THints, Exclude<TConfig, undefined>>
 }
 
 /** Convenience alias for any multi-source input definition. */
@@ -943,29 +958,29 @@ export type ChartInstanceFromConfig<
 
 type SourceIdFromSource<TSource extends AnyChartSourceOptions> = TSource['id']
 type SourceRowFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, any> ? TRow : never
+  TSource extends ChartSourceOptions<string, infer TRow, any, any> ? TRow : never
 type SourceColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceXAxisColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedXAxisColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceGroupByColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedGroupByColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceMetricColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedMetricColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceFilterColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedFilterColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceDateColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
     ? ResolvedDateColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
     : never
 type SourceIdFromSources<TSources extends NonEmptyChartSourceOptions> =

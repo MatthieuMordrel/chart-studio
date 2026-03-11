@@ -1,20 +1,27 @@
-import type {ChartConfigFromHints, ChartSourceOptions, ColumnHints, NonEmptyChartSourceOptions} from './types.js'
+import type {
+  ChartConfigFromHints,
+  ChartSourceOptions,
+  ColumnHints,
+  DefinedChartConfigFromHints,
+  NonEmptyChartSourceOptions,
+} from './types.js'
 
 /**
  * Single-source options for useChart.
  *
  * @property data - Array of raw data items
  * @property columnHints - Optional per-field overrides layered on top of automatic inference
- * @property config - Optional explicit config that narrows the chart contract
+ * @property config - Optional explicit config that narrows the chart contract. Use `defineChartConfig(...)` to create it.
  * @property sourceLabel - Human-readable label for the data source (e.g. "Jobs", "Placements"). Defaults to "Unnamed Source".
  */
 export type SingleSourceOptions<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
+  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 > = {
   data: readonly T[]
   columnHints?: THints
-  config?: ChartConfigFromHints<T, THints>
+  config?: DefinedChartConfigFromHints<T, THints, Exclude<TConfig, undefined>>
   sourceLabel?: string
   sources?: never
 }
@@ -37,7 +44,8 @@ export type MultiSourceOptions<TSources extends NonEmptyChartSourceOptions = Non
 export type UseChartOptions<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
-> = SingleSourceOptions<T, THints> | MultiSourceOptions
+  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+> = SingleSourceOptions<T, THints, TConfig> | MultiSourceOptions
 
 export type {ChartSourceOptions}
 

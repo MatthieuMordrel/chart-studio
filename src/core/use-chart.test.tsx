@@ -1,7 +1,15 @@
 import {act, renderHook} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {candidateData, jobData} from '../test/chart-test-fixtures.js'
+import {defineChartConfig} from './define-chart-config.js'
 import {useChart} from './use-chart.js'
+
+const configuredJobHints = {
+  dateAdded: {type: 'date'},
+  ownerName: {type: 'category'},
+  isOpen: {type: 'boolean'},
+  salary: {type: 'number'},
+} as const
 
 describe('useChart', () => {
   beforeEach(() => {
@@ -193,13 +201,8 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: {
-          dateAdded: {type: 'date'},
-          ownerName: {type: 'category'},
-          isOpen: {type: 'boolean'},
-          salary: {type: 'number'},
-        } as const,
-        config: {
+        columnHints: configuredJobHints,
+        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
           groupBy: {
             allowed: ['isOpen'],
           },
@@ -208,7 +211,7 @@ describe('useChart', () => {
               {kind: 'aggregate', columnId: 'salary', aggregate: ['avg', 'sum']},
             ],
           },
-        },
+        }),
       }),
     )
 
@@ -237,13 +240,8 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: {
-          dateAdded: {type: 'date'},
-          ownerName: {type: 'category'},
-          isOpen: {type: 'boolean'},
-          salary: {type: 'number'},
-        } as const,
-        config: {
+        columnHints: configuredJobHints,
+        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
           groupBy: {
             allowed: ['isOpen'],
           },
@@ -252,7 +250,7 @@ describe('useChart', () => {
               {kind: 'aggregate', columnId: 'salary', aggregate: ['avg', 'sum']},
             ],
           },
-        },
+        }),
       }),
     )
 
@@ -292,13 +290,8 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: {
-          dateAdded: {type: 'date'},
-          ownerName: {type: 'category'},
-          isOpen: {type: 'boolean'},
-          salary: {type: 'number'},
-        } as const,
-        config: {
+        columnHints: configuredJobHints,
+        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
           xAxis: {
             allowed: ['dateAdded'],
             default: 'dateAdded',
@@ -328,7 +321,7 @@ describe('useChart', () => {
             hidden: ['year'],
             default: 'quarter',
           },
-        },
+        }),
       }),
     )
 
@@ -351,13 +344,8 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: {
-          dateAdded: {type: 'date'},
-          ownerName: {type: 'category'},
-          isOpen: {type: 'boolean'},
-          salary: {type: 'number'},
-        } as const,
-        config: {
+        columnHints: configuredJobHints,
+        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
           xAxis: {
             allowed: ['ownerName', 'dateAdded'],
           },
@@ -378,7 +366,7 @@ describe('useChart', () => {
           timeBucket: {
             allowed: ['year', 'quarter'],
           },
-        },
+        }),
       }),
     )
 
@@ -406,13 +394,8 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: {
-          dateAdded: {type: 'date'},
-          ownerName: {type: 'category'},
-          isOpen: {type: 'boolean'},
-          salary: {type: 'number'},
-        } as const,
-        config: {
+        columnHints: configuredJobHints,
+        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
           xAxis: {
             allowed: ['dateAdded', 'ownerName'],
             default: 'dateAdded',
@@ -423,7 +406,7 @@ describe('useChart', () => {
           timeBucket: {
             allowed: ['year'],
           },
-        },
+        }),
       }),
     )
 

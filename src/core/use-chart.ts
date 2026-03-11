@@ -46,7 +46,7 @@ function finalizeChartReturn<
   const THints extends ColumnHints<T> | undefined = undefined,
   const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 >(
-  _options: SingleSourceOptions<T, THints> & {config?: TConfig},
+  _options: SingleSourceOptions<T, THints, TConfig>,
   chart: RuntimeChartInstance,
 ): ChartInstanceFromConfig<T, THints, TConfig>
 function finalizeChartReturn(
@@ -85,6 +85,8 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   Chart configuration options. Should provide either:
  *   - `data`, optional `columnHints`, and (optionally) `sourceLabel` for a single source
  *   - or `sources` array for multiple sources
+ *   Any explicit single-source or per-source config should be created with
+ *   `defineChartConfig(...)` so the config shape stays exact and strongly typed.
  *
  * @returns {ChartInstance}
  *   An object representing chart configuration, state, and all derived data/operations:
@@ -120,14 +122,14 @@ export function useChart<
   const THints extends ColumnHints<T> | undefined = undefined,
   const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 >(
-  options: SingleSourceOptions<T, THints> & {config?: TConfig}
+  options: SingleSourceOptions<T, THints, TConfig>
 ): ChartInstanceFromConfig<T, THints, TConfig>
 export function useChart<
   T,
   const THints extends ColumnHints<T> | undefined = undefined,
   const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
 >(
-  options: (SingleSourceOptions<T, THints> & {config?: TConfig}) | MultiSourceOptions
+  options: SingleSourceOptions<T, THints, TConfig> | MultiSourceOptions
 ): ChartInstanceFromConfig<T, THints, TConfig> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
   if ('sources' in options && options.sources?.length === 0) {
     throw new Error('useChart requires at least one source')

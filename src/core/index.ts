@@ -38,6 +38,7 @@ export type {
   TimeBucketConfig,
   ChartConfig,
   ChartConfigFromHints,
+  DefinedChartConfigFromHints,
   ValidatedChartConfigFromHints,
   RestrictedXAxisColumnIdFromConfig,
   RestrictedGroupByColumnIdFromConfig,

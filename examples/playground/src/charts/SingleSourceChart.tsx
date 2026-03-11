@@ -1,8 +1,15 @@
-import { useChart } from '@matthieumordrel/chart-studio'
+import { defineChartConfig, useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
 import { quarterlyFinancialData } from '../mock-data'
 
-
+const singleSourceChartHints = {
+  periodEnd: { type: 'date', label: 'Period End' },
+  segment: { type: 'category' },
+  revenue: { type: 'number', label: 'Revenue' },
+  netIncome: { type: 'number', label: 'Net Income' },
+  ebitda: { type: 'number', label: 'EBITDA' },
+  grossProfit: { type: 'number', label: 'Gross Profit' }
+} as const
 
 /**
  * Dedicated single-source example for the inference-first API.
@@ -12,15 +19,8 @@ import { quarterlyFinancialData } from '../mock-data'
 export function SingleSourceChart() {
   const chart = useChart({
     data: quarterlyFinancialData,
-    columnHints: {
-      periodEnd: { type: 'date', label: 'Period End' },
-      segment: { type: 'category' },
-      revenue: { type: 'number', label: 'Revenue' },
-      netIncome: { type: 'number', label: 'Net Income' },
-      ebitda: { type: 'number', label: 'EBITDA' },
-      grossProfit: { type: 'number', label: 'Gross Profit' }
-    } as const,
-    config: {
+    columnHints: singleSourceChartHints,
+    config: defineChartConfig<(typeof quarterlyFinancialData)[number], typeof singleSourceChartHints>({
       xAxis: {
         allowed: ['periodEnd']
       },
@@ -36,7 +36,7 @@ export function SingleSourceChart() {
           { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
         ]
       }
-    },
+    }),
     sourceLabel: 'Quarterly Financials'
   })
 

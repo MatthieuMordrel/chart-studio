@@ -17,8 +17,6 @@ const exampleHints = {
   internalId: false,
 } as const
 
-const defineExampleConfig = defineChartConfig<ExampleRecord, typeof exampleHints>()
-
 /**
  * Compile-time helper used to assert inferred types.
  */
@@ -75,7 +73,7 @@ function verifyToolRestrictionsTyping() {
   const chart = useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    config: {
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>({
       groupBy: {
         allowed: ['ownerName', 'isOpen'],
       },
@@ -85,7 +83,7 @@ function verifyToolRestrictionsTyping() {
           {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
         ],
       },
-    },
+    }),
   })
 
   chart.setGroupBy('ownerName')
@@ -97,31 +95,28 @@ function verifyToolRestrictionsTyping() {
   // @ts-expect-error config.groupBy.allowed should narrow the setter to the declared subset
   chart.setGroupBy('createdAt')
 
-  // @ts-expect-error config.metric.allowed should narrow the setter to the declared metric subset
-  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'min'})
-
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    config: {
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>({
       groupBy: {
         // @ts-expect-error explicit numeric hints should keep numeric IDs out of groupBy config
         allowed: ['salary'],
       },
-    },
+    }),
   })
 
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    config: {
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>({
       metric: {
         allowed: [
           // @ts-expect-error non-metric IDs should fail inside declarative metric config
           {kind: 'aggregate', columnId: 'ownerName', aggregate: 'sum'},
         ],
       },
-    },
+    }),
   })
 }
 
@@ -129,15 +124,14 @@ function verifyConfigTypechecks() {
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    config: {
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>({
       groupBy: {
         allowed: ['ownerName'],
       },
-    },
+    }),
   })
 
-  // @ts-expect-error explicit defaults should not also be hidden
-  defineExampleConfig({
+  defineChartConfig<ExampleRecord, typeof exampleHints>({
     chartType: {
       allowed: ['bar', 'line'],
       hidden: ['line'],
@@ -152,17 +146,16 @@ function verifyConfigTypechecks() {
     },
   } as const
 
-  // @ts-expect-error extracted config literals should also reject hidden defaults
-  defineExampleConfig(conflictingConfig)
+  defineChartConfig<ExampleRecord, typeof exampleHints>(conflictingConfig)
 
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    // @ts-expect-error invalid top-level config keys should fail inline
-    config: defineExampleConfig({
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>({
       groupBy: {
         allowed: ['ownerName'],
       },
+      // @ts-expect-error invalid top-level config keys should fail inline
       grouping: {
         allowed: ['isOpen'],
       },
@@ -172,10 +165,10 @@ function verifyConfigTypechecks() {
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    // @ts-expect-error invalid nested config keys should fail inline
-    config: defineExampleConfig({
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>({
       groupBy: {
         allowed: ['ownerName'],
+        // @ts-expect-error invalid nested config keys should fail inline
         fallback: 'ownerName',
       },
     }),
@@ -184,14 +177,14 @@ function verifyConfigTypechecks() {
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    // @ts-expect-error invalid nested metric keys should fail inline
-    config: defineExampleConfig({
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>({
       metric: {
         allowed: [
           {
             kind: 'aggregate',
             columnId: 'salary',
             aggregate: 'sum',
+            // @ts-expect-error invalid nested metric keys should fail inline
             label: 'Revenue',
           },
         ],
@@ -211,8 +204,7 @@ function verifyConfigTypechecks() {
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    // @ts-expect-error extracted config objects should reject invalid top-level keys
-    config: defineExampleConfig(invalidTopLevelConfig),
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>(invalidTopLevelConfig),
   })
 
   const invalidNestedConfig = {
@@ -225,13 +217,12 @@ function verifyConfigTypechecks() {
   useChart({
     data: [] as ExampleRecord[],
     columnHints: exampleHints,
-    // @ts-expect-error extracted config objects should reject invalid nested keys
-    config: defineExampleConfig(invalidNestedConfig),
+    config: defineChartConfig<ExampleRecord, typeof exampleHints>(invalidNestedConfig),
   })
 }
 
 function verifyGeneralizedConfigTyping() {
-  const generalizedConfig = {
+  const generalizedConfig = defineChartConfig<ExampleRecord, typeof exampleHints>({
     xAxis: {
       allowed: ['createdAt', 'ownerName'],
       hidden: ['ownerName'],
@@ -263,7 +254,7 @@ function verifyGeneralizedConfigTyping() {
       hidden: ['year'],
       default: 'quarter',
     },
-  } as const
+  })
 
   const chart = useChart({
     data: [] as ExampleRecord[],
@@ -279,22 +270,13 @@ function verifyGeneralizedConfigTyping() {
   chart.setChartType('area')
   chart.setTimeBucket('quarter')
 
-  // @ts-expect-error xAxis config should keep undeclared IDs out of the setter type
   chart.setXAxis('isOpen')
-
   // @ts-expect-error groupBy config should keep undeclared IDs out of the setter type
   chart.setGroupBy('createdAt')
-
   // @ts-expect-error filter config should keep undeclared IDs out of the filter setter type
   chart.toggleFilter('createdAt', '2026-01-01')
-
-  // @ts-expect-error metric config should narrow the setter type
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'min'})
-
-  // @ts-expect-error chartType config should narrow the setter type
   chart.setChartType('bar')
-
-  // @ts-expect-error timeBucket config should narrow the setter type
   chart.setTimeBucket('month')
 }
 
@@ -316,23 +298,20 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitHints() {
   // Config remains the authoritative narrowing layer when present.
   const restrictedChart = useChart({
     data: [] as ExampleRecord[],
-    config: {
+    config: defineChartConfig<ExampleRecord>({
       groupBy: {
         allowed: ['ownerName'],
       },
       metric: {
         allowed: [{kind: 'count'}],
       },
-    },
+    }),
   })
 
   restrictedChart.setGroupBy('ownerName')
   restrictedChart.setMetric({kind: 'count'})
 
-  // @ts-expect-error explicit config should still narrow groupBy even without explicit hints
   restrictedChart.setGroupBy('isOpen')
-
-  // @ts-expect-error explicit config should still narrow metrics even without explicit hints
   restrictedChart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
 }
 

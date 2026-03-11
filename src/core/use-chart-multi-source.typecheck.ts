@@ -1,3 +1,4 @@
+import {defineChartConfig} from './define-chart-config.js'
 import {useChart} from './use-chart.js'
 
 type SalesRecord = {
@@ -45,19 +46,19 @@ function verifyMultiSourceChartTyping() {
         label: 'Sales',
         data: [] as SalesRecord[],
         columnHints: salesHints,
-        config: {
+        config: defineChartConfig<SalesRecord, typeof salesHints>({
           groupBy: {allowed: ['region']},
           metric: {allowed: [{kind: 'aggregate', columnId: 'revenue', aggregate: 'sum'}]},
-        },
+        }),
       },
       {
         id: 'users',
         label: 'Users',
         data: [] as UserRecord[],
         columnHints: userHints,
-        config: {
+        config: defineChartConfig<UserRecord, typeof userHints>({
           groupBy: {allowed: ['plan', 'isActive']},
-        },
+        }),
       },
     ] as const,
   })

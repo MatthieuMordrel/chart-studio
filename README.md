@@ -104,18 +104,28 @@ export function JobsChart({ data }) {
 
 ## Declarative Config Restrictions
 
-If you want to expose only a subset of groupings or metrics, use the optional `config` object:
+If you want to expose only a subset of groupings or metrics, the recommended explicit-config pattern is:
+
+- define `columnHints` as a named `const`
+- pass those hints to `useChart`
+- wrap the explicit config with `defineChartConfig<Row, typeof columnHints>(...)`
+
+Raw inline `config: { ... }` is not the supported strict path.
 
 ```tsx
+import { defineChartConfig, useChart } from '@matthieumordrel/chart-studio'
+
+const columnHints = {
+  periodEnd: {type: 'date'},
+  segment: {type: 'category'},
+  revenue: {type: 'number'},
+  netIncome: {type: 'number'},
+} as const
+
 const chart = useChart({
   data,
-  columnHints: {
-    periodEnd: {type: 'date'},
-    segment: {type: 'category'},
-    revenue: {type: 'number'},
-    netIncome: {type: 'number'},
-  } as const,
-  config: {
+  columnHints,
+  config: defineChartConfig<Row, typeof columnHints>({
     groupBy: {
       allowed: ['segment'],
     },
@@ -126,11 +136,16 @@ const chart = useChart({
         {kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum'},
       ],
     },
-  },
+  }),
 })
 ```
 
-With explicit `columnHints.type`, those restrictions are also type-checked, and in the single-source path they also narrow setters like `setGroupBy(...)` and `setMetric(...)` to the declared subset. Metric restrictions preserve the order you declare, so the first allowed metric becomes the default.
+Why this pattern:
+
+- `typeof columnHints` gives the config helper access to the same role information as `useChart`
+- invalid top-level and nested config keys are rejected at compile time
+- explicit config still narrows setters like `setGroupBy(...)` and `setMetric(...)`
+- metric restrictions preserve the order you declare, so the first allowed metric becomes the default
 
 ## Headless Example
 
