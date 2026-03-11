@@ -12,6 +12,7 @@ The goal is:
 ## 1. Lock The Core API Contract
 
 - Decide whether `columnHints` remains the long-term name, or whether it should evolve into a more explicit schema name once it carries labels, types, restrictions, and later derived columns.
+- Revisit whether `tools` is the right public name, or whether a more explicit name such as `config`, `controls`, or `viewConfig` would better communicate that this object defines chart behavior, defaults, and restrictions.
 - Write down the official progression model:
   `data only` -> `data + columnHints` -> `data + explicit config + restrictions`
 - Define which parts of the API are convenience-first and broad by design, and which parts become authoritative when explicit config is present.
