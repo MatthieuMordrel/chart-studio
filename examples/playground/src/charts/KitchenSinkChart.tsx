@@ -1,7 +1,7 @@
 import { useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartDebug, ChartToolbar, type ControlId } from '@matthieumordrel/chart-studio/ui'
 import { useMemo, useState } from 'react'
-import { playgroundSources } from './mock-data'
+import { playgroundSources } from '../mock-data'
 
 type ControlVisibility = 'pinned' | 'overflow' | 'hidden'
 
@@ -184,8 +184,8 @@ export function KitchenSinkChart() {
             <div className='border-t border-border bg-card/30 px-4 py-3'>
               <p className='text-[11px] leading-relaxed text-muted-foreground'>
                 In your app, pass <code className='font-semibold'>pinned</code> and <code className='font-semibold'>hidden</code> to{' '}
-                <code className='font-semibold'>{'<ChartToolbar />'}</code>. By default, <code className='font-semibold'>dateRange</code>{' '}
-                stays pinned and unlisted controls default to the ellipsis menu.
+                <code className='font-semibold'>{'<ChartToolbar />'}</code>. By default, <code className='font-semibold'>dateRange</code> stays pinned
+                and unlisted controls default to the ellipsis menu.
               </p>
             </div>
           </div>

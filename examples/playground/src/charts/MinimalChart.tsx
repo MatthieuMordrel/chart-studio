@@ -1,6 +1,6 @@
 import { useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
-import { recipeLogData } from './mock-data'
+import { recipeLogData } from '../mock-data'
 
 /**
  * Minimal chart composition: a canvas with a partially pinned toolbar.
