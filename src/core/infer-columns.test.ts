@@ -49,7 +49,7 @@ describe('inferColumnsFromData', () => {
     expect(byId.has('emptyField')).toBe(false)
   })
 
-  it('allows hints to override ambiguous inference and exclude fields', () => {
+  it('allows schema columns to override ambiguous inference and exclude fields', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const data = [
       {
@@ -67,8 +67,10 @@ describe('inferColumnsFromData', () => {
     ] as const
 
     const columns = inferColumnsFromData(data, {
-      milestone: {type: 'date', label: 'Milestone Day'},
-      internalId: false,
+      columns: {
+        milestone: {type: 'date', label: 'Milestone Day'},
+        internalId: false,
+      },
     } as const)
 
     const byId = new Map<string, (typeof columns)[number]>(columns.map((column) => [column.id, column]))
@@ -79,7 +81,7 @@ describe('inferColumnsFromData', () => {
     expect(byId.get('launchedAt')?.format).toBe('datetime')
     expect(byId.has('internalId')).toBe(false)
     expect(warnSpy).toHaveBeenCalledWith(
-      '[chart-studio] columnHints.milestone overrides inferred type "category" with "date".',
+      '[chart-studio] schema.columns.milestone overrides inferred type "category" with "date".',
     )
     warnSpy.mockRestore()
   })

@@ -1,8 +1,7 @@
 import type {
-  ChartConfigFromHints,
+  ChartSchema,
   ChartSourceOptions,
-  ColumnHints,
-  DefinedChartConfigFromHints,
+  DefinedChartSchema,
   NonEmptyChartSourceOptions,
 } from './types.js'
 
@@ -10,18 +9,15 @@ import type {
  * Single-source options for useChart.
  *
  * @property data - Array of raw data items
- * @property columnHints - Optional per-field overrides layered on top of automatic inference
- * @property config - Optional explicit config that narrows the chart contract. Use `defineChartConfig(...)` to create it.
+ * @property schema - Optional explicit schema that overrides inference, defines derived columns, and narrows the chart contract. Use `defineChartSchema<Row>()(...)` to create it.
  * @property sourceLabel - Human-readable label for the data source (e.g. "Jobs", "Placements"). Defaults to "Unnamed Source".
  */
 export type SingleSourceOptions<
   T,
-  THints extends ColumnHints<T> | undefined = undefined,
-  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+  TSchema extends ChartSchema<T, any> | undefined = undefined,
 > = {
   data: readonly T[]
-  columnHints?: THints
-  config?: DefinedChartConfigFromHints<T, THints, Exclude<TConfig, undefined>>
+  schema?: DefinedChartSchema<T, Exclude<TSchema, undefined>>
   sourceLabel?: string
   sources?: never
 }
@@ -29,11 +25,11 @@ export type SingleSourceOptions<
 /**
  * Multi-source options for useChart.
  *
- * @property sources - Array of named raw-data sources with optional per-source hints
+ * @property sources - Array of named raw-data sources with optional per-source schemas
  */
 export type MultiSourceOptions<TSources extends NonEmptyChartSourceOptions = NonEmptyChartSourceOptions> = {
   data?: never
-  columnHints?: never
+  schema?: never
   sourceLabel?: never
   sources: TSources
 }
@@ -43,9 +39,8 @@ export type MultiSourceOptions<TSources extends NonEmptyChartSourceOptions = Non
  */
 export type UseChartOptions<
   T,
-  THints extends ColumnHints<T> | undefined = undefined,
-  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
-> = SingleSourceOptions<T, THints, TConfig> | MultiSourceOptions
+  TSchema extends ChartSchema<T, any> | undefined = undefined,
+> = SingleSourceOptions<T, TSchema> | MultiSourceOptions
 
 export type {ChartSourceOptions}
 

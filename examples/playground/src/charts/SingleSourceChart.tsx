@@ -1,15 +1,32 @@
-import { defineChartConfig, useChart } from '@matthieumordrel/chart-studio'
+import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
 import { quarterlyFinancialData } from '../mock-data'
 
-const singleSourceChartHints = {
-  periodEnd: { type: 'date', label: 'Period End' },
-  segment: { type: 'category' },
-  revenue: { type: 'number', label: 'Revenue' },
-  netIncome: { type: 'number', label: 'Net Income' },
-  ebitda: { type: 'number', label: 'EBITDA' },
-  grossProfit: { type: 'number', label: 'Gross Profit' }
-} as const
+const singleSourceChartSchema = defineChartSchema<(typeof quarterlyFinancialData)[number]>()({
+  columns: {
+    periodEnd: { type: 'date', label: 'Period End' },
+    segment: { type: 'category' },
+    revenue: { type: 'number', label: 'Revenue' },
+    netIncome: { type: 'number', label: 'Net Income' },
+    ebitda: { type: 'number', label: 'EBITDA' },
+    grossProfit: { type: 'number', label: 'Gross Profit' }
+  },
+  xAxis: {
+    allowed: ['periodEnd']
+  },
+  chartType: { allowed: ['bar', 'line'] },
+  timeBucket: { allowed: ['year', 'quarter', 'month'] },
+  groupBy: {
+    allowed: ['segment']
+  },
+  metric: {
+    allowed: [
+      { kind: 'aggregate', columnId: 'ebitda', aggregate: ['sum', 'avg'] },
+      { kind: 'aggregate', columnId: 'revenue', aggregate: 'sum' },
+      { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
+    ]
+  }
+})
 
 /**
  * Dedicated single-source example for the inference-first API.
@@ -19,24 +36,7 @@ const singleSourceChartHints = {
 export function SingleSourceChart() {
   const chart = useChart({
     data: quarterlyFinancialData,
-    columnHints: singleSourceChartHints,
-    config: defineChartConfig<(typeof quarterlyFinancialData)[number], typeof singleSourceChartHints>({
-      xAxis: {
-        allowed: ['periodEnd']
-      },
-      timeBucket: { allowed: ['year', 'quarter', 'month'] },
-      chartType: { allowed: ['bar', 'line'] },
-      groupBy: {
-        allowed: ['segment']
-      },
-      metric: {
-        allowed: [
-          { kind: 'aggregate', columnId: 'ebitda', aggregate: ['sum', 'avg'] },
-          { kind: 'aggregate', columnId: 'revenue', aggregate: 'sum' },
-          { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
-        ]
-      }
-    }),
+    schema: singleSourceChartSchema,
     sourceLabel: 'Quarterly Financials'
   })
 

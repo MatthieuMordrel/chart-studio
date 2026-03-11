@@ -6,16 +6,12 @@ import { recipeLogData } from '../mock-data'
  * Minimal chart composition: a canvas with a partially pinned toolbar.
  * Shows how little code is needed to get a fully interactive, grouped, time-bucketed chart
  * while leaving the rest of the controls inside the ellipsis menu.
- * Uses single-source inference mode — data is enough, with a few optional hints for nicer labels.
+ * Uses single-source inference mode — data is enough, with an optional schema
+ * only when nicer labels or type overrides make the chart clearer.
  */
 export function MinimalChart() {
   const chart = useChart({
     data: recipeLogData,
-    columnHints: {
-      cookedAt: { type: 'date', label: 'Date Cooked' },
-      prepMinutes: { label: 'Prep (min)' },
-      cookMinutes: { label: 'Cook (min)' }
-    },
     sourceLabel: 'Home Cooking'
   })
 

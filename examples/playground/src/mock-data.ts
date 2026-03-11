@@ -62,10 +62,12 @@ export const playgroundSources = [
     label: 'Home cooking',
     description: 'Simple recipe log: when you cooked what, prep/cook time, difficulty, and rating.',
     data: recipeLogData,
-    columnHints: {
-      cookedAt: { type: 'date', label: 'Date Cooked' },
-      prepMinutes: { label: 'Prep (min)' },
-      cookMinutes: { label: 'Cook (min)' }
+    schema: {
+      columns: {
+        cookedAt: { type: 'date', label: 'Date Cooked' },
+        prepMinutes: { label: 'Prep (min)' },
+        cookMinutes: { label: 'Cook (min)' }
+      }
     } as const
   },
   {
@@ -73,9 +75,11 @@ export const playgroundSources = [
     label: 'Quarterly financials',
     description: 'Revenue, net income, EBITDA, and gross profit by segment and period.',
     data: quarterlyFinancialData,
-    columnHints: {
-      periodEnd: { type: 'date', label: 'Period End' },
-      ebitda: { label: 'EBITDA' }
+    schema: {
+      columns: {
+        periodEnd: { type: 'date', label: 'Period End' },
+        ebitda: { label: 'EBITDA' }
+      }
     } as const
   },
   {
@@ -83,14 +87,16 @@ export const playgroundSources = [
     label: 'Event calendar',
     description: 'Conferences and workshops: format, audience, attendance, ticket revenue.',
     data: eventProgramData,
-    columnHints: {
-      eventDate: { type: 'date', label: 'Event Date' },
-      isSoldOut: {
-        label: 'Inventory',
-        trueLabel: 'Sold Out',
-        falseLabel: 'Available'
-      },
-      ticketRevenue: { format: 'currency' }
+    schema: {
+      columns: {
+        eventDate: { type: 'date', label: 'Event Date' },
+        isSoldOut: {
+          label: 'Inventory',
+          trueLabel: 'Sold Out',
+          falseLabel: 'Available'
+        },
+        ticketRevenue: { format: 'currency' }
+      }
     } as const
   }
 ] as const

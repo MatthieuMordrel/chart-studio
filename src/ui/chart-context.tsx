@@ -6,11 +6,10 @@ import {createContext, useContext, useMemo, type ReactElement, type ReactNode} f
 import type {
   ChartColumn,
   ChartInstance,
-  ChartInstanceFromConfig,
-  ColumnHints,
-  DefinedChartConfigFromHints,
+  ChartInstanceFromSchema,
+  ChartSchema,
   Metric,
-  ResolvedChartConfigFromDefinition,
+  ResolvedChartSchemaFromDefinition,
 } from '../core/types.js'
 
 /**
@@ -190,13 +189,12 @@ export function useChartContext() {
 /**
  * Typed single-source chart context escape hatch for inferred charts.
  * React cannot infer provider generics through arbitrary subtrees, so callers
- * provide the row type (and optional hint type) explicitly.
+ * provide the row type (and optional schema type) explicitly.
  */
 export function useTypedChartContext<
   T,
-  const THints extends ColumnHints<T> | undefined = undefined,
-  const TConfig extends DefinedChartConfigFromHints<T, THints> | undefined = undefined,
->(): ChartInstanceFromConfig<T, THints, ResolvedChartConfigFromDefinition<TConfig>> {
+  const TSchema extends ChartSchema<T, any> | undefined = undefined,
+>(): ChartInstanceFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>> {
   const ctx = useContext(ChartContext)
   if (!ctx) {
     throw new Error('useTypedChartContext must be used within a <Chart> provider')
@@ -208,7 +206,7 @@ export function useTypedChartContext<
     )
   }
 
-  return ctx.typedChart as ChartInstanceFromConfig<T, THints, ResolvedChartConfigFromDefinition<TConfig>>
+  return ctx.typedChart as ChartInstanceFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>
 }
 
 /**

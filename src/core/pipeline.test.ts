@@ -26,10 +26,12 @@ describe('runPipeline', () => {
     ]
 
     const chartColumns = inferColumnsFromData(data, {
-      dateAdded: {type: 'date', label: 'Date Added'},
-      ownerName: {label: 'Owner'},
-      isOpen: {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'},
-      salary: {label: 'Salary'},
+      columns: {
+        dateAdded: {type: 'date', label: 'Date Added'},
+        ownerName: {label: 'Owner'},
+        isOpen: {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'},
+        salary: {label: 'Salary'},
+      },
     })
 
     const metric: Metric = {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'}
@@ -68,9 +70,11 @@ describe('runPipeline', () => {
     ]
 
     const chartColumns = inferColumnsFromData(data, {
-      team: {label: 'Team'},
-      isOpen: {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'},
-      score: {label: 'Score'},
+      columns: {
+        team: {label: 'Team'},
+        isOpen: {label: 'Status', trueLabel: 'Open', falseLabel: 'Closed'},
+        score: {label: 'Score'},
+      },
     })
 
     const metric: Metric = {

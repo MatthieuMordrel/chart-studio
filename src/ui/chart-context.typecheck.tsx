@@ -1,4 +1,4 @@
-import {defineChartConfig} from '../core/define-chart-config.js'
+import {defineChartSchema} from '../core/define-chart-schema.js'
 import {useChart} from '../core/use-chart.js'
 import {Chart, useTypedChartContext} from './chart-context.js'
 
@@ -10,15 +10,14 @@ type ExampleRecord = {
   internalId: string
 }
 
-const exampleHints = {
-  createdAt: {type: 'date', label: 'Created'},
-  ownerName: {type: 'category', label: 'Owner'},
-  isOpen: {type: 'boolean'},
-  salary: {type: 'number', format: 'currency'},
-  internalId: false,
-} as const
-
-const exampleConfig = defineChartConfig<ExampleRecord, typeof exampleHints>({
+const exampleSchema = defineChartSchema<ExampleRecord>()({
+  columns: {
+    createdAt: {type: 'date', label: 'Created'},
+    ownerName: {type: 'category', label: 'Owner'},
+    isOpen: {type: 'boolean'},
+    salary: {type: 'number', format: 'currency'},
+    internalId: false,
+  },
   groupBy: {
     allowed: ['isOpen'],
   },
@@ -38,7 +37,7 @@ function expectType<T>(_value: T): void {}
  * Type-only probe that verifies the typed UI context path.
  */
 function TypedSingleSourceProbe() {
-  const chart = useTypedChartContext<ExampleRecord, typeof exampleHints, typeof exampleConfig>()
+  const chart = useTypedChartContext<ExampleRecord, typeof exampleSchema>()
 
   expectType<ExampleRecord[]>([...chart.rawData])
   expectType<'createdAt' | 'ownerName' | 'isOpen' | null>(chart.xAxisId)
@@ -58,17 +57,19 @@ function TypedSingleSourceProbe() {
   // @ts-expect-error invalid metric column IDs should fail through the typed UI context
   chart.setMetric({kind: 'aggregate', columnId: 'missingField', aggregate: 'sum'})
 
-  // @ts-expect-error explicit numeric hints should keep number columns out of groupBy
+  // @ts-expect-error explicit numeric schema entries should keep number columns out of groupBy
   chart.setGroupBy('salary')
 
+  // @ts-expect-error groupBy restrictions should remain active through typed context
   chart.setGroupBy('ownerName')
 
-  // @ts-expect-error explicit numeric hints should keep number columns out of the X-axis API
+  // @ts-expect-error explicit numeric schema entries should keep number columns out of the X-axis API
   chart.setXAxis('salary')
 
-  // @ts-expect-error explicit date hints should keep date columns out of filters
+  // @ts-expect-error explicit date schema entries should keep date columns out of filters
   chart.toggleFilter('createdAt', '2026-01-01')
 
+  // @ts-expect-error metric restrictions should remain active through typed context
   chart.setMetric({kind: 'count'})
 
   // @ts-expect-error excluded fields should stay unavailable through typed context
@@ -83,8 +84,7 @@ function TypedSingleSourceProbe() {
 function verifyChartContextTyping() {
   const chart = useChart({
     data: [] as ExampleRecord[],
-    columnHints: exampleHints,
-    config: exampleConfig,
+    schema: exampleSchema,
   })
 
   return (

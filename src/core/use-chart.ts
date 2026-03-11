@@ -8,11 +8,10 @@ import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.j
 import type {
   AvailableFilter,
   ChartColumn,
-  ChartConfigFromHints,
   ChartInstance,
-  ChartInstanceFromConfig,
+  ChartInstanceFromSchema,
+  ChartSchema,
   ChartType,
-  ColumnHints,
   DateColumn,
   DateRange,
   DateRangeFilter,
@@ -43,18 +42,17 @@ function finalizeChartReturn<const TSources extends NonEmptyChartSourceOptions>(
 ): MultiSourceChartInstance<TSources>
 function finalizeChartReturn<
   T,
-  const THints extends ColumnHints<T> | undefined = undefined,
-  const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+  const TSchema extends ChartSchema<T, any> | undefined = undefined,
 >(
-  _options: SingleSourceOptions<T, THints, TConfig>,
+  _options: SingleSourceOptions<T, TSchema>,
   chart: RuntimeChartInstance,
-): ChartInstanceFromConfig<T, THints, TConfig>
+): ChartInstanceFromSchema<T, TSchema>
 function finalizeChartReturn(
   _options: SingleSourceOptions<any, any> | MultiSourceOptions,
   chart: RuntimeChartInstance,
-): ChartInstanceFromConfig<any, any, any> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
+): ChartInstanceFromSchema<any, any> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
   return chart as unknown as
-    | ChartInstanceFromConfig<any, any, any>
+    | ChartInstanceFromSchema<any, any>
     | MultiSourceChartInstance<NonEmptyChartSourceOptions>
 }
 
@@ -76,17 +74,17 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  * Headless React hook that manages all chart configuration, state, and derived/transformed data for chart rendering.
  *
  * There are two major usage patterns:
- * - Single source: Provide plain `data` and optional `columnHints`.
- * - Multi-source: Provide a `sources` array, each having an `id`, `label`, `data`, and optional `columnHints`.
+ * - Single source: Provide plain `data` and optional `schema`.
+ * - Multi-source: Provide a `sources` array, each having an `id`, `label`, `data`, and optional `schema`.
  *
  * @template T - The type of each data record in the dataset.
- * @template THints - Optional per-field overrides for inferred single-source columns.
- * @param {SingleSourceOptions<T, THints> | MultiSourceOptions} options
+ * @template TSchema - Optional explicit schema for inferred single-source columns.
+ * @param {SingleSourceOptions<T, TSchema> | MultiSourceOptions} options
  *   Chart configuration options. Should provide either:
- *   - `data`, optional `columnHints`, and (optionally) `sourceLabel` for a single source
+ *   - `data`, optional `schema`, and (optionally) `sourceLabel` for a single source
  *   - or `sources` array for multiple sources
- *   Any explicit single-source or per-source config should be created with
- *   `defineChartConfig(...)` so the config shape stays exact and strongly typed.
+ *   Any explicit single-source or per-source schema should be created with
+ *   `defineChartSchema<Row>()(...)` so the schema shape stays exact and strongly typed.
  *
  * @returns {ChartInstance}
  *   An object representing chart configuration, state, and all derived data/operations:
@@ -112,25 +110,23 @@ function createAvailableFilterValueMap<TColumnId extends string>(
 export function useChart<const TSources extends NonEmptyChartSourceOptions>(
   options: {
     data?: never
-    columnHints?: never
+    schema?: never
     sourceLabel?: never
     sources: TSources
   }
 ): MultiSourceChartInstance<TSources>
 export function useChart<
   T,
-  const THints extends ColumnHints<T> | undefined = undefined,
-  const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+  const TSchema extends ChartSchema<T, any> | undefined = undefined,
 >(
-  options: SingleSourceOptions<T, THints, TConfig>
-): ChartInstanceFromConfig<T, THints, TConfig>
+  options: SingleSourceOptions<T, TSchema>
+): ChartInstanceFromSchema<T, TSchema>
 export function useChart<
   T,
-  const THints extends ColumnHints<T> | undefined = undefined,
-  const TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+  const TSchema extends ChartSchema<T, any> | undefined = undefined,
 >(
-  options: SingleSourceOptions<T, THints, TConfig> | MultiSourceOptions
-): ChartInstanceFromConfig<T, THints, TConfig> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
+  options: SingleSourceOptions<T, TSchema> | MultiSourceOptions
+): ChartInstanceFromSchema<T, TSchema> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
   if ('sources' in options && options.sources?.length === 0) {
     throw new Error('useChart requires at least one source')
   }
@@ -141,8 +137,8 @@ export function useChart<
         id: source.id,
         label: source.label,
         data: source.data,
-        columns: inferColumnsFromData(source.data, source.columnHints),
-        config: source.config,
+        columns: inferColumnsFromData(source.data, source.schema),
+        schema: source.schema,
       }))
     }
 
@@ -151,8 +147,8 @@ export function useChart<
         id: 'default',
         label: options.sourceLabel ?? 'Unnamed Source',
         data: options.data,
-        columns: inferColumnsFromData(options.data, options.columnHints),
-        config: options.config,
+        columns: inferColumnsFromData(options.data, options.schema),
+        schema: options.schema,
       },
     ]
   }, [options])
@@ -198,20 +194,20 @@ export function useChart<
       activeColumns
         .filter(column => column.type !== 'number')
         .map(column => ({ id: column.id, label: column.label, type: column.type })),
-      activeSource.config?.xAxis,
+      activeSource.schema?.xAxis as any,
       true
     ),
-    [activeColumns, activeSource.config]
+    [activeColumns, activeSource.schema]
   )
   const availableXAxisIds = useMemo(() => new Set(availableXAxes.map(option => option.id)), [availableXAxes])
   const resolvedXAxisId = useMemo(
     () => resolveConfiguredIdSelection(
       xAxisId,
       availableXAxes,
-      activeSource.config?.xAxis?.default,
+      activeSource.schema?.xAxis?.default as any,
       resolveXAxisId(null, activeColumns)
     ),
-    [xAxisId, availableXAxes, activeSource.config, activeColumns]
+    [xAxisId, availableXAxes, activeSource.schema, activeColumns]
   )
   const xColumn = activeColumns.find(column => column.id === resolvedXAxisId) ?? null
   const resolvedXAxisType: ChartAxisType | null = xColumn && xColumn.type !== 'number' ? xColumn.type : null
@@ -238,23 +234,23 @@ export function useChart<
         activeColumns
           .filter(column => (column.type === 'category' || column.type === 'boolean') && column.id !== resolvedXAxisId)
           .map(column => ({ id: column.id, label: column.label })),
-        activeSource.config?.groupBy
+        activeSource.schema?.groupBy as any
       ),
-    [activeColumns, activeSource.config, resolvedXAxisId]
+    [activeColumns, activeSource.schema, resolvedXAxisId]
   )
   const availableGroupByIds = useMemo(() => new Set(availableGroupBys.map(option => option.id)), [availableGroupBys])
   const resolvedGroupById = useMemo(
-    () => resolveConfiguredIdSelection(groupById, availableGroupBys, activeSource.config?.groupBy?.default, null, false),
-    [groupById, availableGroupBys, activeSource.config]
+    () => resolveConfiguredIdSelection(groupById, availableGroupBys, activeSource.schema?.groupBy?.default as any, null, false),
+    [groupById, availableGroupBys, activeSource.schema]
   )
   const availableMetrics = useMemo(
-    () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.config?.metric),
-    [activeColumns, activeSource.config]
+    () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.schema?.metric as any),
+    [activeColumns, activeSource.schema]
   )
   const isMetricSelectable = (candidate: Metric<string>) => availableMetrics.some(metricOption => isSameMetric(metricOption, candidate))
   const resolvedMetric = useMemo(
-    () => resolveMetric(metric, activeColumns, availableMetrics, activeSource.config?.metric?.default),
-    [metric, activeColumns, availableMetrics, activeSource.config]
+    () => resolveMetric(metric, activeColumns, availableMetrics, activeSource.schema?.metric?.default as any),
+    [metric, activeColumns, availableMetrics, activeSource.schema]
   )
   const availableFilters = useMemo(
     () => {
@@ -264,9 +260,9 @@ export function useChart<
         id: filter.columnId,
       }))
 
-      return restrictConfiguredIdOptions(selectableFilters, activeSource.config?.filters).map(({id: _id, ...filter}) => filter)
+      return restrictConfiguredIdOptions(selectableFilters, activeSource.schema?.filters as any).map(({id: _id, ...filter}) => filter)
     },
-    [effectiveData, activeColumns, activeSource.config]
+    [effectiveData, activeColumns, activeSource.schema]
   )
   const availableFilterValues = useMemo(
     () => createAvailableFilterValueMap(availableFilters),
@@ -283,28 +279,28 @@ export function useChart<
         xAxisType: resolvedXAxisType,
         hasGroupBy: resolvedGroupById !== null
       }),
-      activeSource.config?.chartType,
+      activeSource.schema?.chartType as any,
       true
     ),
-    [resolvedGroupById, resolvedXAxisType, activeSource.config]
+    [resolvedGroupById, resolvedXAxisType, activeSource.schema]
   )
   const resolvedChartType = useMemo(
-    () => resolveConfiguredValue(chartType, availableChartTypes, activeSource.config?.chartType?.default),
-    [chartType, availableChartTypes, activeSource.config]
+    () => resolveConfiguredValue(chartType, availableChartTypes, activeSource.schema?.chartType?.default as any),
+    [chartType, availableChartTypes, activeSource.schema]
   )
   const availableTimeBuckets = useMemo(
     () => {
-      const baseBuckets = isTimeSeries && resolvedXAxisType !== null && CHART_TYPE_CONFIG[resolvedChartType].supportsTimeBucketing
+      const baseBuckets = isTimeSeries && resolvedXAxisType !== null && CHART_TYPE_CONFIG[resolvedChartType as ChartType].supportsTimeBucketing
         ? TIME_BUCKET_ORDER
         : []
 
-      return restrictConfiguredValues(baseBuckets, activeSource.config?.timeBucket, true)
+      return restrictConfiguredValues(baseBuckets, activeSource.schema?.timeBucket as any, true)
     },
-    [isTimeSeries, resolvedXAxisType, resolvedChartType, activeSource.config]
+    [isTimeSeries, resolvedXAxisType, resolvedChartType, activeSource.schema]
   )
   const resolvedTimeBucket = useMemo(
-    () => resolveConfiguredValue(timeBucket, availableTimeBuckets, activeSource.config?.timeBucket?.default),
-    [timeBucket, availableTimeBuckets, activeSource.config]
+    () => resolveConfiguredValue(timeBucket, availableTimeBuckets, activeSource.schema?.timeBucket?.default as any),
+    [timeBucket, availableTimeBuckets, activeSource.schema]
   )
 
   const pipelineResult = useMemo(() => {

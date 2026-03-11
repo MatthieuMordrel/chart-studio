@@ -1,15 +1,17 @@
 import {act, renderHook} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {candidateData, jobData} from '../test/chart-test-fixtures.js'
-import {defineChartConfig} from './define-chart-config.js'
+import {defineChartSchema} from './define-chart-schema.js'
 import {useChart} from './use-chart.js'
 
-const configuredJobHints = {
-  dateAdded: {type: 'date'},
-  ownerName: {type: 'category'},
-  isOpen: {type: 'boolean'},
-  salary: {type: 'number'},
-} as const
+const configuredJobSchema = defineChartSchema<(typeof jobData)[number]>()({
+  columns: {
+    dateAdded: {type: 'date'},
+    ownerName: {type: 'category'},
+    isOpen: {type: 'boolean'},
+    salary: {type: 'number'},
+  },
+})
 
 describe('useChart', () => {
   beforeEach(() => {
@@ -70,19 +72,23 @@ describe('useChart', () => {
             id: 'jobs',
             label: 'Jobs',
             data: jobData,
-            columnHints: {
-              ownerName: {label: 'Owner'},
-              salary: {format: 'currency'},
-            } as const,
+            schema: defineChartSchema<(typeof jobData)[number]>()({
+              columns: {
+                ownerName: {label: 'Owner'},
+                salary: {format: 'currency'},
+              },
+            }),
           },
           {
             id: 'candidates',
             label: 'Candidates',
             data: candidateData,
-            columnHints: {
-              stage: {label: 'Hiring Stage'},
-              city: false,
-            } as const,
+            schema: defineChartSchema<(typeof candidateData)[number]>()({
+              columns: {
+                stage: {label: 'Hiring Stage'},
+                city: false,
+              },
+            }),
           },
         ],
       }),
@@ -181,15 +187,17 @@ describe('useChart', () => {
     )
   })
 
-  it('uses typed column hints to exclude fields and override labels', () => {
+  it('uses schema columns to exclude fields and override labels', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: {
-          ownerName: {label: 'Owner'},
-          salary: {format: 'currency'},
-          isOpen: false,
-        } as const,
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: {
+            ownerName: {label: 'Owner'},
+            salary: {format: 'currency'},
+            isOpen: false,
+          },
+        }),
       }),
     )
 
@@ -197,12 +205,12 @@ describe('useChart', () => {
     expect(result.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
   })
 
-  it('supports declarative groupBy and metric config restrictions', () => {
+  it('supports declarative groupBy and metric schema restrictions', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: configuredJobHints,
-        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
           groupBy: {
             allowed: ['isOpen'],
           },
@@ -240,8 +248,8 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: configuredJobHints,
-        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
           groupBy: {
             allowed: ['isOpen'],
           },
@@ -286,12 +294,12 @@ describe('useChart', () => {
     expect(result.current.filters.size).toBe(0)
   })
 
-  it('supports generalized config defaults and restrictions across tools', () => {
+  it('supports generalized schema defaults and restrictions across tools', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: configuredJobHints,
-        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
           xAxis: {
             allowed: ['dateAdded'],
             default: 'dateAdded',
@@ -344,8 +352,8 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: configuredJobHints,
-        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
           xAxis: {
             allowed: ['ownerName', 'dateAdded'],
           },
@@ -394,8 +402,8 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        columnHints: configuredJobHints,
-        config: defineChartConfig<(typeof jobData)[number], typeof configuredJobHints>({
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
           xAxis: {
             allowed: ['dateAdded', 'ownerName'],
             default: 'dateAdded',
@@ -447,10 +455,12 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data,
-        columnHints: {
-          revenue: {label: 'Revenue'},
-          internalId: false,
-        } as const,
+        schema: defineChartSchema<(typeof data)[number]>()({
+          columns: {
+            revenue: {label: 'Revenue'},
+            internalId: false,
+          },
+        }),
       }),
     )
 
@@ -479,7 +489,7 @@ describe('useChart', () => {
               id: string
               label: string
               data: typeof jobData
-              columnHints?: never
+              schema?: never
             },
           ],
         }),

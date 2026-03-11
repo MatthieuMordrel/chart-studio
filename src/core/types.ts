@@ -103,6 +103,55 @@ export type ColumnHints<T> = Partial<{
   [TKey in InferableFieldKey<T>]: ColumnHintFor<T[TKey], T> | false
 }>
 
+/**
+ * Override or exclude one inferred raw field inside `schema.columns`.
+ *
+ * This lightweight shape intentionally matches the inference override story so
+ * callers can keep the common case terse while the surrounding `schema` object
+ * becomes the single explicit chart contract.
+ */
+export type RawColumnSchemaFor<TValue, T> = ColumnHintFor<TValue, T>
+
+/** Raw-field schema entries that target existing top-level dataset keys. */
+export type RawColumnSchemaMap<T> = Partial<{
+  [TKey in InferableFieldKey<T>]: RawColumnSchemaFor<T[TKey], T> | false
+}>
+
+/** Shared properties supported by every explicit derived column. */
+type DerivedColumnSchemaBase<T, TValue, TType extends ChartColumnType> = BaseColumnHint<T, TValue> & {
+  kind: 'derived'
+  type: TType
+}
+
+/** Explicit derived date column definition. */
+export type DerivedDateColumnSchema<T> = DerivedColumnSchemaBase<T, string | number | Date, 'date'> & {
+  accessor: (item: T) => string | number | Date | null | undefined
+}
+
+/** Explicit derived category column definition. */
+export type DerivedCategoryColumnSchema<T> = DerivedColumnSchemaBase<T, string, 'category'> & {
+  accessor: (item: T) => string | null | undefined
+}
+
+/** Explicit derived boolean column definition. */
+export type DerivedBooleanColumnSchema<T> = DerivedColumnSchemaBase<T, boolean, 'boolean'> & {
+  accessor: (item: T) => boolean | null | undefined
+  trueLabel?: string
+  falseLabel?: string
+}
+
+/** Explicit derived numeric column definition. */
+export type DerivedNumberColumnSchema<T> = DerivedColumnSchemaBase<T, number, 'number'> & {
+  accessor: (item: T) => number | null | undefined
+}
+
+/** Any explicit derived column accepted in `schema.columns`. */
+export type DerivedColumnSchema<T> =
+  | DerivedDateColumnSchema<T>
+  | DerivedCategoryColumnSchema<T>
+  | DerivedBooleanColumnSchema<T>
+  | DerivedNumberColumnSchema<T>
+
 type ExcludedHintKeys<THints> = Extract<
   {
     [TKey in keyof THints]-?: THints[TKey] extends false ? TKey : never
@@ -287,6 +336,20 @@ type ExactShape<TExpected, TActual> =
       : never
     : never
 
+type ValidateSchemaColumns<
+  T,
+  TColumns extends Record<string, unknown> | undefined,
+> = TColumns extends Record<string, unknown>
+  ? {
+      columns?: {
+        [TKey in keyof TColumns]:
+          TKey extends InferableFieldKey<T>
+            ? ExactShape<RawColumnSchemaFor<T[TKey], T> | false, TColumns[TKey]>
+            : ExactShape<DerivedColumnSchema<T>, TColumns[TKey]>
+      }
+    }
+  : unknown
+
 type ValidateLiteralDefaultNotHidden<
   TSection,
   TWideOption,
@@ -351,6 +414,55 @@ export type DefinedChartConfigFromHints<
   TConfig extends ChartConfigFromHints<T, THints> = ChartConfigFromHints<T, THints>,
 > = ValidatedChartConfigFromHints<T, THints, TConfig> & ChartConfigDefinitionBrand
 
+type ValidateChartSchemaLiterals<
+  T,
+  TSchema extends ChartSchema<T, any>,
+> =
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TSchema, 'xAxis'>,
+    ResolvedXAxisColumnIdFromSchema<T, TSchema>,
+    'xAxis'
+  >
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TSchema, 'groupBy'>,
+    ResolvedGroupByColumnIdFromSchema<T, TSchema>,
+    'groupBy'
+  >
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TSchema, 'metric'>,
+    Metric<ResolvedMetricColumnIdFromSchema<T, TSchema>>,
+    'metric'
+  >
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TSchema, 'chartType'>,
+    ChartType,
+    'chartType'
+  >
+  & ValidateLiteralDefaultNotHidden<
+    ConfigSection<TSchema, 'timeBucket'>,
+    TimeBucket,
+    'timeBucket'
+  >
+
+/** Strict schema object returned by `defineChartSchema(...)`. */
+export type ValidatedChartSchema<
+  T,
+  TSchema,
+> = TSchema extends ChartSchema<T, any>
+  ? TSchema
+    & ValidateSchemaColumns<T, ExtractSchemaColumns<TSchema>>
+    & ValidateChartSchemaLiterals<T, TSchema>
+  : TSchema
+
+/** Strict schema object returned by `defineChartSchema(...)`. */
+export type DefinedChartSchema<
+  T,
+  TSchema extends ChartSchema<T, any> = ChartSchema<T, any>,
+> = TSchema & ChartSchemaDefinitionBrand
+
+export type ResolvedChartSchemaFromDefinition<TSchema> =
+  TSchema extends DefinedChartSchema<any, infer TResolvedSchema> ? TResolvedSchema : undefined
+
 export type ResolvedChartConfigFromDefinition<TConfig> =
   TConfig extends DefinedChartConfigFromHints<any, any, infer TResolvedConfig> ? TResolvedConfig : undefined
 
@@ -407,6 +519,57 @@ export type RestrictedChartTypeFromConfig<TConfig> = RestrictOptionsFromControlC
 export type RestrictedTimeBucketFromConfig<TConfig> = RestrictOptionsFromControlConfig<
   TimeBucket,
   ConfigSection<TConfig, 'timeBucket'>
+>
+
+/** GroupBy IDs narrowed by explicit schema restrictions when present. */
+export type RestrictedGroupByColumnIdFromSchema<
+  T,
+  TSchema extends ChartSchema<T, any> | undefined = undefined,
+> = RestrictOptionsFromControlConfig<
+  ResolvedGroupByColumnIdFromSchema<T, TSchema>,
+  ConfigSection<TSchema, 'groupBy'>
+>
+
+/** X-axis IDs narrowed by explicit schema restrictions when present. */
+export type RestrictedXAxisColumnIdFromSchema<
+  T,
+  TSchema extends ChartSchema<T, any> | undefined = undefined,
+> = RestrictOptionsFromControlConfig<
+  ResolvedXAxisColumnIdFromSchema<T, TSchema>,
+  ConfigSection<TSchema, 'xAxis'>
+>
+
+/** Filter column IDs narrowed by explicit schema restrictions when present. */
+export type RestrictedFilterColumnIdFromSchema<
+  T,
+  TSchema extends ChartSchema<T, any> | undefined = undefined,
+> = RestrictOptionsFromControlConfig<
+  ResolvedFilterColumnIdFromSchema<T, TSchema>,
+  ConfigSection<TSchema, 'filters'>
+>
+
+/** Metric union narrowed by explicit schema restrictions when present. */
+export type RestrictedMetricFromSchema<
+  T,
+  TSchema extends ChartSchema<T, any> | undefined = undefined,
+> = ExcludeHiddenOrFallback<
+  RestrictUnionOrFallback<
+    ExpandMetricAllowance<AllowedMetricFromConfig<TSchema>>,
+    Metric<ResolvedMetricColumnIdFromSchema<T, TSchema>>
+  >,
+  HiddenMetricFromConfig<TSchema>
+>
+
+/** Chart types narrowed by explicit schema restrictions when present. */
+export type RestrictedChartTypeFromSchema<TSchema> = RestrictOptionsFromControlConfig<
+  ChartType,
+  ConfigSection<TSchema, 'chartType'>
+>
+
+/** Time buckets narrowed by explicit schema restrictions when present. */
+export type RestrictedTimeBucketFromSchema<TSchema> = RestrictOptionsFromControlConfig<
+  TimeBucket,
+  ConfigSection<TSchema, 'timeBucket'>
 >
 
 /** Base properties shared by all column types. */
@@ -627,6 +790,114 @@ type ChartConfigDefinitionBrand = {
   readonly __chartConfigBrand: 'chart-config-definition'
 }
 
+type ExtractSchemaColumns<TSchema> =
+  TSchema extends {columns?: infer TColumns}
+    ? Extract<TColumns, Record<string, unknown>>
+    : undefined
+
+type RawSchemaColumnsFromColumns<
+  T,
+  TColumns extends Record<string, unknown> | undefined,
+> = TColumns extends Record<string, unknown>
+  ? {
+      [TKey in keyof TColumns as TKey extends InferableFieldKey<T> ? TKey : never]: TColumns[TKey]
+    }
+  : undefined
+
+type RawSchemaColumns<T, TSchema> = RawSchemaColumnsFromColumns<T, ExtractSchemaColumns<TSchema>>
+
+type DerivedColumnIdsFromColumns<TColumns extends Record<string, unknown> | undefined> = Extract<
+  TColumns extends Record<string, unknown>
+    ? {
+        [TKey in keyof TColumns]-?: TColumns[TKey] extends DerivedColumnSchema<any> ? TKey : never
+      }[keyof TColumns]
+    : never,
+  string
+>
+
+type DerivedColumnIdsByTypeFromColumns<
+  TColumns extends Record<string, unknown> | undefined,
+  TAllowedType extends ChartColumnType,
+> = Extract<
+  TColumns extends Record<string, unknown>
+    ? {
+        [TKey in keyof TColumns]-?:
+          TColumns[TKey] extends {kind: 'derived'; type: infer TType}
+            ? Extract<TType, TAllowedType> extends never
+              ? never
+              : TKey
+            : never
+      }[keyof TColumns]
+    : never,
+  string
+>
+
+/** Column ID union resolved from one explicit schema definition. */
+export type ResolvedColumnIdFromSchema<
+  T,
+  TSchema extends {columns?: Record<string, unknown>} | undefined = undefined,
+> =
+  | ResolvedColumnIdFromHints<T, Extract<RawSchemaColumns<T, TSchema>, ColumnHints<T> | undefined>>
+  | DerivedColumnIdsFromColumns<ExtractSchemaColumns<TSchema>>
+
+/** X-axis IDs resolved from one explicit schema definition. */
+export type ResolvedXAxisColumnIdFromSchema<
+  T,
+  TSchema extends {columns?: Record<string, unknown>} | undefined = undefined,
+> =
+  | ResolvedXAxisColumnIdFromHints<T, Extract<RawSchemaColumns<T, TSchema>, ColumnHints<T> | undefined>>
+  | DerivedColumnIdsByTypeFromColumns<ExtractSchemaColumns<TSchema>, 'date' | 'category' | 'boolean'>
+
+/** GroupBy IDs resolved from one explicit schema definition. */
+export type ResolvedGroupByColumnIdFromSchema<
+  T,
+  TSchema extends {columns?: Record<string, unknown>} | undefined = undefined,
+> =
+  | ResolvedGroupByColumnIdFromHints<T, Extract<RawSchemaColumns<T, TSchema>, ColumnHints<T> | undefined>>
+  | DerivedColumnIdsByTypeFromColumns<ExtractSchemaColumns<TSchema>, 'category' | 'boolean'>
+
+/** Filter IDs resolved from one explicit schema definition. */
+export type ResolvedFilterColumnIdFromSchema<
+  T,
+  TSchema extends {columns?: Record<string, unknown>} | undefined = undefined,
+> =
+  | ResolvedFilterColumnIdFromHints<T, Extract<RawSchemaColumns<T, TSchema>, ColumnHints<T> | undefined>>
+  | DerivedColumnIdsByTypeFromColumns<ExtractSchemaColumns<TSchema>, 'category' | 'boolean'>
+
+/** Metric column IDs resolved from one explicit schema definition. */
+export type ResolvedMetricColumnIdFromSchema<
+  T,
+  TSchema extends {columns?: Record<string, unknown>} | undefined = undefined,
+> =
+  | ResolvedMetricColumnIdFromHints<T, Extract<RawSchemaColumns<T, TSchema>, ColumnHints<T> | undefined>>
+  | DerivedColumnIdsByTypeFromColumns<ExtractSchemaColumns<TSchema>, 'number'>
+
+/** Date column IDs resolved from one explicit schema definition. */
+export type ResolvedDateColumnIdFromSchema<
+  T,
+  TSchema extends {columns?: Record<string, unknown>} | undefined = undefined,
+> =
+  | ResolvedDateColumnIdFromHints<T, Extract<RawSchemaColumns<T, TSchema>, ColumnHints<T> | undefined>>
+  | DerivedColumnIdsByTypeFromColumns<ExtractSchemaColumns<TSchema>, 'date'>
+
+/** Single authoritative explicit chart schema. */
+export type ChartSchema<
+  T,
+  TColumns extends Record<string, unknown> | undefined = Record<string, unknown> | undefined,
+> = {
+  columns?: TColumns & Partial<Record<InferableFieldKey<T>, unknown>>
+  xAxis?: XAxisConfig<string>
+  groupBy?: GroupByConfig<string>
+  filters?: FiltersConfig<string>
+  metric?: MetricConfig<string>
+  chartType?: ChartTypeConfig
+  timeBucket?: TimeBucketConfig
+}
+
+type ChartSchemaDefinitionBrand = {
+  readonly __chartSchemaBrand: 'chart-schema-definition'
+}
+
 // ---------------------------------------------------------------------------
 // Filter state
 // ---------------------------------------------------------------------------
@@ -666,19 +937,17 @@ export type SortConfig = {
  * @property id - Unique identifier for this source
  * @property label - Display label in the source switcher
  * @property data - Array of raw data items
- * @property columnHints - Optional per-field overrides layered on top of inference
+ * @property schema - Optional explicit schema layered on top of inference
  */
 export type ChartSourceOptions<
   TId extends string = string,
   T = unknown,
-  THints extends ColumnHints<T> | undefined = undefined,
-  TConfig extends ChartConfigFromHints<T, THints> | undefined = undefined,
+  TSchema extends ChartSchema<T, any> | undefined = undefined,
 > = {
   id: TId
   label: string
   data: readonly T[]
-  columnHints?: THints
-  config?: DefinedChartConfigFromHints<T, THints, Exclude<TConfig, undefined>>
+  schema?: DefinedChartSchema<T, Exclude<TSchema, undefined>>
 }
 
 /** Convenience alias for any multi-source input definition. */
@@ -686,8 +955,7 @@ export type AnyChartSourceOptions = {
   id: string
   label: string
   data: readonly any[]
-  columnHints?: any
-  config?: any
+  schema?: any
 }
 
 /** Multi-source charts require at least one source so an active source always exists. */
@@ -713,7 +981,7 @@ export type ResolvedChartSource<T, TColumnId extends string = string> = {
   label: string
   data: readonly T[]
   columns: readonly ChartColumn<T, TColumnId>[]
-  config?: ChartConfig<string, string, string, string>
+  schema?: ChartSchema<T, any>
 }
 
 // ---------------------------------------------------------------------------
@@ -956,32 +1224,55 @@ export type ChartInstanceFromConfig<
   RestrictedTimeBucketFromConfig<TConfig>
 >
 
+/** Single-source chart instance narrowed by one explicit schema. */
+export type ChartInstanceFromSchema<
+  T,
+  TSchema extends ChartSchema<T, any> | undefined = undefined,
+> = ChartInstance<
+  T,
+  ResolvedColumnIdFromSchema<T, TSchema>,
+  RestrictedChartTypeFromSchema<TSchema>,
+  RestrictedXAxisColumnIdFromSchema<T, TSchema>,
+  RestrictedGroupByColumnIdFromSchema<T, TSchema>,
+  Extract<
+    MetricColumnIdFromMetric<RestrictedMetricFromSchema<T, TSchema>>,
+    ResolvedMetricColumnIdFromSchema<T, TSchema>
+  >,
+  RestrictedMetricFromSchema<T, TSchema>,
+  RestrictedFilterColumnIdFromSchema<T, TSchema>,
+  ResolvedDateColumnIdFromSchema<T, TSchema>,
+  RestrictedTimeBucketFromSchema<TSchema>
+>
+
 type SourceIdFromSource<TSource extends AnyChartSourceOptions> = TSource['id']
 type SourceRowFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, any, any> ? TRow : never
+  TSource extends ChartSourceOptions<string, infer TRow, any> ? TRow : never
 type SourceColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
-    ? ResolvedColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+  TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
+    ? ResolvedColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
     : never
 type SourceXAxisColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
-    ? ResolvedXAxisColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+  TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
+    ? RestrictedXAxisColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
     : never
 type SourceGroupByColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
-    ? ResolvedGroupByColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+  TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
+    ? RestrictedGroupByColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
     : never
 type SourceMetricColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
-    ? ResolvedMetricColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+  TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
+    ? Extract<
+        MetricColumnIdFromMetric<RestrictedMetricFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>>,
+        ResolvedMetricColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
+      >
     : never
 type SourceFilterColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
-    ? ResolvedFilterColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+  TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
+    ? RestrictedFilterColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
     : never
 type SourceDateColumnIdFromSource<TSource extends AnyChartSourceOptions> =
-  TSource extends ChartSourceOptions<string, infer TRow, infer THints, any>
-    ? ResolvedDateColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+  TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
+    ? ResolvedDateColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
     : never
 type SourceIdFromSources<TSources extends NonEmptyChartSourceOptions> =
   Extract<TSources[number]['id'], string>

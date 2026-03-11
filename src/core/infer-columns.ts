@@ -2,15 +2,21 @@ import type {
   BooleanColumn,
   CategoryColumn,
   ChartColumn,
+  ChartSchema,
   ChartColumnType,
   ColumnFormatPreset,
-  ColumnHints,
   ColumnInferenceMetadata,
+  DerivedBooleanColumnSchema,
+  DerivedCategoryColumnSchema,
+  DerivedColumnSchema,
+  DerivedDateColumnSchema,
+  DerivedNumberColumnSchema,
   DateColumn,
   InferenceConfidence,
   InferableFieldKey,
   NumberColumn,
-  ResolvedColumnIdFromHints,
+  RawColumnSchemaMap,
+  ResolvedColumnIdFromSchema,
 } from './types.js'
 
 const MAX_SAMPLE_COUNT = 50
@@ -24,7 +30,7 @@ type PrimitiveSample = string | number | boolean | Date
 type RuntimeFieldKind = ChartColumnType | 'mixed' | 'empty' | 'unsupported'
 type RuntimeFormatterValue<TFormatter> =
   TFormatter extends (value: infer TValue, item: any) => string ? TValue : never
-type RuntimeColumnHint<T> = {
+type RuntimeColumnSchema<T> = {
   label?: string
   format?: ColumnFormatPreset
   formatter?: ((value: unknown, item: T) => string) | undefined
@@ -84,7 +90,7 @@ function createAccessor<T>(key: string): (item: T) => unknown {
  * Treat one runtime string key as an inferable top-level field key.
  *
  * `collectFieldKeys()` only emits keys from the raw data objects and from the
- * `columnHints` object, so this cast is the narrow boundary between runtime
+ * raw-field section of `schema.columns`, so this cast is the narrow boundary between runtime
  * string discovery and the strongly typed inference pipeline.
  */
 function toInferableFieldKey<T>(key: string): InferableFieldKey<T> {
@@ -98,9 +104,9 @@ function toInferableFieldKey<T>(key: string): InferableFieldKey<T> {
  * hint is selected, so the formatter is widened once here instead of repeating
  * casts across each column builder.
  */
-function toRuntimeFormatter<T, TFormatter extends ((value: any, item: T) => string) | undefined>(
+function toRuntimeFormatter<T, TFormatter extends ((value: any, item: any) => string) | undefined>(
   formatter: TFormatter,
-): RuntimeColumnHint<T>['formatter'] {
+): RuntimeColumnSchema<T>['formatter'] {
   if (!formatter) {
     return undefined
   }
@@ -109,23 +115,64 @@ function toRuntimeFormatter<T, TFormatter extends ((value: any, item: T) => stri
 }
 
 /**
- * Normalize a typed field hint into the runtime shape used by the inference layer.
+ * Normalize one raw-field schema override into the runtime shape used by the inference layer.
  *
- * Hint formatters are intentionally more specific than the runtime pipeline can
+ * Schema formatters are intentionally more specific than the runtime pipeline can
  * express, so this helper contains the one widening step that keeps the rest of
  * the implementation free of repeated formatter casts.
  */
-function toRuntimeColumnHint<T, TId extends InferableFieldKey<T>>(
-  hint: ColumnHints<T>[TId] | undefined,
-): RuntimeColumnHint<T> | undefined {
-  if (!hint || hint === false) {
+function toRuntimeColumnSchema<T, TId extends InferableFieldKey<T>>(
+  columnSchema: RawColumnSchemaMap<T>[TId] | undefined,
+): RuntimeColumnSchema<T> | undefined {
+  if (!columnSchema || columnSchema === false) {
     return undefined
   }
 
   return {
-    ...hint,
-    formatter: toRuntimeFormatter(hint.formatter),
+    ...columnSchema,
+    formatter: toRuntimeFormatter(columnSchema.formatter),
   }
+}
+
+/**
+ * Extract raw-field schema entries from the full schema object.
+ */
+function getRawColumnSchemaMap<T>(
+  schema: ChartSchema<T, any> | undefined,
+): RawColumnSchemaMap<T> | undefined {
+  if (!schema?.columns) {
+    return undefined
+  }
+
+  const rawColumns: RawColumnSchemaMap<T> = {}
+  for (const [key, value] of Object.entries(schema.columns)) {
+    if (value !== false && typeof value === 'object' && value !== null && 'kind' in value && value.kind === 'derived') {
+      continue
+    }
+
+    rawColumns[key as InferableFieldKey<T>] = value as RawColumnSchemaMap<T>[InferableFieldKey<T>]
+  }
+
+  return rawColumns
+}
+
+/**
+ * Extract derived column definitions from the full schema object.
+ */
+function getDerivedColumnSchemas<T>(
+  schema: ChartSchema<T, any> | undefined,
+): Array<[string, DerivedColumnSchema<T>]> {
+  if (!schema?.columns) {
+    return []
+  }
+
+  return Object.entries(schema.columns).flatMap(([key, value]) => {
+    if (typeof value === 'object' && value !== null && 'kind' in value && value.kind === 'derived') {
+      return [[key, value as DerivedColumnSchema<T>]]
+    }
+
+    return []
+  })
 }
 
 /**
@@ -153,13 +200,13 @@ function getNumberSamples(samples: readonly PrimitiveSample[]): readonly number[
  * `buildColumn()`. This cast is therefore the final boundary between runtime
  * discovery and the exported literal-id API.
  */
-function finalizeInferredColumns<
+function finalizeResolvedColumns<
   T,
-  const THints extends ColumnHints<T> | undefined,
+  const TSchema extends ChartSchema<T, any> | undefined,
 >(
   columns: readonly ChartColumn<T, string>[],
-): readonly ChartColumn<T, ResolvedColumnIdFromHints<T, THints>>[] {
-  return columns as unknown as readonly ChartColumn<T, ResolvedColumnIdFromHints<T, THints>>[]
+): readonly ChartColumn<T, ResolvedColumnIdFromSchema<T, TSchema>>[] {
+  return columns as unknown as readonly ChartColumn<T, ResolvedColumnIdFromSchema<T, TSchema>>[]
 }
 
 /**
@@ -194,11 +241,11 @@ function collectSamples<T>(data: readonly T[], key: string): PrimitiveSample[] {
 }
 
 /**
- * Gather all top-level field keys present in data or hints.
+ * Gather all top-level raw field keys present in data or raw schema overrides.
  */
 function collectFieldKeys<T>(
   data: readonly T[],
-  columnHints: ColumnHints<T> | undefined,
+  rawColumnSchema: RawColumnSchemaMap<T> | undefined,
 ): string[] {
   const keys = new Set<string>()
 
@@ -208,7 +255,7 @@ function collectFieldKeys<T>(
     }
   }
 
-  for (const key of Object.keys(columnHints ?? {})) {
+  for (const key of Object.keys(rawColumnSchema ?? {})) {
     keys.add(key)
   }
 
@@ -392,7 +439,7 @@ function normalizeDateValue(value: string | number | Date): string | number | Da
  */
 function createDateColumn<T, TId extends string>(
   key: TId,
-  hint: RuntimeColumnHint<T> | undefined,
+  hint: RuntimeColumnSchema<T> | undefined,
   confidence: InferenceConfidence,
   hinted: boolean,
 ): DateColumn<T, TId> {
@@ -418,7 +465,7 @@ function createDateColumn<T, TId extends string>(
  */
 function createCategoryColumn<T, TId extends string>(
   key: TId,
-  hint: RuntimeColumnHint<T> | undefined,
+  hint: RuntimeColumnSchema<T> | undefined,
   confidence: InferenceConfidence,
   hinted: boolean,
 ): CategoryColumn<T, TId> {
@@ -442,7 +489,7 @@ function createCategoryColumn<T, TId extends string>(
  */
 function createBooleanColumn<T, TId extends string>(
   key: TId,
-  hint: RuntimeColumnHint<T> | undefined,
+  hint: RuntimeColumnSchema<T> | undefined,
   confidence: InferenceConfidence,
   hinted: boolean,
 ): BooleanColumn<T, TId> {
@@ -471,7 +518,7 @@ function createBooleanColumn<T, TId extends string>(
  */
 function createNumberColumn<T, TId extends string>(
   key: TId,
-  hint: RuntimeColumnHint<T> | undefined,
+  hint: RuntimeColumnSchema<T> | undefined,
   confidence: InferenceConfidence,
   hinted: boolean,
 ): NumberColumn<T, TId> {
@@ -493,41 +540,87 @@ function createNumberColumn<T, TId extends string>(
 /**
  * Build one resolved column from data samples and optional hint overrides.
  */
-function buildColumn<T, TId extends InferableFieldKey<T>>(
+function buildRawColumn<T, TId extends InferableFieldKey<T>>(
   key: TId,
   samples: readonly PrimitiveSample[],
-  hint: ColumnHints<T>[TId] | undefined,
+  columnSchema: RawColumnSchemaMap<T>[TId] | undefined,
 ): ChartColumn<T, TId> | null {
-  if (hint === false) {
+  if (columnSchema === false) {
     return null
   }
 
-  const runtimeHint = toRuntimeColumnHint(hint)
+  const runtimeSchema = toRuntimeColumnSchema(columnSchema)
   const inferred = inferColumnType(key, samples)
-  const hintedType = runtimeHint?.type
+  const hintedType = runtimeSchema?.type
   const resolvedType = hintedType ?? inferred.type
   if (!resolvedType) {
     return null
   }
 
   if (hintedType && inferred.type && hintedType !== inferred.type) {
-    warn(`columnHints.${key} overrides inferred type "${inferred.type}" with "${hintedType}".`)
+    warn(`schema.columns.${key} overrides inferred type "${inferred.type}" with "${hintedType}".`)
   }
 
   if (inferred.looksDateLike && inferred.type !== 'date' && !hintedType) {
-    warn(`Field "${key}" looks date-like but was inferred as category. Add columnHints.${key}.type = 'date' if that is intentional.`)
+    warn(`Field "${key}" looks date-like but was inferred as category. Add schema.columns.${key}.type = 'date' if that is intentional.`)
   }
 
   const confidence = hintedType ? 'high' : inferred.confidence
   switch (resolvedType) {
     case 'date':
-      return createDateColumn(key, runtimeHint, confidence, hintedType != null)
+      return createDateColumn(key, runtimeSchema, confidence, hintedType != null)
     case 'category':
-      return createCategoryColumn(key, runtimeHint, confidence, hintedType != null)
+      return createCategoryColumn(key, runtimeSchema, confidence, hintedType != null)
     case 'boolean':
-      return createBooleanColumn(key, runtimeHint, confidence, hintedType != null)
+      return createBooleanColumn(key, runtimeSchema, confidence, hintedType != null)
     case 'number':
-      return createNumberColumn(key, runtimeHint, confidence, hintedType != null)
+      return createNumberColumn(key, runtimeSchema, confidence, hintedType != null)
+  }
+}
+
+/**
+ * Adapt one explicit derived column definition into the shared runtime shape.
+ */
+function toRuntimeDerivedSchema<T>(columnSchema: DerivedColumnSchema<T>): RuntimeColumnSchema<T> {
+  return {
+    ...columnSchema,
+    formatter: toRuntimeFormatter(columnSchema.formatter),
+  }
+}
+
+/**
+ * Build one resolved derived column from the explicit schema.
+ */
+function buildDerivedColumn<T>(
+  key: string,
+  columnSchema:
+    | DerivedDateColumnSchema<T>
+    | DerivedCategoryColumnSchema<T>
+    | DerivedBooleanColumnSchema<T>
+    | DerivedNumberColumnSchema<T>,
+): ChartColumn<T, string> {
+  const runtimeSchema = toRuntimeDerivedSchema(columnSchema)
+  switch (columnSchema.type) {
+    case 'date':
+      return {
+        ...createDateColumn(key, runtimeSchema, 'high', true),
+        accessor: columnSchema.accessor,
+      }
+    case 'category':
+      return {
+        ...createCategoryColumn(key, runtimeSchema, 'high', true),
+        accessor: columnSchema.accessor,
+      }
+    case 'boolean':
+      return {
+        ...createBooleanColumn(key, runtimeSchema, 'high', true),
+        accessor: columnSchema.accessor,
+      }
+    case 'number':
+      return {
+        ...createNumberColumn(key, runtimeSchema, 'high', true),
+        accessor: columnSchema.accessor,
+      }
   }
 }
 
@@ -561,27 +654,32 @@ function sortResolvedColumns<T>(
 }
 
 /**
- * Infer chart columns directly from raw single-source data and optional hints.
+ * Resolve chart columns directly from raw data and an optional explicit schema.
  */
-export function inferColumnsFromData<T, const THints extends ColumnHints<T> | undefined = undefined>(
+export function inferColumnsFromData<T, const TSchema extends ChartSchema<T, any> | undefined = undefined>(
   data: readonly T[],
-  columnHints?: THints,
-): readonly ChartColumn<T, ResolvedColumnIdFromHints<T, THints>>[] {
-  const fields = collectFieldKeys(data, columnHints)
-  const inferredColumns: ChartColumn<T, string>[] = []
+  schema?: TSchema,
+): readonly ChartColumn<T, ResolvedColumnIdFromSchema<T, TSchema>>[] {
+  const rawColumnSchema = getRawColumnSchemaMap(schema)
+  const fields = collectFieldKeys(data, rawColumnSchema)
+  const resolvedColumns: ChartColumn<T, string>[] = []
 
   for (const field of fields) {
     const samples = collectSamples(data, field)
     const typedField = toInferableFieldKey<T>(field)
-    const column = buildColumn(typedField, samples, columnHints?.[typedField])
+    const column = buildRawColumn(typedField, samples, rawColumnSchema?.[typedField])
     if (column) {
-      inferredColumns.push(column)
+      resolvedColumns.push(column)
     }
   }
 
-  if (inferredColumns.length === 0) {
-    warn('No inferable primitive fields were found. Provide non-empty data or columnHints.')
+  for (const [key, columnSchema] of getDerivedColumnSchemas(schema)) {
+    resolvedColumns.push(buildDerivedColumn(key, columnSchema))
   }
 
-  return finalizeInferredColumns<T, THints>(sortResolvedColumns(inferredColumns))
+  if (resolvedColumns.length === 0) {
+    warn('No inferable or explicit chart columns were found. Provide non-empty data or schema.columns.')
+  }
+
+  return finalizeResolvedColumns<T, TSchema>(sortResolvedColumns(resolvedColumns))
 }

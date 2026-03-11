@@ -26,8 +26,8 @@ const SCENARIOS = [
     id: 'single-source' as const,
     label: 'Single Source',
     description:
-      'Inference-first single-source mode. Pass raw data directly to useChart and add typed columnHints only ' +
-      'for nicer labels, formatting, or the rare field that needs an override.'
+      'Inference-first single-source mode. Pass raw data directly to useChart and add a schema only ' +
+      'when you want explicit labels, derived columns, or tighter control restrictions.'
   },
   {
     id: 'overflow-toolbar' as const,

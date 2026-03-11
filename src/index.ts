@@ -2,23 +2,25 @@
  * chart-studio — TanStack Table for charts.
  *
  * A headless, composable charting library built on top of Recharts.
- * Pass raw data, optionally add column hints, and get a full interactive chart with
- * automatic filtering, grouping, time bucketing, and chart type switching.
- * Move to `config` when you want the explicit chart contract to become authoritative.
+ * Pass raw data for the zero-config path, or add an explicit `schema` when you
+ * want full control over inference overrides, derived columns, and selectable
+ * chart controls.
  *
  * @example
  * ```tsx
- * import { useChart } from '@matthieumordrel/chart-studio'
+ * import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
  * import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
  *
  * function MyChart({ data }) {
  *   const chart = useChart({
  *     data,
- *     columnHints: {
- *       dateAdded: { label: 'Date Added', type: 'date' },
- *       ownerName: { label: 'Consultant' },
- *       salary: { format: 'currency' }
- *     }
+ *     schema: defineChartSchema<typeof data[number]>()({
+ *       columns: {
+ *         dateAdded: { label: 'Date Added', type: 'date' },
+ *         ownerName: { label: 'Consultant' },
+ *         salary: { format: 'currency' }
+ *       }
+ *     })
  *   })
  *   return (
  *     <Chart chart={chart}>
@@ -33,7 +35,7 @@
 // Headless charting API.
 export {
   CHART_TYPE_CONFIG,
-  defineChartConfig,
+  defineChartSchema,
   inferColumnsFromData,
   useChart,
   getSeriesColor,
@@ -55,10 +57,18 @@ export type {
   ChartColumn,
   ChartColumnType,
   ColumnFormatPreset,
-  ColumnHints,
-  ColumnHintFor,
+  RawColumnSchemaFor,
+  RawColumnSchemaMap,
+  DerivedColumnSchema,
+  DerivedDateColumnSchema,
+  DerivedCategoryColumnSchema,
+  DerivedBooleanColumnSchema,
+  DerivedNumberColumnSchema,
+  ChartSchema,
+  DefinedChartSchema,
+  ValidatedChartSchema,
   InferableFieldKey,
-  ResolvedColumnIdFromHints,
+  ResolvedColumnIdFromSchema,
   SelectableControlConfig,
   XAxisConfig,
   GroupByConfig,
@@ -66,16 +76,12 @@ export type {
   MetricConfig,
   ChartTypeConfig,
   TimeBucketConfig,
-  ChartConfig,
-  ChartConfigFromHints,
-  DefinedChartConfigFromHints,
-  ValidatedChartConfigFromHints,
-  RestrictedXAxisColumnIdFromConfig,
-  RestrictedGroupByColumnIdFromConfig,
-  RestrictedFilterColumnIdFromConfig,
-  RestrictedMetricFromConfig,
-  RestrictedChartTypeFromConfig,
-  RestrictedTimeBucketFromConfig,
+  RestrictedXAxisColumnIdFromSchema,
+  RestrictedGroupByColumnIdFromSchema,
+  RestrictedFilterColumnIdFromSchema,
+  RestrictedMetricFromSchema,
+  RestrictedChartTypeFromSchema,
+  RestrictedTimeBucketFromSchema,
   DateColumn,
   CategoryColumn,
   BooleanColumn,
@@ -97,4 +103,5 @@ export type {
   TransformedDataPoint,
   AvailableFilter,
   ChartInstance,
+  ChartInstanceFromSchema,
 } from './core/index.js'
