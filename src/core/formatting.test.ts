@@ -43,6 +43,27 @@ describe('formatting', () => {
     expect(formatChartValue(1_250_000, {column, surface: 'tooltip'})).toBe('€1,250,000')
   })
 
+  it('formats duration values compactly when the schema declares the input unit', () => {
+    const minuteColumn = {
+      type: 'number' as const,
+      format: {kind: 'duration' as const, unit: 'minutes' as const},
+    }
+    const secondColumn = {
+      type: 'number' as const,
+      format: {kind: 'duration' as const, unit: 'seconds' as const},
+    }
+    const hourColumn = {
+      type: 'number' as const,
+      format: {kind: 'duration' as const, unit: 'hours' as const},
+    }
+
+    expect(formatChartValue(36, {column: minuteColumn, surface: 'axis'})).toBe('36m')
+    expect(formatChartValue(96, {column: minuteColumn, surface: 'tooltip'})).toBe('1h36m')
+    expect(formatChartValue(1_500, {column: minuteColumn, surface: 'data-label'})).toBe('1d1h')
+    expect(formatChartValue(96, {column: secondColumn, surface: 'axis'})).toBe('1m36s')
+    expect(formatChartValue(1.5, {column: hourColumn, surface: 'tooltip'})).toBe('1h30m')
+  })
+
   it('formats time buckets differently for axes and tooltips', () => {
     expect(formatTimeBucketLabel('2026-03', 'month', 'axis')).toBe('Mar 2026')
     expect(formatTimeBucketLabel('2026-03-11', 'day', 'tooltip')).toBe('Mar 11, 2026')

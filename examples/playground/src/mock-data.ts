@@ -65,8 +65,14 @@ export const playgroundSources = [
     schema: {
       columns: {
         cookedAt: { type: 'date', label: 'Date Cooked' },
-        prepMinutes: { label: 'Prep (min)' },
-        cookMinutes: { label: 'Cook (min)' }
+        prepMinutes: {
+          label: 'Prep Time',
+          format: { kind: 'duration', unit: 'minutes' }
+        },
+        cookMinutes: {
+          label: 'Cook Time',
+          format: { kind: 'duration', unit: 'minutes' }
+        }
       }
     } as const
   },

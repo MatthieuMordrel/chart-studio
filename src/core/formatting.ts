@@ -1,4 +1,4 @@
-import type {ChartColumn, ColumnFormat, TimeBucket} from './types.js'
+import type {ChartColumn, ColumnFormat, DurationColumnFormat, DurationInputUnit, TimeBucket} from './types.js'
 
 /** Formatting surfaces exposed by the chart UI. */
 export type ChartValueSurface = 'axis' | 'tooltip' | 'data-label' | 'raw'
@@ -17,6 +17,18 @@ type NumberFormatMode =
   | 'percent'
 
 type DateValueFormatMode = 'date' | 'datetime'
+
+type DurationPart = {
+  value: number
+  suffix: 'd' | 'h' | 'm' | 's'
+}
+
+const DURATION_UNIT_TO_SECONDS: Record<DurationInputUnit, number> = {
+  seconds: 1,
+  minutes: 60,
+  hours: 60 * 60,
+  days: 24 * 60 * 60,
+}
 
 type FormatColumnLike<T> = {
   type: ChartColumn<T>['type']
@@ -174,12 +186,75 @@ function formatNumberValue(
     return String(value)
   }
 
+  if (typeof format === 'object' && format.kind === 'duration') {
+    return formatDurationValue(value, format)
+  }
+
   if (typeof format === 'object' && format.kind === 'number') {
     return new Intl.NumberFormat(format.locale ?? locale, format.options).format(value)
   }
 
   const mode = resolveNumberFormatMode(format, surface, numericRange, value)
   return new Intl.NumberFormat(locale, getNumberFormatOptions(mode, surface, numericRange, value)).format(value)
+}
+
+/**
+ * Format one numeric duration into a compact, surface-agnostic label such as
+ * `36s`, `1h36m`, or `1d5h`.
+ */
+function formatDurationValue(value: number, format: DurationColumnFormat): string {
+  const sign = value < 0 ? '-' : ''
+  const totalSeconds = Math.round(Math.abs(value) * DURATION_UNIT_TO_SECONDS[format.unit])
+
+  if (totalSeconds === 0) {
+    return `${sign}0${getDurationZeroSuffix(format.unit)}`
+  }
+
+  const parts = buildDurationParts(totalSeconds)
+  return `${sign}${parts.slice(0, 2).map((part) => `${part.value}${part.suffix}`).join('')}`
+}
+
+/**
+ * Build the ordered duration parts used by the compact formatter.
+ */
+function buildDurationParts(totalSeconds: number): DurationPart[] {
+  const parts: DurationPart[] = []
+  let remainingSeconds = totalSeconds
+
+  const units: ReadonlyArray<{seconds: number; suffix: DurationPart['suffix']}> = [
+    {seconds: DURATION_UNIT_TO_SECONDS.days, suffix: 'd'},
+    {seconds: DURATION_UNIT_TO_SECONDS.hours, suffix: 'h'},
+    {seconds: DURATION_UNIT_TO_SECONDS.minutes, suffix: 'm'},
+    {seconds: DURATION_UNIT_TO_SECONDS.seconds, suffix: 's'},
+  ]
+
+  for (const unit of units) {
+    if (remainingSeconds < unit.seconds) {
+      continue
+    }
+
+    const unitValue = Math.floor(remainingSeconds / unit.seconds)
+    remainingSeconds -= unitValue * unit.seconds
+    parts.push({value: unitValue, suffix: unit.suffix})
+  }
+
+  return parts.length > 0 ? parts : [{value: 0, suffix: 's'}]
+}
+
+/**
+ * Keep zero durations aligned with the unit declared by the schema author.
+ */
+function getDurationZeroSuffix(unit: DurationInputUnit): DurationPart['suffix'] {
+  switch (unit) {
+    case 'seconds':
+      return 's'
+    case 'minutes':
+      return 'm'
+    case 'hours':
+      return 'h'
+    case 'days':
+      return 'd'
+  }
 }
 
 /**

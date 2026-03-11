@@ -68,7 +68,15 @@ The goal is:
   whether known raw keys are suggested predictably,
   whether derived ids remain easy to add,
   and whether any future type refactor silently regresses completions.
-- If completions prove inconsistent across editors, prefer a small additive helper for authoring over reshaping the public schema contract.
+- Revisit JSDoc surfacing for inline schema authoring:
+  whether nested properties like `type`, `label`, `format`, `kind`, and `accessor` can surface reliably,
+  what TypeScript/cursor limitations are unavoidable,
+  and whether a deeper redesign is warranted to improve the authoring experience.
+- If this area is revisited, keep the priority order explicit:
+  type safety first,
+  ergonomics second,
+  and IntelliSense / hover behavior third.
+- A full redesign is acceptable if needed, but not if it weakens the current type guarantees or makes the API harder to understand.
 - Do not compromise the current inference-first validation design just to chase perfect editor heuristics.
 
 ## 6. Simplify The Public Type Surface

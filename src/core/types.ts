@@ -49,6 +49,15 @@ export type ColumnFormatPreset =
   | 'datetime'
 
 /**
+ * Fixed-size duration units that can be converted reliably without calendar
+ * ambiguity.
+ *
+ * These are used by `format: {kind: 'duration', unit: ...}` to tell the chart
+ * system what one raw numeric value represents.
+ */
+export type DurationInputUnit = 'seconds' | 'minutes' | 'hours' | 'days'
+
+/**
  * `Intl.NumberFormat` options for `format: {kind: 'number', ...}`.
  *
  * This is still a native `Intl` passthrough, but the most common properties are
@@ -212,12 +221,43 @@ export type DateColumnFormat = {
 }
 
 /**
+ * Explicit duration formatting object for numeric values that represent elapsed
+ * time.
+ *
+ * Use this when the charted value is a duration and you want chart-studio to
+ * render compact labels like `36s`, `1h36m`, or `1d5h`.
+ *
+ * Typical example:
+ *
+ * ```ts
+ * format: {
+ *   kind: 'duration',
+ *   unit: 'minutes',
+ * }
+ * ```
+ */
+export type DurationColumnFormat = {
+  /** Marks this object as the duration-format form of `format`. */
+  kind: 'duration'
+  /**
+   * Unit represented by one raw numeric value.
+   *
+   * Examples:
+   * - `'seconds'` when `90` means ninety seconds
+   * - `'minutes'` when `45` means forty-five minutes
+   * - `'hours'` when `1.5` means one hour and thirty minutes
+   * - `'days'` when `2` means two days
+   */
+  unit: DurationInputUnit
+}
+
+/**
  * Full declarative formatting surface accepted by `schema.columns.*.format`.
  *
- * Start with a preset string for the common case. Move to the object form only
- * when you need to customize locale or low-level `Intl` options.
+ * Start with a preset string for the common case. Move to the object form when
+ * you need to customize locale, low-level `Intl` options, or duration units.
  */
-export type ColumnFormat = ColumnFormatPreset | NumberColumnFormat | DateColumnFormat
+export type ColumnFormat = ColumnFormatPreset | NumberColumnFormat | DateColumnFormat | DurationColumnFormat
 
 /** Column kinds understood by the chart pipeline. */
 export type ChartColumnType = 'date' | 'category' | 'boolean' | 'number'
@@ -251,7 +291,8 @@ export interface BaseColumnHint<T, TValue> {
    * How this column should be displayed in the chart UI.
    *
    * Use a preset like `'currency'` or `'percent'` for the common case. Use the
-   * object form when you need to control locale or specific `Intl` options.
+   * object form when you need to control locale, specific `Intl` options, or
+   * duration units like `'minutes'`.
    *
    * This affects display surfaces such as:
    * - axis tick labels
