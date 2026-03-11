@@ -40,7 +40,7 @@ export function ChartSourceSwitcher({className}: {className?: string}) {
   }
 
   // Multi source — dropdown select
-  const options = sources.map((source) => ({value: source.id, label: source.label}))
+  const options = sources.map((source) => ({value: source.id, label: `Source: ${source.label}`}))
 
   return (
     <ChartSelect

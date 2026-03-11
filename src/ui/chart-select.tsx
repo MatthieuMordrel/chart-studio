@@ -5,11 +5,11 @@
  */
 
 import {useRef, useState} from 'react'
-import {Check, ChevronDown} from 'lucide-react'
+import {ChevronDown} from 'lucide-react'
 import {ChartDropdownPanel} from './chart-dropdown.js'
 
 /**
- * Premium styled select dropdown with check marks and smooth transitions.
+ * Premium styled select dropdown with highlight-only selection styling.
  *
  * @property value - Currently selected value
  * @property options - Array of { value, label } options
@@ -78,10 +78,6 @@ export function ChartSelect<T extends string>({
                 : 'text-foreground hover:bg-muted/60'
             }`}
           >
-            {/* Check icon for selected option */}
-            <div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-              {option.value === value && <Check className="h-3.5 w-3.5" />}
-            </div>
             <span className="truncate">{option.label}</span>
           </button>
         ))}
