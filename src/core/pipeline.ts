@@ -6,6 +6,7 @@
  */
 
 import {getSeriesColor} from './colors.js'
+import {formatChartValue} from './formatting.js'
 import {getMetricLabel} from './metric-utils.js'
 import {buildDataPoints} from './pipeline-data-points.js'
 import {getStringValue} from './pipeline-helpers.js'
@@ -210,11 +211,19 @@ export function extractAvailableFilters<T, TColumnId extends string>(
   )
 
   return filterableColumns.map((column) => {
-    const counts = new Map<string, number>()
+    const counts = new Map<string, {count: number; label: string}>()
 
     for (const item of data) {
       const value = getStringValue(item, column)
-      counts.set(value, (counts.get(value) ?? 0) + 1)
+      const formattedLabel = formatFilterOptionLabel(item, column)
+      const existing = counts.get(value)
+
+      if (existing) {
+        counts.set(value, {count: existing.count + 1, label: existing.label})
+        continue
+      }
+
+      counts.set(value, {count: 1, label: formattedLabel})
     }
 
     return {
@@ -222,8 +231,29 @@ export function extractAvailableFilters<T, TColumnId extends string>(
       label: column.label,
       type: column.type,
       options: [...counts.entries()]
-        .toSorted(([, a], [, b]) => b - a)
-        .map(([value, count]) => ({value, label: value, count})),
+        .toSorted(([, left], [, right]) => right.count - left.count)
+        .map(([value, option]) => ({value, label: option.label, count: option.count})),
     }
+  })
+}
+
+/**
+ * Derive one human-facing filter option label from the typed column value while
+ * keeping the underlying filter state keyed by the stable string value.
+ */
+function formatFilterOptionLabel<T, TColumnId extends string>(
+  item: T,
+  column: CategoryColumn<T, TColumnId> | BooleanColumn<T, TColumnId>,
+): string {
+  if (column.type === 'boolean') {
+    return formatChartValue(column.accessor(item), {
+      column,
+      surface: 'tooltip',
+    })
+  }
+
+  return formatChartValue(column.accessor(item), {
+    column,
+    surface: 'tooltip',
   })
 }

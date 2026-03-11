@@ -13,6 +13,7 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
+  LabelList,
   Line,
   LineChart,
   Pie,
@@ -21,81 +22,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import {
+  createNumericRange,
+  formatChartValue,
+  formatTimeBucketLabel,
+  shouldAllowDecimalTicks,
+  type NumericRange,
+} from '../core/formatting.js'
 import {useChartContext} from './chart-context.js'
 import {getSeriesColor} from '../core/colors.js'
-import type {ColumnFormatPreset} from '../core/types.js'
-
-/**
- * Formats a numeric value into a compact, human-readable string.
- * Uses at most 3 significant figures to keep labels concise.
- *
- * @example formatAxisNumber(12_000_000) → "12M"
- * @example formatAxisNumber(1_500)      → "1.5K"
- * @example formatAxisNumber(-4_200_000) → "-4.2M"
- */
-function formatAxisNumber(value: number): string {
-  const abs = Math.abs(value)
-  const sign = value < 0 ? '-' : ''
-  if (abs >= 1e12) return `${sign}${+(abs / 1e12).toPrecision(3)}T`
-  if (abs >= 1e9) return `${sign}${+(abs / 1e9).toPrecision(3)}B`
-  if (abs >= 1e6) return `${sign}${+(abs / 1e6).toPrecision(3)}M`
-  if (abs >= 1e3) return `${sign}${+(abs / 1e3).toPrecision(3)}K`
-  return String(value)
-}
-
-/**
- * Format a value with a reusable preset, falling back to compact numeric labels.
- */
-function formatByPreset(value: string | number, format: ColumnFormatPreset | undefined): string {
-  if (typeof value === 'string') {
-    if (format === 'date' || format === 'datetime') {
-      const date = new Date(value)
-      if (!Number.isNaN(date.getTime())) {
-        return new Intl.DateTimeFormat('en-US', {
-          dateStyle: 'medium',
-          ...(format === 'datetime' ? {timeStyle: 'short'} : {}),
-        }).format(date)
-      }
-    }
-
-    return value
-  }
-
-  switch (format) {
-    case 'currency':
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0,
-      }).format(value)
-    case 'percent':
-      return new Intl.NumberFormat('en-US', {
-        style: 'percent',
-        maximumFractionDigits: 1,
-      }).format(value)
-    case 'number':
-      return new Intl.NumberFormat('en-US').format(value)
-    case 'compact-number':
-      return new Intl.NumberFormat('en-US', {
-        notation: 'compact',
-        maximumFractionDigits: 1,
-      }).format(value)
-    case 'date':
-    case 'datetime': {
-      const date = new Date(value)
-      if (!Number.isNaN(date.getTime())) {
-        return new Intl.DateTimeFormat('en-US', {
-          dateStyle: 'medium',
-          ...(format === 'datetime' ? {timeStyle: 'short'} : {}),
-        }).format(date)
-      }
-
-      return String(value)
-    }
-    default:
-      return formatAxisNumber(value)
-  }
-}
+import type {ChartColumn} from '../core/types.js'
 
 /**
  * Estimates the pixel width the YAxis needs so no label is ever clipped.
@@ -103,18 +39,15 @@ function formatByPreset(value: string | number, format: ColumnFormatPreset | und
  * character count by ~7 px (text-xs) and adds 8 px of padding.
  */
 function estimateYAxisWidth(
-  data: Record<string, string | number>[],
-  series: Array<{dataKey: string}>,
-  valueFormat?: ColumnFormatPreset,
+  numericRange: NumericRange | null,
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format'>,
 ): number {
-  let maxAbs = 0
-  for (const point of data) {
-    for (const s of series) {
-      const v = point[s.dataKey]
-      if (typeof v === 'number' && Math.abs(v) > maxAbs) maxAbs = Math.abs(v)
-    }
-  }
-  const label = formatByPreset(maxAbs, valueFormat)
+  const maxAbs = numericRange ? Math.max(Math.abs(numericRange.min), Math.abs(numericRange.max)) : 0
+  const label = formatChartValue(maxAbs, {
+    column: valueColumn,
+    surface: 'axis',
+    numericRange,
+  })
   return Math.max(40, label.length * 7 + 8)
 }
 
@@ -123,10 +56,12 @@ function estimateYAxisWidth(
  *
  * @property height - Chart height in pixels (default: 300)
  * @property className - Additional CSS classes
+ * @property showDataLabels - Opt into cartesian/pie value labels using the shared formatting rules.
  */
 type ChartCanvasProps = {
   height?: number
   className?: string
+  showDataLabels?: boolean
 }
 
 /**
@@ -144,6 +79,35 @@ const RECHARTS_STYLES = [
   '[&_.recharts-sector]:outline-hidden',
   '[&_.recharts-surface]:outline-hidden',
 ].join(' ')
+
+/**
+ * Reserve enough top padding for the tallest bar/point label plus its offset so
+ * data labels never clip against the SVG edge.
+ */
+const CARTESIAN_BASE_MARGIN = {top: 4, right: 8, left: 0, bottom: 0} as const
+
+/**
+ * Vertical headroom required for one top-positioned cartesian data label.
+ */
+const CARTESIAN_DATA_LABEL_TOP_CLEARANCE = 28
+
+/**
+ * Expand the cartesian chart margin only when top-positioned data labels are
+ * enabled.
+ */
+function getCartesianChartMargin(showDataLabels: boolean) {
+  return showDataLabels
+    ? {
+        ...CARTESIAN_BASE_MARGIN,
+        top: CARTESIAN_BASE_MARGIN.top + CARTESIAN_DATA_LABEL_TOP_CLEARANCE,
+      }
+    : CARTESIAN_BASE_MARGIN
+}
+
+/**
+ * Keep the first and last rendered values from hugging the chart edges.
+ */
+const CARTESIAN_X_AXIS_PADDING = {left: 12, right: 12} as const
 
 /**
  * Hook that measures a container's width using ResizeObserver.
@@ -170,16 +134,25 @@ function useContainerWidth() {
 }
 
 /** Renders the appropriate recharts chart based on the chart instance state. */
-export function ChartCanvas({height = 300, className}: ChartCanvasProps) {
+export function ChartCanvas({height = 300, className, showDataLabels = false}: ChartCanvasProps) {
   const chart = useChartContext()
   const {chartType, transformedData, series} = chart
   const {ref, width} = useContainerWidth()
+  const xColumn = chart.columns.find((column) => column.id === chart.xAxisId) ?? null
   const aggregateMetric = chart.metric.kind === 'aggregate' ? chart.metric : null
   const metricColumn =
     aggregateMetric
       ? chart.columns.find((column) => column.id === aggregateMetric.columnId && column.type === 'number')
       : null
-  const valueFormat = metricColumn?.format ?? (chart.metric.kind === 'count' ? 'compact-number' : 'number')
+  const valueColumn: Pick<ChartColumn<any>, 'type' | 'format'> = metricColumn ?? {type: 'number', format: undefined}
+  const numericValues = transformedData.flatMap((point) =>
+    series.flatMap((seriesItem) => {
+      const value = point[seriesItem.dataKey]
+      return typeof value === 'number' ? [value] : []
+    }),
+  )
+  const valueRange = createNumericRange(numericValues)
+  const allowDecimalTicks = shouldAllowDecimalTicks(numericValues)
 
   if (transformedData.length === 0) {
     return (
@@ -203,14 +176,52 @@ export function ChartCanvas({height = 300, className}: ChartCanvasProps) {
             innerRadius={chartType === 'donut'}
             width={width}
             height={height}
-            valueFormat={valueFormat}
+            valueColumn={valueColumn}
+            valueRange={valueRange}
+            allowDecimalTicks={allowDecimalTicks}
+            xColumn={xColumn}
+            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
+            showDataLabels={showDataLabels}
           />
         ) : chartType === 'line' ? (
-          <LineChartRenderer data={transformedData} series={series} width={width} height={height} valueFormat={valueFormat} />
+          <LineChartRenderer
+            data={transformedData}
+            series={series}
+            width={width}
+            height={height}
+            valueColumn={valueColumn}
+            valueRange={valueRange}
+            allowDecimalTicks={allowDecimalTicks}
+            xColumn={xColumn}
+            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
+            showDataLabels={showDataLabels}
+          />
         ) : chartType === 'area' ? (
-          <AreaChartRenderer data={transformedData} series={series} width={width} height={height} valueFormat={valueFormat} />
+          <AreaChartRenderer
+            data={transformedData}
+            series={series}
+            width={width}
+            height={height}
+            valueColumn={valueColumn}
+            valueRange={valueRange}
+            allowDecimalTicks={allowDecimalTicks}
+            xColumn={xColumn}
+            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
+            showDataLabels={showDataLabels}
+          />
         ) : (
-          <BarChartRenderer data={transformedData} series={series} width={width} height={height} valueFormat={valueFormat} />
+          <BarChartRenderer
+            data={transformedData}
+            series={series}
+            width={width}
+            height={height}
+            valueColumn={valueColumn}
+            valueRange={valueRange}
+            allowDecimalTicks={allowDecimalTicks}
+            xColumn={xColumn}
+            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
+            showDataLabels={showDataLabels}
+          />
         ))}
     </div>
   )
@@ -227,7 +238,12 @@ type RendererProps = {
   series: SeriesItem[]
   width: number
   height: number
-  valueFormat?: ColumnFormatPreset
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format'>
+  valueRange: NumericRange | null
+  allowDecimalTicks: boolean
+  xColumn: ChartColumn<any> | null
+  timeBucket?: 'day' | 'week' | 'month' | 'quarter' | 'year'
+  showDataLabels: boolean
 }
 
 /**
@@ -255,34 +271,103 @@ type CartesianShellProps = RendererProps & {
  * Owns the grid, axes, tooltip, and legend — the only things that change
  * per chart type are the root component and the series element.
  */
-function CartesianChartShell({data, series, width, height, valueFormat, Chart, renderSeries}: CartesianShellProps) {
-  const yAxisWidth = estimateYAxisWidth(data, series, valueFormat)
+function CartesianChartShell({
+  data,
+  series,
+  width,
+  height,
+  valueColumn,
+  valueRange,
+  allowDecimalTicks,
+  xColumn,
+  timeBucket,
+  showDataLabels,
+  Chart,
+  renderSeries,
+}: CartesianShellProps) {
+  const yAxisWidth = estimateYAxisWidth(valueRange, valueColumn)
   return (
-    <Chart data={data} width={width} height={height} margin={{top: 4, right: 8, left: 0, bottom: 0}}>
+    <Chart data={data} width={width} height={height} margin={getCartesianChartMargin(showDataLabels)}>
       <CartesianGrid vertical={false} strokeDasharray="3 3" />
-      <XAxis dataKey="xLabel" tickLine={false} axisLine={false} tickMargin={8} interval="preserveStartEnd" />
+      <XAxis
+        dataKey="xLabel"
+        tickLine={false}
+        axisLine={false}
+        tickMargin={8}
+        interval="preserveStartEnd"
+        padding={CARTESIAN_X_AXIS_PADDING}
+      />
       <YAxis
         tickLine={false}
         axisLine={false}
         tickMargin={4}
-        allowDecimals={false}
+        allowDecimals={allowDecimalTicks}
         width={yAxisWidth}
-        tickFormatter={(value) => (typeof value === 'number' ? formatByPreset(value, valueFormat) : String(value))}
+        tickFormatter={(value) =>
+          typeof value === 'number'
+            ? formatChartValue(value, {
+                column: valueColumn,
+                surface: 'axis',
+                numericRange: valueRange,
+              })
+            : String(value)
+        }
       />
-      <Tooltip formatter={(value) => (typeof value === 'number' ? formatByPreset(value, valueFormat) : value)} />
+      <Tooltip
+        formatter={(value) =>
+          typeof value === 'number'
+            ? formatChartValue(value, {
+                column: valueColumn,
+                surface: 'tooltip',
+                numericRange: valueRange,
+              })
+            : value
+        }
+        labelFormatter={(label, payload) => formatTooltipLabel(label, payload, xColumn, timeBucket)}
+      />
       {series.length > 1 && <Legend />}
       {series.map(renderSeries)}
     </Chart>
   )
 }
 
-function BarChartRenderer({data, series, width, height}: RendererProps) {
+/**
+ * Resolve the most descriptive tooltip label from the transformed data point.
+ */
+function formatTooltipLabel(
+  label: string | number,
+  payload: ReadonlyArray<{payload?: Record<string, unknown>}> | undefined,
+  xColumn: ChartColumn<any> | null,
+  timeBucket: RendererProps['timeBucket'],
+): string {
+  if (!xColumn) {
+    return String(label)
+  }
+
+  const point = payload?.[0]?.payload
+  const rawXValue = typeof point?.['xKey'] === 'string' || typeof point?.['xKey'] === 'number'
+    ? point['xKey']
+    : label
+
+  if (xColumn.type === 'date' && timeBucket && typeof rawXValue === 'string') {
+    return formatTimeBucketLabel(rawXValue, timeBucket, 'tooltip')
+  }
+
+  return formatChartValue(
+    rawXValue,
+    {
+      column: xColumn,
+      surface: 'tooltip',
+      timeBucket,
+    },
+  )
+}
+
+function BarChartRenderer(props: RendererProps) {
+  const {series, showDataLabels, valueColumn, valueRange} = props
   return (
     <CartesianChartShell
-      data={data}
-      series={series}
-      width={width}
-      height={height}
+      {...props}
       Chart={BarChart}
       renderSeries={(s) => (
         <Bar
@@ -292,19 +377,25 @@ function BarChartRenderer({data, series, width, height}: RendererProps) {
           fill={s.color}
           radius={[4, 4, 0, 0]}
           stackId={series.length > 1 ? 'stack' : undefined}
-        />
+        >
+          {showDataLabels && (
+            <LabelList
+              position="top"
+              offset={8}
+              formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
+            />
+          )}
+        </Bar>
       )}
     />
   )
 }
 
-function LineChartRenderer({data, series, width, height}: RendererProps) {
+function LineChartRenderer(props: RendererProps) {
+  const {showDataLabels, valueColumn, valueRange} = props
   return (
     <CartesianChartShell
-      data={data}
-      series={series}
-      width={width}
-      height={height}
+      {...props}
       Chart={LineChart}
       renderSeries={(s) => (
         <Line
@@ -316,19 +407,25 @@ function LineChartRenderer({data, series, width, height}: RendererProps) {
           strokeWidth={2}
           dot={{r: 3}}
           activeDot={{r: 5}}
-        />
+        >
+          {showDataLabels && (
+            <LabelList
+              position="top"
+              offset={8}
+              formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
+            />
+          )}
+        </Line>
       )}
     />
   )
 }
 
-function AreaChartRenderer({data, series, width, height}: RendererProps) {
+function AreaChartRenderer(props: RendererProps) {
+  const {series, showDataLabels, valueColumn, valueRange} = props
   return (
     <CartesianChartShell
-      data={data}
-      series={series}
-      width={width}
-      height={height}
+      {...props}
       Chart={AreaChart}
       renderSeries={(s) => (
         <Area
@@ -340,7 +437,15 @@ function AreaChartRenderer({data, series, width, height}: RendererProps) {
           fill={s.color}
           fillOpacity={0.3}
           stackId={series.length > 1 ? 'stack' : undefined}
-        />
+        >
+          {showDataLabels && (
+            <LabelList
+              position="top"
+              offset={8}
+              formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
+            />
+          )}
+        </Area>
       )}
     />
   )
@@ -348,7 +453,16 @@ function AreaChartRenderer({data, series, width, height}: RendererProps) {
 
 type PieRendererProps = RendererProps & {innerRadius: boolean}
 
-function PieChartRenderer({data, series, innerRadius, width, height, valueFormat}: PieRendererProps) {
+function PieChartRenderer({
+  data,
+  series,
+  innerRadius,
+  width,
+  height,
+  valueColumn,
+  valueRange,
+  showDataLabels,
+}: PieRendererProps) {
   const valueKey = series[0]?.dataKey
   const pieData = data.map((point, index) => {
     return {
@@ -360,7 +474,17 @@ function PieChartRenderer({data, series, innerRadius, width, height, valueFormat
 
   return (
     <PieChart width={width} height={height}>
-      <Tooltip formatter={(value) => (typeof value === 'number' ? formatByPreset(value, valueFormat) : value)} />
+      <Tooltip
+        formatter={(value) =>
+          typeof value === 'number'
+            ? formatChartValue(value, {
+                column: valueColumn,
+                surface: 'tooltip',
+                numericRange: valueRange,
+              })
+            : value
+        }
+      />
       <Legend />
       <Pie
         data={pieData}
@@ -370,11 +494,52 @@ function PieChartRenderer({data, series, innerRadius, width, height, valueFormat
         cy="50%"
         innerRadius={innerRadius ? '40%' : 0}
         outerRadius="80%"
-        label={({name, value}: {name?: string | number; value?: number}) =>
-          `${name}: ${typeof value === 'number' ? formatByPreset(value, valueFormat) : value}`
-        }
+        label={showDataLabels
+          ? ({name, value}: {name?: string | number; value?: number}) =>
+              shouldHideDataLabel(value)
+                ? ''
+                : `${name}: ${typeof value === 'number'
+                  ? formatChartValue(value, {
+                      column: valueColumn,
+                      surface: 'data-label',
+                      numericRange: valueRange,
+                    })
+                  : value}`
+          : false}
         labelLine={false}
       />
     </PieChart>
   )
+}
+
+/**
+ * Format one cartesian data label with the same surface-aware rules used
+ * elsewhere in the chart UI.
+ */
+function formatDataLabel(
+  value: unknown,
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format'>,
+  valueRange: NumericRange | null,
+): string {
+  if (shouldHideDataLabel(value)) {
+    return ''
+  }
+
+  if (typeof value !== 'number') {
+    return String(value)
+  }
+
+  return formatChartValue(value, {
+    column: valueColumn,
+    surface: 'data-label',
+    numericRange: valueRange,
+  })
+}
+
+/**
+ * Suppress zero-value labels in the built-in UI so charts stay quieter by
+ * default while tooltips and raw values remain unchanged.
+ */
+function shouldHideDataLabel(value: unknown): boolean {
+  return typeof value === 'number' && value === 0
 }

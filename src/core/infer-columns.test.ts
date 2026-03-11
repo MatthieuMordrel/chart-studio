@@ -2,7 +2,7 @@ import {describe, expect, it, vi} from 'vitest'
 import {inferColumnsFromData} from './infer-columns.js'
 
 describe('inferColumnsFromData', () => {
-  it('infers primitive fields, formatter presets, and excludes unsupported values', () => {
+  it('infers primitive fields, keeps defaults neutral, and excludes unsupported values', () => {
     const data = [
       {
         createdAt: '2026-01-10',
@@ -36,13 +36,13 @@ describe('inferColumnsFromData', () => {
     expect(byId.get('createdAt')?.type).toBe('date')
     expect(byId.get('gross_profit')?.label).toBe('Gross Profit')
     expect(byId.get('ticket-revenue')?.label).toBe('Ticket Revenue')
-    expect(byId.get('createdAt')?.format).toBe('datetime')
+    expect(byId.get('createdAt')?.format).toBeUndefined()
     expect(byId.get('updatedTime')?.type).toBe('date')
-    expect(byId.get('updatedTime')?.format).toBe('datetime')
+    expect(byId.get('updatedTime')?.format).toBeUndefined()
     expect(byId.get('revenue')?.type).toBe('number')
-    expect(byId.get('revenue')?.format).toBe('currency')
+    expect(byId.get('revenue')?.format).toBeUndefined()
     expect(byId.get('conversionRate')?.type).toBe('number')
-    expect(byId.get('conversionRate')?.format).toBe('percent')
+    expect(byId.get('conversionRate')?.format).toBeUndefined()
     expect(byId.get('isReturning')?.type).toBe('boolean')
     expect(byId.get('channel')?.type).toBe('category')
     expect(byId.has('metadata')).toBe(false)
@@ -78,7 +78,7 @@ describe('inferColumnsFromData', () => {
     expect(byId.get('milestone')?.type).toBe('date')
     expect(byId.get('milestone')?.label).toBe('Milestone Day')
     expect(byId.get('launchedAt')?.type).toBe('date')
-    expect(byId.get('launchedAt')?.format).toBe('datetime')
+    expect(byId.get('launchedAt')?.format).toBeUndefined()
     expect(byId.has('internalId')).toBe(false)
     expect(warnSpy).toHaveBeenCalledWith(
       '[chart-studio] schema.columns.milestone overrides inferred type "category" with "date".',
@@ -96,7 +96,7 @@ describe('inferColumnsFromData', () => {
     const byId = new Map<string, (typeof columns)[number]>(columns.map((column) => [column.id, column]))
 
     expect(byId.get('orderedAt')?.type).toBe('date')
-    expect(byId.get('orderedAt')?.format).toBe('datetime')
+    expect(byId.get('orderedAt')?.format).toBeUndefined()
     expect(byId.get('revenue')?.type).toBe('number')
     expect(byId.get('region')?.type).toBe('category')
   })

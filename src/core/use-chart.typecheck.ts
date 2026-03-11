@@ -38,6 +38,13 @@ const exampleSchema = defineChartSchema<ExampleRecord>()({
       kind: 'derived',
       type: 'number',
       label: 'Salary Value',
+      format: {
+        kind: 'number',
+        options: {
+          style: 'currency',
+          currency: 'EUR',
+        },
+      },
       accessor: (row: ExampleRecord) => row.salary ?? 0,
     },
   },

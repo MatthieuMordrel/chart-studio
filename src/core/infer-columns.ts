@@ -2,9 +2,9 @@ import type {
   BooleanColumn,
   CategoryColumn,
   ChartColumn,
+  ColumnFormat,
   ChartSchema,
   ChartColumnType,
-  ColumnFormatPreset,
   ColumnInferenceMetadata,
   DerivedBooleanColumnSchema,
   DerivedCategoryColumnSchema,
@@ -21,8 +21,6 @@ import type {
 
 const MAX_SAMPLE_COUNT = 50
 const DATE_KEY_PATTERN = /(date|time|timestamp|created|updated|start|end|deadline|due|scheduled|posted|published|at)$/i
-const CURRENCY_KEY_PATTERN = /(revenue|income|cost|price|amount|salary|budget|profit|sales|ebitda|gross|net|ticket)/i
-const PERCENT_KEY_PATTERN = /(percent|percentage|ratio|rate|margin|ctr|conversion)/i
 const DATETIME_VALUE_PATTERN = /^\d{4}-\d{2}-\d{2}[t\s]\d{2}:\d{2}/i
 const DATE_VALUE_PATTERN = /^\d{4}-\d{2}(-\d{2})?(?:[t\s].+)?$/i
 
@@ -32,7 +30,7 @@ type RuntimeFormatterValue<TFormatter> =
   TFormatter extends (value: infer TValue, item: any) => string ? TValue : never
 type RuntimeColumnSchema<T> = {
   label?: string
-  format?: ColumnFormatPreset
+  format?: ColumnFormat
   formatter?: ((value: unknown, item: T) => string) | undefined
   type?: ChartColumnType
   trueLabel?: string
@@ -402,26 +400,10 @@ function inferColumnType(
 }
 
 /**
- * Pick a default formatter preset for one inferred column.
+ * Keep inferred columns neutral unless the caller opts into a specific format.
  */
-function inferDefaultFormat(key: string, type: ChartColumnType): ColumnFormatPreset | undefined {
-  if (type === 'date') {
-    return /time|timestamp|at$/i.test(key) ? 'datetime' : 'date'
-  }
-
-  if (type !== 'number') {
-    return undefined
-  }
-
-  if (CURRENCY_KEY_PATTERN.test(key)) {
-    return 'currency'
-  }
-
-  if (PERCENT_KEY_PATTERN.test(key)) {
-    return 'percent'
-  }
-
-  return 'number'
+function inferDefaultFormat(_key: string, _type: ChartColumnType): undefined {
+  return undefined
 }
 
 /**

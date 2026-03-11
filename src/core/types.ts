@@ -29,7 +29,17 @@ export type InferableFieldKey<T> = Extract<
   string
 >
 
-/** Display formatter presets supported by inferred and manual columns. */
+/**
+ * Built-in format presets for `schema.columns.*.format`.
+ *
+ * Use these for the common cases before reaching for the object form:
+ * - `'number'` for a normal numeric display such as `12,340`
+ * - `'compact-number'` for short numeric display such as `12.3K`
+ * - `'currency'` for money such as `$12.3K` / `$12,340`
+ * - `'percent'` for ratios such as `27.8%`
+ * - `'date'` for date-only values such as `Mar 11, 2026`
+ * - `'datetime'` for date+time values such as `Mar 11, 2026, 3:30 PM`
+ */
 export type ColumnFormatPreset =
   | 'number'
   | 'compact-number'
@@ -37,6 +47,177 @@ export type ColumnFormatPreset =
   | 'percent'
   | 'date'
   | 'datetime'
+
+/**
+ * `Intl.NumberFormat` options for `format: {kind: 'number', ...}`.
+ *
+ * This is still a native `Intl` passthrough, but the most common properties are
+ * re-documented here so new users can understand them directly from editor
+ * hover text without opening MDN first.
+ *
+ * Typical example:
+ *
+ * ```ts
+ * format: {
+ *   kind: 'number',
+ *   options: {
+ *     style: 'currency',
+ *     currency: 'USD',
+ *     notation: 'compact',
+ *     maximumFractionDigits: 1,
+ *   },
+ * }
+ * ```
+ */
+export type ChartNumberFormatOptions = Omit<
+  Intl.NumberFormatOptions,
+  'style' | 'currency' | 'notation' | 'maximumFractionDigits'
+> & {
+  /**
+   * Which numeric family to render.
+   *
+   * Common values:
+   * - `'decimal'` -> `1,234`
+   * - `'currency'` -> `$1,234`
+   * - `'percent'` -> `27.8%`
+   */
+  style?: Intl.NumberFormatOptions['style']
+  /**
+   * Currency code used when `style: 'currency'`.
+   *
+   * Common examples:
+   * - `'USD'`
+   * - `'EUR'`
+   * - `'GBP'`
+   */
+  currency?: string
+  /**
+   * Whether large values should stay full length or use compact suffixes.
+   *
+   * Common values:
+   * - `'standard'` -> `1,200,000`
+   * - `'compact'` -> `1.2M`
+   */
+  notation?: Intl.NumberFormatOptions['notation']
+  /**
+   * Maximum number of digits shown after the decimal separator.
+   *
+   * Examples:
+   * - `0` -> `1M`
+   * - `1` -> `1.2M`
+   * - `2` -> `1.23M`
+   */
+  maximumFractionDigits?: number
+}
+
+/**
+ * `Intl.DateTimeFormat` options for `format: {kind: 'date', ...}`.
+ *
+ * Like `ChartNumberFormatOptions`, this is still a native `Intl` passthrough
+ * with friendlier docs for the properties chart users reach for most often.
+ *
+ * Typical example:
+ *
+ * ```ts
+ * format: {
+ *   kind: 'date',
+ *   options: {
+ *     month: 'short',
+ *     year: 'numeric',
+ *   },
+ * }
+ * ```
+ */
+export type ChartDateFormatOptions = Omit<
+  Intl.DateTimeFormatOptions,
+  'dateStyle' | 'timeStyle' | 'year' | 'month' | 'day'
+> & {
+  /**
+   * Prebuilt date preset.
+   *
+   * Examples:
+   * - `'short'` -> `3/11/26`
+   * - `'medium'` -> `Mar 11, 2026`
+   * - `'long'` -> `March 11, 2026`
+   */
+  dateStyle?: Intl.DateTimeFormatOptions['dateStyle']
+  /**
+   * Prebuilt time preset.
+   *
+   * Examples:
+   * - `'short'` -> `3:30 PM`
+   * - `'medium'` -> `3:30:00 PM`
+   */
+  timeStyle?: Intl.DateTimeFormatOptions['timeStyle']
+  /** How the year should render, for example `'numeric'` or `'2-digit'`. */
+  year?: Intl.DateTimeFormatOptions['year']
+  /** How the month should render, for example `'numeric'`, `'short'`, or `'long'`. */
+  month?: Intl.DateTimeFormatOptions['month']
+  /** How the day should render, usually `'numeric'` or `'2-digit'`. */
+  day?: Intl.DateTimeFormatOptions['day']
+}
+
+/**
+ * Explicit number formatting object.
+ *
+ * Use this when the preset strings are close, but you want to control the
+ * locale or specific `Intl.NumberFormat` options yourself.
+ */
+export type NumberColumnFormat = {
+  /** Marks this object as the number-format form of `format`. */
+  kind: 'number'
+  /**
+   * Optional locale passed to `Intl.NumberFormat`.
+   *
+   * Examples:
+   * - `'en-US'`
+   * - `'fr-FR'`
+   * - `'de-DE'`
+   */
+  locale?: string
+  /**
+   * Native `Intl.NumberFormat` options.
+   *
+   * This is where you customize things like currency, compact notation, and the
+   * number of decimal places to show.
+   */
+  options?: ChartNumberFormatOptions
+}
+
+/**
+ * Explicit date formatting object.
+ *
+ * Use this when the preset strings are close, but you want to control the
+ * locale or specific `Intl.DateTimeFormat` options yourself.
+ */
+export type DateColumnFormat = {
+  /** Marks this object as the date-format form of `format`. */
+  kind: 'date'
+  /**
+   * Optional locale passed to `Intl.DateTimeFormat`.
+   *
+   * Examples:
+   * - `'en-US'`
+   * - `'fr-FR'`
+   * - `'ja-JP'`
+   */
+  locale?: string
+  /**
+   * Native `Intl.DateTimeFormat` options.
+   *
+   * This is where you customize things like month/year-only displays, long
+   * versus short month names, or full date+time output.
+   */
+  options?: ChartDateFormatOptions
+}
+
+/**
+ * Full declarative formatting surface accepted by `schema.columns.*.format`.
+ *
+ * Start with a preset string for the common case. Move to the object form only
+ * when you need to customize locale or low-level `Intl` options.
+ */
+export type ColumnFormat = ColumnFormatPreset | NumberColumnFormat | DateColumnFormat
 
 /** Column kinds understood by the chart pipeline. */
 export type ChartColumnType = 'date' | 'category' | 'boolean' | 'number'
@@ -51,46 +232,119 @@ export type ColumnInferenceMetadata = {
   hinted: boolean
 }
 
-/** Shared hint options supported by every inferred field. */
-type BaseColumnHint<T, TValue> = {
-  /** Override the humanized field key used by default in the UI. */
+/**
+ * Shared schema properties available on both raw-field overrides and derived
+ * columns.
+ *
+ * Most users will interact with these through `schema.columns.someField`.
+ */
+export interface BaseColumnHint<T, TValue> {
+  /**
+   * User-facing column label shown in selectors, tooltips, legends, and filter
+   * headers.
+   *
+   * Example: `revenuePerSeat` becomes `Revenue Per Seat` by default, but you can
+   * override it with `label: 'Revenue / Seat'`.
+   */
   label?: string
-  /** Apply a reusable formatter preset in chart UI. */
-  format?: ColumnFormatPreset
-  /** Format values with full control per field. */
+  /**
+   * How this column should be displayed in the chart UI.
+   *
+   * Use a preset like `'currency'` or `'percent'` for the common case. Use the
+   * object form when you need to control locale or specific `Intl` options.
+   *
+   * This affects display surfaces such as:
+   * - axis tick labels
+   * - tooltip values
+   * - chart data labels
+   * - filter option labels when the values are typed
+   */
+  format?: ColumnFormat
+  /**
+   * Final escape hatch for fully custom display logic.
+   *
+   * Receives the resolved field value and the full row. Prefer `format` first
+   * when a declarative option is enough, and use `formatter` only when the
+   * output really depends on custom business logic.
+   */
   formatter?: (value: TValue | null | undefined, item: T) => string
 }
 
-/** Override options for string-like fields. */
-export type StringColumnHint<T> = BaseColumnHint<T, string> & {
+/**
+ * Schema override for a raw string field.
+ *
+ * Use this when a dataset field already exists and you want to relabel it,
+ * force its type, or change how it formats in the chart UI.
+ */
+export interface StringColumnHint<T> extends BaseColumnHint<T, string> {
+  /**
+   * How this string field should behave in the chart system.
+   *
+   * - `'category'` keeps it as a label-like field
+   * - `'date'` tells chart-studio to parse it as a date/time field
+   */
   type?: 'category' | 'date'
 }
 
-/** Override options for numeric fields. */
-export type NumberColumnHint<T> = BaseColumnHint<T, number> & {
+/**
+ * Schema override for a raw numeric field.
+ *
+ * This is the most common place to use `format: 'currency'`,
+ * `format: 'percent'`, or a `kind: 'number'` object.
+ */
+export interface NumberColumnHint<T> extends BaseColumnHint<T, number> {
+  /**
+   * How this numeric field should behave in the chart system.
+   *
+   * - `'number'` keeps it as an aggregatable metric
+   * - `'date'` is useful for Unix timestamps or numeric date representations
+   */
   type?: 'number' | 'date'
 }
 
-/** Override options for boolean fields. */
-export type BooleanColumnHint<T> = BaseColumnHint<T, boolean> & {
+/**
+ * Schema override for a raw boolean field.
+ *
+ * These fields are useful for grouping and filtering, especially when paired
+ * with `trueLabel` / `falseLabel`.
+ */
+export interface BooleanColumnHint<T> extends BaseColumnHint<T, boolean> {
+  /** Boolean fields always resolve to the `'boolean'` column type. */
   type?: 'boolean'
+  /** Label shown in the UI when the value is `true`, for example `'Open'`. */
   trueLabel?: string
+  /** Label shown in the UI when the value is `false`, for example `'Closed'`. */
   falseLabel?: string
 }
 
-/** Override options for Date-valued fields. */
-export type DateValueColumnHint<T> = BaseColumnHint<T, string | number | Date> & {
+/**
+ * Schema override for a raw date-like field.
+ *
+ * This is useful when your field is already a `Date`, ISO string, or timestamp
+ * and you want date-specific behavior with an optional custom display format.
+ */
+export interface DateValueColumnHint<T> extends BaseColumnHint<T, string | number | Date> {
+  /** Date-valued fields always resolve to the `'date'` column type. */
   type?: 'date'
 }
 
 /** Override options for mixed primitive fields when runtime values need the final say. */
-export type MixedPrimitiveColumnHint<T, TValue> = BaseColumnHint<T, TValue> & {
+export interface MixedPrimitiveColumnHint<T, TValue> extends BaseColumnHint<T, TValue> {
+  /** Explicitly pin the runtime-inferred field to one chart column type. */
   type?: ChartColumnType
+  /** Human-facing label used when a mixed field is interpreted as boolean `true`. */
   trueLabel?: string
+  /** Human-facing label used when a mixed field is interpreted as boolean `false`. */
   falseLabel?: string
 }
 
-/** Type-safe override options for one inferable field. */
+/**
+ * Type-safe schema entry for one raw dataset field.
+ *
+ * The available properties depend on the field's runtime type, so a boolean
+ * field gets boolean-specific options, a number field gets numeric options, and
+ * so on.
+ */
 export type ColumnHintFor<TValue, T> =
   [Exclude<TValue, Nullish>] extends [boolean] ? BooleanColumnHint<T>
   : [Exclude<TValue, Nullish>] extends [Date] ? DateValueColumnHint<T>
@@ -112,7 +366,11 @@ export type ColumnHints<T> = Partial<{
  */
 export type RawColumnSchemaFor<TValue, T> = ColumnHintFor<TValue, T>
 
-/** Raw-field schema entries that target existing top-level dataset keys. */
+/**
+ * Raw-field schema entries keyed by existing top-level dataset fields.
+ *
+ * Set a field to `false` to exclude it from the chart API entirely.
+ */
 export type RawColumnSchemaMap<T> = Partial<{
   [TKey in InferableFieldKey<T>]: RawColumnSchemaFor<T[TKey], T> | false
 }>
@@ -120,43 +378,63 @@ export type RawColumnSchemaMap<T> = Partial<{
 /**
  * Shared contract for every explicit derived column declared in `schema.columns`.
  *
- * Derived columns are intentionally narrow:
+ * Derived columns are how you add a brand new chart field that does not exist as
+ * a raw property on the input row.
+ *
+ * They are intentionally narrow:
  * - they are additive-only and must use a new id
  * - they compute from one row at a time via `accessor`
- * - they reuse the same formatting surface as raw columns
+ * - they reuse the same labeling and formatting surface as raw columns
  * - they do not currently expose any extra metadata channel
  */
-type DerivedColumnSchemaBase<T, TValue, TType extends ChartColumnType> = Omit<
-  BaseColumnHint<T, TValue>,
-  'label'
-> & {
-  /** Distinguishes explicit derived columns from raw-field overrides. */
+interface DerivedColumnSchemaBase<T, TValue, TType extends ChartColumnType>
+  extends Omit<BaseColumnHint<T, TValue>, 'label'> {
+  /**
+   * Marks this schema entry as a derived column.
+   *
+   * Without `kind: 'derived'`, a `schema.columns` entry is interpreted as an
+   * override for an existing raw field.
+   */
   kind: 'derived'
-  /** Every derived column should expose an intentional user-facing label. */
+  /** User-facing label for this new derived column. */
   label: string
-  /** Declared column role that governs chart capabilities and typing. */
+  /**
+   * Declared column role.
+   *
+   * This controls how the derived column behaves:
+   * - `'date'` can be used on time-series X-axes
+   * - `'category'` can be used for X-axis, group-by, and filters
+   * - `'boolean'` can be used for group-by and filters
+   * - `'number'` can be aggregated as a metric
+   */
   type: TType
 }
 
 /** Explicit derived date column definition. */
-export type DerivedDateColumnSchema<T> = DerivedColumnSchemaBase<T, string | number | Date, 'date'> & {
+export interface DerivedDateColumnSchema<T> extends DerivedColumnSchemaBase<T, string | number | Date, 'date'> {
+  /** Compute one date-like value from a row for time-series usage. */
   accessor: (item: T) => string | number | Date | null | undefined
 }
 
 /** Explicit derived category column definition. */
-export type DerivedCategoryColumnSchema<T> = DerivedColumnSchemaBase<T, string, 'category'> & {
+export interface DerivedCategoryColumnSchema<T> extends DerivedColumnSchemaBase<T, string, 'category'> {
+  /** Compute one category label from a row. */
   accessor: (item: T) => string | null | undefined
 }
 
 /** Explicit derived boolean column definition. */
-export type DerivedBooleanColumnSchema<T> = DerivedColumnSchemaBase<T, boolean, 'boolean'> & {
+export interface DerivedBooleanColumnSchema<T> extends DerivedColumnSchemaBase<T, boolean, 'boolean'> {
+  /** Compute one boolean value from a row. */
   accessor: (item: T) => boolean | null | undefined
+  /** Human-facing label used when the derived value is `true`. */
   trueLabel?: string
+  /** Human-facing label used when the derived value is `false`. */
   falseLabel?: string
 }
 
 /** Explicit derived numeric column definition. */
-export type DerivedNumberColumnSchema<T> = DerivedColumnSchemaBase<T, number, 'number'> & {
+export interface DerivedNumberColumnSchema<T> extends DerivedColumnSchemaBase<T, number, 'number'> {
+  /** Compute one numeric value from a row for aggregation. */
   accessor: (item: T) => number | null | undefined
 }
 
@@ -627,7 +905,7 @@ type ColumnBase<T, TId extends string> = {
   /** Human-readable label for the UI. */
   label: string
   /** Optional display formatter preset used by the UI layer. */
-  format?: ColumnFormatPreset
+  format?: ColumnFormat
   /** Optional per-value formatter used by the UI layer. */
   formatter?: (value: unknown, item: T) => string
   /** Optional debug metadata describing how the column was inferred. */
@@ -928,17 +1206,33 @@ export type ResolvedDateColumnIdFromSchema<
   | ResolvedDateColumnIdFromHints<T, Extract<RawSchemaColumns<T, TSchema>, ColumnHints<T> | undefined>>
   | DerivedColumnIdsByTypeFromColumns<ExtractSchemaColumns<TSchema>, 'date'>
 
-/** Single authoritative explicit chart schema. */
+/**
+ * Single authoritative explicit chart schema accepted by `useChart({schema})`.
+ *
+ * Think of this as the contract that sits on top of inference:
+ * - `columns` shapes what fields exist and how they behave
+ * - the top-level sections shape what the user is allowed to select in the UI
+ */
 export type ChartSchema<
   T,
   TColumns extends Record<string, unknown> | undefined = Record<string, unknown> | undefined,
 > = {
+  /**
+   * Override raw inferred fields, exclude raw fields with `false`, or declare
+   * brand new derived columns.
+   */
   columns?: TColumns & Partial<Record<InferableFieldKey<T>, unknown>>
+  /** Restrict which non-numeric columns can be selected on the X-axis. */
   xAxis?: XAxisConfig<string>
+  /** Restrict which categorical/boolean columns can split the chart into series. */
   groupBy?: GroupByConfig<string>
+  /** Restrict which categorical/boolean columns appear in the filters UI. */
   filters?: FiltersConfig<string>
+  /** Restrict which metrics and aggregations can be selected. */
   metric?: MetricConfig<string>
+  /** Restrict which chart types are available to the user. */
   chartType?: ChartTypeConfig
+  /** Restrict which time buckets are available for date X-axes. */
   timeBucket?: TimeBucketConfig
 }
 

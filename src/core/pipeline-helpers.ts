@@ -2,6 +2,7 @@
  * Shared helpers for the chart transformation pipeline.
  */
 
+import {formatTimeBucketLabel} from './formatting.js'
 import type {AggregateFunction, ChartColumn, TimeBucket} from './types.js'
 
 /**
@@ -41,25 +42,7 @@ export function dateBucketKey(date: Date, bucket: TimeBucket): string {
  * @returns Display label for the chart axis
  */
 export function dateBucketLabel(key: string, bucket: TimeBucket): string {
-  switch (bucket) {
-    case 'day': {
-      const date = new Date(`${key}T00:00:00`)
-      return date.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: '2-digit'})
-    }
-    case 'week': {
-      const date = new Date(`${key}T00:00:00`)
-      return `W ${date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}`
-    }
-    case 'month': {
-      const [year, month] = key.split('-')
-      const date = new Date(Number(year), Number(month) - 1)
-      return date.toLocaleDateString('en-US', {month: 'short', year: '2-digit'})
-    }
-    case 'quarter':
-      return key
-    case 'year':
-      return key
-  }
+  return formatTimeBucketLabel(key, bucket, 'axis')
 }
 
 /**
