@@ -152,6 +152,17 @@ export type DerivedColumnSchema<T> =
   | DerivedBooleanColumnSchema<T>
   | DerivedNumberColumnSchema<T>
 
+/**
+ * Broad contextual typing surface used while authoring `schema.columns`.
+ *
+ * The validator stays stricter than this helper surface. This type exists so
+ * editors can still suggest known raw dataset keys while callers are also free
+ * to add arbitrary derived column ids inline.
+ */
+export type ChartColumnsAuthoringSurface<T> = RawColumnSchemaMap<T> & {
+  [TKey: string]: RawColumnSchemaFor<InferableColumnValue, T> | DerivedColumnSchema<T> | false
+}
+
 type ExcludedHintKeys<THints> = Extract<
   {
     [TKey in keyof THints]-?: THints[TKey] extends false ? TKey : never

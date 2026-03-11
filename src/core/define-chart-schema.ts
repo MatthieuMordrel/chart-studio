@@ -1,4 +1,5 @@
 import type {
+  ChartColumnsAuthoringSurface,
   ChartTypeConfig,
   DefinedChartSchema,
   ExactShape,
@@ -55,7 +56,9 @@ export function defineChartSchema<T>() {
     const TTimeBucket = undefined,
   >(
     schema: {
-      columns?: TColumns & ExactShape<SchemaColumnsValidationShape<T, NoInfer<TColumns>>, NoInfer<TColumns>>
+      columns?: ChartColumnsAuthoringSurface<T>
+        & TColumns
+        & ExactShape<SchemaColumnsValidationShape<T, NoInfer<TColumns>>, NoInfer<TColumns>>
       xAxis?: TXAxis
         & ExactShape<XAxisConfig<ResolvedXAxisColumnIdFromSchema<T, {columns?: TColumns}>>, NoInfer<TXAxis>>
       groupBy?: TGroupBy
