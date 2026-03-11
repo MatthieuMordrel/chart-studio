@@ -2,7 +2,7 @@
  * React context for sharing the chart instance across composable UI components.
  */
 
-import {createContext, useContext, useMemo, type ReactNode} from 'react'
+import {createContext, useContext, useMemo, type ReactElement, type ReactNode} from 'react'
 import type {
   ChartColumn,
   ChartInstance,
@@ -35,6 +35,46 @@ type ChartContextValue = {
   typedChart: unknown
 }
 
+type AnyChartInstance = {
+  activeSourceId: string
+  setActiveSource: (...args: any[]) => unknown
+  hasMultipleSources: boolean
+  sources: Array<{id: string; label: string}>
+  chartType: ChartContextChart['chartType']
+  setChartType: (...args: any[]) => unknown
+  availableChartTypes: ChartContextChart['availableChartTypes']
+  xAxisId: string | null
+  setXAxis: (...args: any[]) => unknown
+  availableXAxes: ChartContextChart['availableXAxes']
+  groupById: string | null
+  setGroupBy: (...args: any[]) => unknown
+  availableGroupBys: ChartContextChart['availableGroupBys']
+  metric: Metric<any>
+  setMetric: (...args: any[]) => unknown
+  availableMetrics: ChartContextChart['availableMetrics']
+  timeBucket: ChartContextChart['timeBucket']
+  setTimeBucket: (...args: any[]) => unknown
+  isTimeSeries: boolean
+  filters: Map<any, Set<string>>
+  toggleFilter: (...args: any[]) => unknown
+  clearFilter: (...args: any[]) => unknown
+  clearAllFilters: () => void
+  availableFilters: ChartContextChart['availableFilters']
+  sorting: ChartContextChart['sorting']
+  setSorting: (...args: any[]) => unknown
+  dateRange: ChartContextChart['dateRange']
+  referenceDateId: string | null
+  setReferenceDateId: (...args: any[]) => unknown
+  availableDateColumns: ChartContextChart['availableDateColumns']
+  dateRangeFilter: ChartContextChart['dateRangeFilter']
+  setDateRangeFilter: (...args: any[]) => unknown
+  transformedData: ChartContextChart['transformedData']
+  series: ChartContextChart['series']
+  columns: readonly ChartColumn<any, string>[]
+  rawData: readonly unknown[]
+  recordCount: number
+}
+
 const ChartContext = createContext<ChartContextValue | null>(null)
 
 /**
@@ -45,16 +85,6 @@ function isKnownColumnId<TColumnId extends string>(
   columnId: string,
 ): columnId is TColumnId {
   return columnIds.has(columnId)
-}
-
-/**
- * Check whether a metric is safe to forward into the typed chart instance.
- */
-function isSupportedMetric<TColumnId extends string>(
-  columnIds: ReadonlySet<string>,
-  metric: Metric<string>,
-): metric is Metric<TColumnId> {
-  return metric.kind === 'count' || isKnownColumnId<TColumnId>(columnIds, metric.columnId)
 }
 
 /**
@@ -70,9 +100,7 @@ function hasMatchingColumns(expectedColumns: AnyChartColumns, actualColumns: rea
 /**
  * Create the broad-but-safe chart shape shared through React context.
  */
-function createChartContextChart<T, TColumnId extends string>(
-  chart: ChartInstance<T, TColumnId>,
-): ChartContextChart {
+function createChartContextChart(chart: AnyChartInstance): ChartContextChart {
   const columnIds = new Set(chart.columns.map((column) => column.id))
 
   return {
@@ -85,34 +113,34 @@ function createChartContextChart<T, TColumnId extends string>(
     availableChartTypes: chart.availableChartTypes,
     xAxisId: chart.xAxisId,
     setXAxis: (columnId) => {
-      if (!isKnownColumnId<TColumnId>(columnIds, columnId)) {
+      if (!isKnownColumnId<string>(columnIds, columnId)) {
         throw new Error(`Unknown chart column ID: "${columnId}"`)
       }
 
-      chart.setXAxis(columnId)
+      ;(chart.setXAxis as (columnId: string) => void)(columnId)
     },
     availableXAxes: chart.availableXAxes,
     groupById: chart.groupById,
     setGroupBy: (columnId) => {
       if (columnId === null) {
-        chart.setGroupBy(null)
+        ;(chart.setGroupBy as (columnId: string | null) => void)(null)
         return
       }
 
-      if (!isKnownColumnId<TColumnId>(columnIds, columnId)) {
+      if (!isKnownColumnId<string>(columnIds, columnId)) {
         throw new Error(`Unknown chart column ID: "${columnId}"`)
       }
 
-      chart.setGroupBy(columnId)
+      ;(chart.setGroupBy as (columnId: string | null) => void)(columnId)
     },
     availableGroupBys: chart.availableGroupBys,
     metric: chart.metric,
     setMetric: (metric) => {
-      if (!isSupportedMetric<TColumnId>(columnIds, metric)) {
+      if (metric.kind === 'aggregate' && !isKnownColumnId<string>(columnIds, metric.columnId)) {
         throw new Error(`Unknown metric column ID: "${metric.columnId}"`)
       }
 
-      chart.setMetric(metric)
+      ;(chart.setMetric as (metric: Metric<string>) => void)(metric)
     },
     availableMetrics: chart.availableMetrics,
     timeBucket: chart.timeBucket,
@@ -120,18 +148,18 @@ function createChartContextChart<T, TColumnId extends string>(
     isTimeSeries: chart.isTimeSeries,
     filters: new Map(chart.filters),
     toggleFilter: (columnId, value) => {
-      if (!isKnownColumnId<TColumnId>(columnIds, columnId)) {
+      if (!isKnownColumnId<string>(columnIds, columnId)) {
         throw new Error(`Unknown chart column ID: "${columnId}"`)
       }
 
-      chart.toggleFilter(columnId, value)
+      ;(chart.toggleFilter as (columnId: string, value: string) => void)(columnId, value)
     },
     clearFilter: (columnId) => {
-      if (!isKnownColumnId<TColumnId>(columnIds, columnId)) {
+      if (!isKnownColumnId<string>(columnIds, columnId)) {
         throw new Error(`Unknown chart column ID: "${columnId}"`)
       }
 
-      chart.clearFilter(columnId)
+      ;(chart.clearFilter as (columnId: string) => void)(columnId)
     },
     clearAllFilters: chart.clearAllFilters,
     availableFilters: chart.availableFilters,
@@ -140,11 +168,11 @@ function createChartContextChart<T, TColumnId extends string>(
     dateRange: chart.dateRange,
     referenceDateId: chart.referenceDateId,
     setReferenceDateId: (columnId) => {
-      if (!isKnownColumnId<TColumnId>(columnIds, columnId)) {
+      if (!isKnownColumnId<string>(columnIds, columnId)) {
         throw new Error(`Unknown chart column ID: "${columnId}"`)
       }
 
-      chart.setReferenceDateId(columnId)
+      ;(chart.setReferenceDateId as (columnId: string) => void)(columnId)
     },
     availableDateColumns: chart.availableDateColumns,
     dateRangeFilter: chart.dateRangeFilter,
@@ -225,15 +253,24 @@ export function useTypedChartContext<T, const THints extends ColumnHints<T> | un
  * </Chart>
  * ```
  */
-export function Chart<T, TColumnId extends string>({
+export function Chart({
   chart,
   children,
   className,
 }: {
-  chart: ChartInstance<T, TColumnId>
+  chart: AnyChartInstance
   children: ReactNode
   className?: string
-}) {
+}): ReactElement
+export function Chart({
+  chart,
+  children,
+  className,
+}: {
+  chart: AnyChartInstance
+  children: ReactNode
+  className?: string
+}): ReactElement {
   const contextValue = useMemo<ChartContextValue>(
     () => ({
       chart: createChartContextChart(chart),

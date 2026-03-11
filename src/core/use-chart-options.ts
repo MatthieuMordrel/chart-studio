@@ -1,13 +1,4 @@
-import type {ColumnHints, DataSource} from './types.js'
-
-/**
- * Multi-source charts require at least one source so the hook always has a
- * valid active source.
- */
-type NonEmptyDataSources = readonly [
-  DataSource<any>,
-  ...DataSource<any>[],
-]
+import type {ChartSourceOptions, ColumnHints, NonEmptyChartSourceOptions} from './types.js'
 
 /**
  * Single-source options for useChart.
@@ -30,12 +21,14 @@ export type SingleSourceOptions<
 /**
  * Multi-source options for useChart.
  *
- * @property sources - Array of named data sources with their own columns
+ * @property sources - Array of named raw-data sources with optional per-source hints
  */
-export type MultiSourceOptions = {
+export type MultiSourceOptions<TSources extends NonEmptyChartSourceOptions = NonEmptyChartSourceOptions> = {
   data?: never
   columnHints?: never
-  sources: NonEmptyDataSources
+  sourceLabel?: never
+  columns?: never
+  sources: TSources
 }
 
 /**
@@ -45,6 +38,8 @@ export type UseChartOptions<
   T,
   THints extends ColumnHints<T> | undefined = undefined,
 > = SingleSourceOptions<T, THints> | MultiSourceOptions
+
+export type {ChartSourceOptions}
 
 /**
  * Default time bucket used for date charts.

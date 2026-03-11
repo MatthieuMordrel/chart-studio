@@ -272,6 +272,38 @@ export type SortConfig = {
 }
 
 // ---------------------------------------------------------------------------
+// Data source input
+// ---------------------------------------------------------------------------
+
+/**
+ * Inference-first source definition accepted by multi-source charts.
+ *
+ * @property id - Unique identifier for this source
+ * @property label - Display label in the source switcher
+ * @property data - Array of raw data items
+ * @property columnHints - Optional per-field overrides layered on top of inference
+ */
+export type ChartSourceOptions<
+  TId extends string = string,
+  T = unknown,
+  THints extends ColumnHints<T> | undefined = undefined,
+> = {
+  id: TId
+  label: string
+  data: readonly T[]
+  columnHints?: THints
+}
+
+/** Convenience alias for any multi-source input definition. */
+export type AnyChartSourceOptions = ChartSourceOptions<string, any, any>
+
+/** Multi-source charts require at least one source so an active source always exists. */
+export type NonEmptyChartSourceOptions = readonly [
+  AnyChartSourceOptions,
+  ...AnyChartSourceOptions[],
+]
+
+// ---------------------------------------------------------------------------
 // Data source
 // ---------------------------------------------------------------------------
 
@@ -454,3 +486,80 @@ export type ChartInstance<T, TColumnId extends string = string> = {
   /** Total number of records in the active source (before filtering). */
   recordCount: number
 }
+
+type SourceIdFromSource<TSource extends AnyChartSourceOptions> = TSource['id']
+type SourceRowFromSource<TSource extends AnyChartSourceOptions> =
+  TSource extends ChartSourceOptions<string, infer TRow, any> ? TRow : never
+type SourceColumnIdFromSource<TSource extends AnyChartSourceOptions> =
+  TSource extends ChartSourceOptions<string, infer TRow, infer THints>
+    ? ResolvedColumnIdFromHints<TRow, Extract<THints, ColumnHints<TRow> | undefined>>
+    : never
+type SourceIdFromSources<TSources extends NonEmptyChartSourceOptions> =
+  Extract<TSources[number]['id'], string>
+type SourceColumnIdFromSources<TSources extends NonEmptyChartSourceOptions> =
+  TSources[number] extends infer TSource
+    ? TSource extends AnyChartSourceOptions
+      ? SourceColumnIdFromSource<TSource>
+      : never
+    : never
+
+type MultiSourceChartBranch<
+  TSources extends NonEmptyChartSourceOptions,
+  TSource extends AnyChartSourceOptions,
+> = Omit<
+  ChartInstance<SourceRowFromSource<TSource>, SourceColumnIdFromSources<TSources>>,
+  | 'activeSourceId'
+  | 'setActiveSource'
+  | 'sources'
+  | 'xAxisId'
+  | 'setXAxis'
+  | 'availableXAxes'
+  | 'groupById'
+  | 'setGroupBy'
+  | 'availableGroupBys'
+  | 'metric'
+  | 'setMetric'
+  | 'availableMetrics'
+  | 'filters'
+  | 'toggleFilter'
+  | 'clearFilter'
+  | 'availableFilters'
+  | 'dateRange'
+  | 'referenceDateId'
+  | 'setReferenceDateId'
+  | 'availableDateColumns'
+  | 'columns'
+> & {
+  activeSourceId: SourceIdFromSource<TSource>
+  setActiveSource: (sourceId: SourceIdFromSources<TSources>) => void
+  sources: Array<{id: SourceIdFromSources<TSources>; label: string}>
+  xAxisId: SourceColumnIdFromSource<TSource> | null
+  setXAxis: (columnId: SourceColumnIdFromSources<TSources>) => void
+  availableXAxes: Array<{id: SourceColumnIdFromSource<TSource>; label: string; type: 'date' | 'category' | 'boolean'}>
+  groupById: SourceColumnIdFromSource<TSource> | null
+  setGroupBy: (columnId: SourceColumnIdFromSources<TSources> | null) => void
+  availableGroupBys: Array<{id: SourceColumnIdFromSource<TSource>; label: string}>
+  metric: Metric<SourceColumnIdFromSource<TSource>>
+  setMetric: (metric: Metric<SourceColumnIdFromSources<TSources>>) => void
+  availableMetrics: Metric<SourceColumnIdFromSource<TSource>>[]
+  filters: FilterState<SourceColumnIdFromSource<TSource>>
+  toggleFilter: (columnId: SourceColumnIdFromSources<TSources>, value: string) => void
+  clearFilter: (columnId: SourceColumnIdFromSources<TSources>) => void
+  availableFilters: AvailableFilter<SourceColumnIdFromSource<TSource>>[]
+  dateRange: DateRange<SourceColumnIdFromSource<TSource>> | null
+  referenceDateId: SourceColumnIdFromSource<TSource> | null
+  setReferenceDateId: (columnId: SourceColumnIdFromSources<TSources>) => void
+  availableDateColumns: Array<{id: SourceColumnIdFromSource<TSource>; label: string}>
+  columns: readonly ChartColumn<SourceRowFromSource<TSource>, SourceColumnIdFromSource<TSource>>[]
+}
+
+/**
+ * Direct multi-source hook return type.
+ * Narrow on `activeSourceId` to recover the source-specific row and column IDs.
+ */
+export type MultiSourceChartInstance<TSources extends NonEmptyChartSourceOptions> =
+  TSources[number] extends infer TSource
+    ? TSource extends AnyChartSourceOptions
+      ? MultiSourceChartBranch<TSources, TSource>
+      : never
+    : never

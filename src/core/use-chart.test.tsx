@@ -1,6 +1,6 @@
 import {act, renderHook} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {candidateColumns, candidateData, jobColumns, jobData} from '../test/chart-test-fixtures.js'
+import {candidateData, jobData} from '../test/chart-test-fixtures.js'
 import {useChart} from './use-chart.js'
 
 describe('useChart', () => {
@@ -58,12 +58,23 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         sources: [
-          {id: 'jobs', label: 'Jobs', data: jobData, columns: jobColumns},
+          {
+            id: 'jobs',
+            label: 'Jobs',
+            data: jobData,
+            columnHints: {
+              ownerName: {label: 'Owner'},
+              salary: {format: 'currency'},
+            } as const,
+          },
           {
             id: 'candidates',
             label: 'Candidates',
             data: candidateData,
-            columns: candidateColumns,
+            columnHints: {
+              stage: {label: 'Hiring Stage'},
+              city: false,
+            } as const,
           },
         ],
       }),
@@ -72,11 +83,14 @@ describe('useChart', () => {
     expect(result.current.hasMultipleSources).toBe(true)
     expect(result.current.activeSourceId).toBe('jobs')
     expect(result.current.xAxisId).toBe('dateAdded')
+    expect(result.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
 
     act(() => {
       result.current.setGroupBy('ownerName')
       result.current.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
       result.current.toggleFilter('ownerName', 'Alice')
+      result.current.setReferenceDateId('dateAdded')
+      result.current.setDateRangeFilter({from: new Date('2026-01-01T00:00:00Z'), to: null})
       result.current.setActiveSource('candidates')
     })
 
@@ -86,12 +100,35 @@ describe('useChart', () => {
     expect(result.current.groupById).toBeNull()
     expect(result.current.metric).toEqual({kind: 'count'})
     expect(result.current.filters.size).toBe(0)
+    expect(result.current.referenceDateId).toBeNull()
+    expect(result.current.columns.find((column) => column.id === 'stage')?.label).toBe('Hiring Stage')
     expect(result.current.transformedData).toEqual([
       expect.objectContaining({xKey: 'Screen', value: 1}),
       expect.objectContaining({xKey: 'Interview', value: 1}),
     ])
     expect(result.current.availableChartTypes).toEqual(['bar', 'pie', 'donut'])
     expect(result.current.availableDateColumns).toEqual([])
+  })
+
+  it('throws when switching to an unknown source id', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        sources: [
+          {id: 'jobs', label: 'Jobs', data: jobData},
+          {id: 'candidates', label: 'Candidates', data: candidateData},
+        ],
+      }),
+    )
+    const setActiveSource = result.current.setActiveSource as (sourceId: string) => void
+
+    expect(() => {
+      act(() => {
+        setActiveSource('missing')
+      })
+    }).toThrow('Unknown chart source ID: "missing"')
+
+    expect(result.current.activeSourceId).toBe('jobs')
+    expect(result.current.rawData).toEqual(jobData)
   })
 
   it('treats a null date range filter as all time', () => {
@@ -209,7 +246,7 @@ describe('useChart', () => {
               id: string
               label: string
               data: typeof jobData
-              columns: typeof jobColumns
+              columnHints?: never
             },
           ],
         }),

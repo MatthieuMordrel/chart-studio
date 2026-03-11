@@ -46,6 +46,7 @@ export {
 } from './core/index.js'
 
 export type {
+  ChartSourceOptions,
   ChartAxisType,
   ChartTypeCapabilities,
   UseChartOptions,
@@ -75,6 +76,8 @@ export type {
   SortDirection,
   SortConfig,
   DataSource,
+  MultiSourceChartInstance,
+  NonEmptyChartSourceOptions,
   ChartSeries,
   TransformedDataPoint,
   AvailableFilter,

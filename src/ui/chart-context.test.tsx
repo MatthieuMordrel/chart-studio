@@ -1,7 +1,7 @@
 import {render, screen} from '@testing-library/react'
 import {describe, expect, it} from 'vitest'
 import {useChart} from '../core/use-chart.js'
-import {candidateColumns, candidateData, jobColumns, jobData, type JobRecord} from '../test/chart-test-fixtures.js'
+import {candidateData, jobData, type JobRecord} from '../test/chart-test-fixtures.js'
 import {Chart, useTypedChartContext} from './chart-context.js'
 
 /**
@@ -46,8 +46,8 @@ function InvalidMultiSourceProbe() {
 function MultiSourceHarness() {
   const chart = useChart({
     sources: [
-      {id: 'jobs', label: 'Jobs', data: jobData, columns: jobColumns},
-      {id: 'candidates', label: 'Candidates', data: candidateData, columns: candidateColumns},
+      {id: 'jobs', label: 'Jobs', data: jobData},
+      {id: 'candidates', label: 'Candidates', data: candidateData},
     ],
   })
 

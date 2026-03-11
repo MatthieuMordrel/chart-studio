@@ -15,6 +15,8 @@ import type {
   DateRangeFilter,
   FilterState,
   Metric,
+  MultiSourceChartInstance,
+  NonEmptyChartSourceOptions,
   ResolvedColumnIdFromHints,
   SortConfig,
   TimeBucket
@@ -27,7 +29,7 @@ import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-c
  *
  * There are two major usage patterns:
  * - Single source: Provide plain `data` and optional `columnHints`.
- * - Multi-source: Provide a `sources` array, each having an `id`, `label`, `data`, `columns`.
+ * - Multi-source: Provide a `sources` array, each having an `id`, `label`, `data`, and optional `columnHints`.
  *
  * @template T - The type of each data record in the dataset.
  * @template THints - Optional per-field overrides for inferred single-source columns.
@@ -60,47 +62,63 @@ import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-c
 export function useChart<T, const THints extends ColumnHints<T> | undefined = undefined>(
   options: SingleSourceOptions<T, THints>
 ): ChartInstance<T, ResolvedColumnIdFromHints<T, THints>>
-export function useChart(options: MultiSourceOptions): ChartInstance<unknown>
+export function useChart<const TSources extends NonEmptyChartSourceOptions>(
+  options: MultiSourceOptions<TSources>
+): MultiSourceChartInstance<TSources>
 export function useChart<T, const THints extends ColumnHints<T> | undefined = undefined>(
   options: UseChartOptions<T, THints>
-): ChartInstance<T, ResolvedColumnIdFromHints<T, THints>> | ChartInstance<unknown> {
-  if (options.sources && options.sources.length === 0) {
+): ChartInstance<T, ResolvedColumnIdFromHints<T, THints>> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
+  if ('sources' in options && options.sources?.length === 0) {
     throw new Error('useChart requires at least one source')
   }
 
-  const singleSourceColumns = useMemo(
-    () => ('sources' in options ? null : inferColumnsFromData(options.data, options.columnHints)),
-    [options]
-  )
-  const sources = ('sources' in options
-    ? options.sources
-    : [
-        {
-          id: 'default',
-          label: options.sourceLabel ?? 'Unnamed Source',
-          data: options.data,
-          columns: singleSourceColumns
-        }
-      ]) as unknown as DataSource<T, ResolvedColumnIdFromHints<T, THints>>[]
+  const sources = useMemo<DataSource<any, string>[]>(() => {
+    if ('sources' in options && options.sources) {
+      return options.sources.map(source => ({
+        id: source.id,
+        label: source.label,
+        data: source.data,
+        columns: inferColumnsFromData(source.data, source.columnHints),
+      }))
+    }
+
+    return [
+      {
+        id: 'default',
+        label: options.sourceLabel ?? 'Unnamed Source',
+        data: options.data,
+        columns: inferColumnsFromData(options.data, options.columnHints),
+      },
+    ]
+  }, [options])
   const hasMultipleSources = sources.length > 1
 
-  const [activeSourceId, setActiveSource] = useState(sources[0]?.id ?? 'default')
+  const [activeSourceIdRaw, setActiveSourceRaw] = useState(sources[0]?.id ?? 'default')
   const [chartType, setChartTypeRaw] = useState<ChartType>('bar')
-  const [xAxisId, setXAxisRaw] = useState<ResolvedColumnIdFromHints<T, THints> | null>(null)
-  const [groupById, setGroupBy] = useState<ResolvedColumnIdFromHints<T, THints> | null>(null)
-  const [metric, setMetric] = useState<Metric<ResolvedColumnIdFromHints<T, THints>>>(DEFAULT_METRIC)
+  const [xAxisId, setXAxisRaw] = useState<string | null>(null)
+  const [groupById, setGroupBy] = useState<string | null>(null)
+  const [metric, setMetric] = useState<Metric<string>>(DEFAULT_METRIC)
   const [timeBucket, setTimeBucket] = useState<TimeBucket>(DEFAULT_TIME_BUCKET)
-  const [filters, setFilters] = useState<FilterState<ResolvedColumnIdFromHints<T, THints>>>(() => new Map())
+  const [filters, setFilters] = useState<FilterState<string>>(() => new Map())
   const [sorting, setSorting] = useState<SortConfig | null>(null)
-  const [referenceDateIdRaw, setReferenceDateId] = useState<ResolvedColumnIdFromHints<T, THints> | null>(null)
+  const [referenceDateIdRaw, setReferenceDateId] = useState<string | null>(null)
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter | null>(null)
 
+  const sourceIds = useMemo(() => new Set(sources.map(source => source.id)), [sources])
+  const activeSourceId = sourceIds.has(activeSourceIdRaw) ? activeSourceIdRaw : (sources[0]?.id ?? 'default')
+  const setActiveSource = (sourceId: string) => {
+    if (!sourceIds.has(sourceId)) {
+      throw new Error(`Unknown chart source ID: "${sourceId}"`)
+    }
+
+    setActiveSourceRaw(sourceId)
+  }
   const activeSource = sources.find(s => s.id === activeSourceId) ?? sources[0]!
-  const activeColumns: readonly ChartColumn<T, ResolvedColumnIdFromHints<T, THints>>[] = activeSource.columns
-  const rawData: readonly T[] = activeSource.data
+  const activeColumns: readonly ChartColumn<any, string>[] = activeSource.columns
+  const rawData: readonly any[] = activeSource.data
 
   const dateColumns = useMemo(
-    () => activeColumns.filter((column): column is DateColumn<T, ResolvedColumnIdFromHints<T, THints>> => column.type === 'date'),
+    () => activeColumns.filter((column): column is DateColumn<any, string> => column.type === 'date'),
     [activeColumns]
   )
 
@@ -171,7 +189,7 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
     })
   }, [effectiveData, activeColumns, resolvedXAxisId, resolvedGroupById, resolvedMetric, timeBucket, resolvedFilters, sorting])
 
-  const dateRange: DateRange<ResolvedColumnIdFromHints<T, THints>> | null = useMemo(() => {
+  const dateRange: DateRange<string> | null = useMemo(() => {
     const column = dateColumns.find(candidate => candidate.id === referenceDateId)
     if (!column) return null
 
@@ -186,14 +204,14 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
     }
   }
 
-  const setXAxis = (columnId: ResolvedColumnIdFromHints<T, THints>) => {
+  const setXAxis = (columnId: string) => {
     setXAxisRaw(columnId)
     if (resolvedGroupById === columnId) {
       setGroupBy(null)
     }
   }
 
-  const toggleFilter = (columnId: ResolvedColumnIdFromHints<T, THints>, value: string) => {
+  const toggleFilter = (columnId: string, value: string) => {
     setFilters(prev => {
       const next = new Map(prev)
       const current = next.get(columnId) ?? new Set<string>()
@@ -215,7 +233,7 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
     })
   }
 
-  const clearFilter = (columnId: ResolvedColumnIdFromHints<T, THints>) => {
+  const clearFilter = (columnId: string) => {
     setFilters(prev => {
       const next = new Map(prev)
       next.delete(columnId)
@@ -265,5 +283,5 @@ export function useChart<T, const THints extends ColumnHints<T> | undefined = un
     columns: activeColumns,
     rawData,
     recordCount: rawData.length
-  }
+  } as unknown as ChartInstance<T, ResolvedColumnIdFromHints<T, THints>> | MultiSourceChartInstance<NonEmptyChartSourceOptions>
 }

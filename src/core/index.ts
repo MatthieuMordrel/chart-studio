@@ -16,6 +16,7 @@ export type {UseChartOptions} from './use-chart-options.js'
 export type {ChartAxisType, ChartTypeCapabilities} from './chart-capabilities.js'
 
 export type {
+  ChartSourceOptions,
   ChartColumn,
   ChartColumnType,
   ColumnFormatPreset,
@@ -42,6 +43,8 @@ export type {
   DateRange,
   DateRangeFilter,
   DataSource,
+  MultiSourceChartInstance,
+  NonEmptyChartSourceOptions,
   ChartSeries,
   TransformedDataPoint,
   AvailableFilter,
