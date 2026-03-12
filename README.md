@@ -364,6 +364,30 @@ If you are importing the package source directly in a local playground or monore
 
 If your app already uses shadcn-style tokens, also make sure tokens such as `background`, `foreground`, `muted`, `border`, `popover`, `primary`, `ring`, and optionally `chart-1` through `chart-5` are defined in your theme.
 
+## On the Radar
+
+These are known limitations and areas being considered for future versions. None of these are committed — they represent directions the library may grow based on real usage.
+
+### Renderer flexibility
+
+The UI layer currently only supports Recharts. If you want to use ECharts, Plotly, or another renderer, you can use the headless core but lose the built-in toolbar and canvas composition. A renderer adapter pattern for `<ChartCanvas>` could make the UI layer renderer-agnostic.
+
+### Richer aggregation
+
+The pipeline supports sum, avg, min, and max. Derived columns can access multiple fields of a single row (e.g. `row.revenue - row.cost`), but there is no support yet for metrics that depend on other rows or on aggregated results — things like "% of total", running totals, percentiles, or post-aggregation ratios (e.g. total revenue / total orders).
+
+### Chart interactivity
+
+There is currently no built-in support for drill-down, click-to-filter, brush selection, or linked charts. The headless state can be wired manually to achieve some of these, but first-class interactivity primitives would make this significantly easier.
+
+### Multi-dataset composition
+
+Each chart instance operates on a single flat dataset. Overlaying series from different schemas (e.g. revenue on the left Y-axis and headcount on the right) would require separate chart instances today. Dual-axis and cross-dataset composition are not yet supported.
+
+### The double-call schema syntax
+
+`defineChartSchema<Row>()()` uses a double function call as a workaround for TypeScript's lack of partial type argument inference. This lets you provide the row type explicitly while the column IDs are inferred automatically. It works well but can surprise newcomers — this will be revisited if TypeScript adds native support for partial inference.
+
 ## Release
 
 - `bun run release:check`
