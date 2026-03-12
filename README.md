@@ -301,7 +301,7 @@ Minimal example:
 ## Compatibility
 
 - `react`: `>=18.2.0 <20`
-- `recharts`: `>=2.15.4 <3` for the UI layer
+- `recharts`: `>=3.0.0 <4` for the UI layer
 - `lucide-react`: `>=0.577.0 <1` for the UI layer
 
 ## Common Questions
