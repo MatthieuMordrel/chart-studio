@@ -35,7 +35,7 @@ function releasePackage() {
   runCommand('bun', ['run', 'build'])
 
   validatePackageManifest()
-  runCommand('npm', ['pack', '--dry-run'])
+  runCommand('bun', ['pm', 'pack', '--dry-run'])
 
   if (!options.publish) {
     return
@@ -49,14 +49,11 @@ function releasePackage() {
   if (options.tag) {
     publishArgs.push('--tag', options.tag)
   }
-  if (options.provenance) {
-    publishArgs.push('--provenance')
-  }
   if (options.dryRun) {
     publishArgs.push('--dry-run')
   }
 
-  runCommand('npm', publishArgs)
+  runCommand('bun', publishArgs)
 }
 
 /**
@@ -112,17 +109,9 @@ function parseReleaseOptions(args: string[]): ReleaseOptions {
  * Run a child process in the package root and exit on failure.
  */
 function runCommand(command: string, args: string[]) {
-  const npmCache = process.env['NPM_CONFIG_CACHE']
-  const commandEnvironment = {
-    ...process.env,
-    ...(command === 'npm' && !npmCache
-      ? {['NPM_CONFIG_CACHE']: join('/tmp', 'chart-studio-npm-cache')}
-      : {}),
-  }
-
   const child = spawnSync(command, args, {
     cwd: packageRoot,
-    env: commandEnvironment,
+    env: process.env,
     stdio: 'inherit',
   })
 

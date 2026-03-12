@@ -1,6 +1,6 @@
 {
   "name": "@matthieumordrel/chart-studio",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Headless, composable charting for React with an optional batteries-included UI layer.",
   "type": "module",
   "sideEffects": false,
@@ -9,13 +9,11 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": "./dist/index.js"
     },
     "./ui": {
       "types": "./dist/ui/index.d.ts",
-      "import": "./dist/ui/index.js",
-      "default": "./dist/ui/index.js"
+      "import": "./dist/ui/index.js"
     },
     "./ui/theme.css": "./dist/ui/theme.css",
     "./package.json": "./package.json"
@@ -47,7 +45,7 @@
   },
   "scripts": {
     "build": "bun run ./scripts/build.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bunx tsc --noEmit",
     "test": "vitest run",
     "release:check": "bun run ./scripts/release-package.ts --dry-run",
     "release:publish": "bun run ./scripts/release-package.ts --publish",
@@ -56,7 +54,13 @@
   "peerDependencies": {
     "lucide-react": ">=0.577.0 <1",
     "react": ">=18.2.0 <20",
+    "react-dom": ">=18.2.0 <20",
     "recharts": ">=2.15.4 <3"
+  },
+  "peerDependenciesMeta": {
+    "lucide-react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "lucide-react": "^0.577.0",
@@ -72,5 +76,5 @@
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
-  "packageManager": "bun@1.3.9"
+  "packageManager": "bun@1.3.10"
 }

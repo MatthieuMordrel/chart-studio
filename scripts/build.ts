@@ -14,7 +14,7 @@ const uiThemeDestination = resolve(packageRoot, 'dist/ui/theme.css')
 function buildPackage() {
   rmSync(distDir, {recursive: true, force: true})
 
-  const buildProcess = spawnSync('tsc', ['-p', 'tsconfig.build.json'], {
+  const buildProcess = spawnSync('bunx', ['tsc', '-p', 'tsconfig.build.json'], {
     cwd: packageRoot,
     env: process.env,
     stdio: 'inherit',
