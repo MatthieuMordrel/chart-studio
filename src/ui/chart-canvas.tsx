@@ -439,6 +439,15 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
 
 type SeriesItem = {dataKey: string; label: string; color: string}
 
+/**
+ * Percent-stacked charts use stackOffset="expand" which normalizes values to
+ * the 0–1 range.  These constants let the shared formatting pipeline treat
+ * them as proper percentages via Intl.NumberFormat({ style: 'percent' }).
+ */
+const PERCENT_STACKED_COLUMN: Pick<ChartColumn<any>, 'type' | 'format' | 'formatter'> = {type: 'number', format: 'percent', formatter: undefined}
+const PERCENT_STACKED_RANGE: NumericRange = {min: 0, max: 1}
+
+
 type RendererProps = {
   data: Record<string, string | number | null>[]
   series: SeriesItem[]
@@ -710,7 +719,7 @@ function PercentAreaChartRenderer(props: RendererProps) {
   const {series, data, xColumn, timeBucket, showDataLabels, connectNulls, width, height} = props
 
   const stackableData = filterAllNullPoints(data, series)
-  const yAxisWidth = estimateYAxisWidth({min: 0, max: 100}, {type: 'number', format: undefined, formatter: undefined})
+  const yAxisWidth = estimateYAxisWidth(PERCENT_STACKED_RANGE, PERCENT_STACKED_COLUMN)
   const xAxisTickValues = selectVisibleXAxisTicks({
     values: stackableData.map(getXAxisTickValue),
     labels: stackableData.map((point) => formatXAxisValue(getXAxisTickValue(point), xColumn, timeBucket, 'axis')),
@@ -736,16 +745,19 @@ function PercentAreaChartRenderer(props: RendererProps) {
         tickLine={false}
         axisLine={false}
         tickMargin={4}
-        tickFormatter={(value) => typeof value === 'number' ? `${Math.round(value * 100)}%` : String(value)}
+        tickFormatter={(value) =>
+          typeof value === 'number'
+            ? formatChartValue(value, {column: PERCENT_STACKED_COLUMN, surface: 'axis', numericRange: PERCENT_STACKED_RANGE})
+            : String(value)
+        }
         width={yAxisWidth}
       />
       <Tooltip
-        formatter={(value, name) => {
-          if (typeof value === 'number') {
-            return [`${(value * 100).toFixed(1)}%`, name]
-          }
-          return [value, name]
-        }}
+        formatter={(value) =>
+          typeof value === 'number'
+            ? formatChartValue(value, {column: PERCENT_STACKED_COLUMN, surface: 'tooltip', numericRange: PERCENT_STACKED_RANGE})
+            : value
+        }
         labelFormatter={(label, payload) => formatTooltipLabel(label, payload, xColumn, timeBucket)}
       />
       {series.length > 1 && <Legend />}
@@ -760,7 +772,15 @@ function PercentAreaChartRenderer(props: RendererProps) {
           fillOpacity={0.3}
           stackId="percent"
           connectNulls={connectNulls}
-        />
+        >
+          {showDataLabels && (
+            <LabelList
+              position="top"
+              offset={8}
+              formatter={(value: unknown) => formatDataLabel(value, PERCENT_STACKED_COLUMN, PERCENT_STACKED_RANGE)}
+            />
+          )}
+        </Area>
       ))}
     </AreaChart>
   )

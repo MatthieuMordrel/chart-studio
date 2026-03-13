@@ -75,7 +75,8 @@ function releasePackage() {
     publishArgs.push('--dry-run')
   }
 
-  runCommand('bun', publishArgs)
+  // Use npm for publishing — required for OIDC trusted publishing and provenance
+  runCommand('npm', publishArgs)
 }
 
 /**
