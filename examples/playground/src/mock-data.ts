@@ -37,18 +37,52 @@ export type EventProgramRecord = {
 /**
  * Home cooking dataset – simple, relatable records.
  * 500 data points over ~18 months to stress-test chart rendering.
+ * 
+ * ```ts
+ * {
+ *   cookedAt: string (ISO date)
+ *   dish: string
+ *   cuisine: 'Italian' | 'Mexican' | 'Asian' | 'American'
+ *   prepMinutes: number // duration in minutes
+ *   cookMinutes: number // duration in minutes
+ *   difficulty: 'Easy' | 'Medium' | 'Hard'
+ *   rating: number // 3–5
+ * }
+ * ```
  */
 export const recipeLogData: RecipeLogRecord[] = generateRecipeLogData(500)
 
 /**
  * Quarterly financials: revenue, net income, EBITDA, gross profit by segment.
  * 72 data points (24 quarters × 3 segments) over 6 years to stress-test aggregations.
+ * 
+ * ```ts
+ * {
+ *   periodEnd: string (ISO date)
+ *   segment: 'Product' | 'Services' | 'Licensing'
+ *   revenue: number
+ *   netIncome: number
+ *   ebitda: number
+ *   grossProfit: number
+ * }
+ * ```
  */
 export const quarterlyFinancialData: QuarterlyFinancialRecord[] = generateQuarterlyFinancialData()
 
 /**
  * Event calendar: conferences and workshops with attendance and revenue.
  * 250 data points over ~2 years to stress-test categorical bucketing.
+ * 
+ * ```ts
+ * {
+ *   eventDate: string (ISO date)
+ *   city: string
+ *   format: 'Workshop' | 'Summit' | 'Roundtable'
+ *   audience: string
+ *   isSoldOut: boolean
+ *   attendees: number
+ *   ticketRevenue: number
+ * }
  */
 export const eventProgramData: EventProgramRecord[] = generateEventProgramData(250)
 
