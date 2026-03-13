@@ -172,7 +172,7 @@ function getCartesianPlotWidth(totalWidth: number, yAxisWidth: number): number {
  * Resolve the raw categorical tick value used by Recharts for one transformed
  * pipeline point.
  */
-function getXAxisTickValue(point: Record<string, string | number>): string | number {
+function getXAxisTickValue(point: Record<string, string | number | null>): string | number {
   return typeof point['xKey'] === 'string' || typeof point['xKey'] === 'number'
     ? point['xKey']
     : String(point['xLabel'])
@@ -296,7 +296,7 @@ function useCssBarRadius(): number {
 /** Renders the appropriate recharts chart based on the chart instance state. */
 export function ChartCanvas({height = 300, className, showDataLabels = false}: ChartCanvasProps) {
   const chart = useChartContext()
-  const {chartType, transformedData, series} = chart
+  const {chartType, transformedData, series, connectNulls} = chart
   const {ref, width} = useContainerWidth()
   const xColumn = chart.columns.find((column) => column.id === chart.xAxisId) ?? null
   const aggregateMetric = chart.metric.kind === 'aggregate' ? chart.metric : null
@@ -342,6 +342,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             xColumn={xColumn}
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
+            connectNulls={connectNulls}
           />
         ) : chartType === 'line' ? (
           <LineChartRenderer
@@ -355,6 +356,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             xColumn={xColumn}
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
+            connectNulls={connectNulls}
           />
         ) : chartType === 'percent-area' ? (
           <PercentAreaChartRenderer
@@ -368,6 +370,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             xColumn={xColumn}
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
+            connectNulls={connectNulls}
           />
         ) : chartType === 'area' ? (
           <AreaChartRenderer
@@ -381,6 +384,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             xColumn={xColumn}
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
+            connectNulls={connectNulls}
           />
         ) : chartType === 'grouped-bar' ? (
           <GroupedBarChartRenderer
@@ -394,6 +398,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             xColumn={xColumn}
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
+            connectNulls={connectNulls}
           />
         ) : chartType === 'percent-bar' ? (
           <PercentBarChartRenderer
@@ -407,6 +412,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             xColumn={xColumn}
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
+            connectNulls={connectNulls}
           />
         ) : (
           <BarChartRenderer
@@ -420,6 +426,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             xColumn={xColumn}
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
+            connectNulls={connectNulls}
           />
         ))}
     </div>
@@ -433,7 +440,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
 type SeriesItem = {dataKey: string; label: string; color: string}
 
 type RendererProps = {
-  data: Record<string, string | number>[]
+  data: Record<string, string | number | null>[]
   series: SeriesItem[]
   width: number
   height: number
@@ -443,6 +450,7 @@ type RendererProps = {
   xColumn: ChartColumn<any> | null
   timeBucket?: 'day' | 'week' | 'month' | 'quarter' | 'year'
   showDataLabels: boolean
+  connectNulls: boolean
 }
 
 /**
@@ -451,7 +459,7 @@ type RendererProps = {
  * coupling it to a specific chart component.
  */
 type CartesianChartComponent = ComponentType<{
-  data: Record<string, string | number>[]
+  data: Record<string, string | number | null>[]
   width: number
   height: number
   margin?: {top?: number; right?: number; bottom?: number; left?: number}
@@ -621,7 +629,7 @@ function BarChartRenderer(props: RendererProps) {
 }
 
 function LineChartRenderer(props: RendererProps) {
-  const {showDataLabels, valueColumn, valueRange} = props
+  const {showDataLabels, valueColumn, valueRange, connectNulls} = props
   return (
     <CartesianChartShell
       {...props}
@@ -636,6 +644,7 @@ function LineChartRenderer(props: RendererProps) {
           strokeWidth={2}
           dot={{r: 3}}
           activeDot={{r: 5}}
+          connectNulls={connectNulls}
         >
           {showDataLabels && (
             <LabelList
@@ -651,7 +660,7 @@ function LineChartRenderer(props: RendererProps) {
 }
 
 function AreaChartRenderer(props: RendererProps) {
-  const {series, showDataLabels, valueColumn, valueRange} = props
+  const {series, showDataLabels, valueColumn, valueRange, connectNulls} = props
   return (
     <CartesianChartShell
       {...props}
@@ -666,6 +675,7 @@ function AreaChartRenderer(props: RendererProps) {
           fill={s.color}
           fillOpacity={0.3}
           stackId={series.length > 1 ? 'stack' : undefined}
+          connectNulls={connectNulls}
         >
           {showDataLabels && (
             <LabelList
@@ -681,7 +691,7 @@ function AreaChartRenderer(props: RendererProps) {
 }
 
 function PercentAreaChartRenderer(props: RendererProps) {
-  const {series, data, xColumn, timeBucket, showDataLabels, width, height} = props
+  const {series, data, xColumn, timeBucket, showDataLabels, connectNulls, width, height} = props
 
   const yAxisWidth = estimateYAxisWidth({min: 0, max: 100}, {type: 'number', format: undefined, formatter: undefined})
   const xAxisTickValues = selectVisibleXAxisTicks({
@@ -732,6 +742,7 @@ function PercentAreaChartRenderer(props: RendererProps) {
           fill={s.color}
           fillOpacity={0.3}
           stackId="percent"
+          connectNulls={connectNulls}
         />
       ))}
     </AreaChart>
@@ -923,5 +934,5 @@ function formatDataLabel(
  * default while tooltips and raw values remain unchanged.
  */
 function shouldHideDataLabel(value: unknown): boolean {
-  return typeof value === 'number' && value === 0
+  return value == null || (typeof value === 'number' && value === 0)
 }

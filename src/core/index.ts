@@ -6,6 +6,8 @@
 
 export {CHART_TYPE_CONFIG} from './chart-capabilities.js'
 export {getSeriesColor, buildColorMap} from './colors.js'
+export {DATE_RANGE_PRESETS, autoFilterForBucket, resolvePresetFilter, getPresetLabel} from './date-range-presets.js'
+export type {DateRangePreset} from './date-range-presets.js'
 export {defineChartSchema} from './define-chart-schema.js'
 export {inferColumnsFromData} from './infer-columns.js'
 export {buildAvailableMetrics, getMetricLabel} from './metric-utils.js'
@@ -76,6 +78,7 @@ export type {
   SortConfig,
   DateRange,
   DateRangeFilter,
+  DateRangePresetId,
   MultiSourceChartInstance,
   ChartSeries,
   TransformedDataPoint,

@@ -2,59 +2,12 @@
  * Date range panel content — reusable by both ChartDateRange (inside a popover)
  * and ChartToolbarOverflow (rendered inline).
  *
- * Shows preset buttons (All time, Last 7 days, etc.), a reference date
+ * Shows preset buttons (Auto, All time, Last 7 days, etc.), a reference date
  * column picker, and custom date inputs.
  */
 
-import {useMemo} from 'react'
-import type {DateRangeFilter} from '../core/types.js'
+import {DATE_RANGE_PRESETS, getPresetLabel, type DateRangePresetId} from '../core/date-range-presets.js'
 import {useChartContext} from './chart-context.js'
-
-// ---------------------------------------------------------------------------
-// Presets
-// ---------------------------------------------------------------------------
-
-type Preset = {
-  label: string
-  buildFilter: () => DateRangeFilter | null
-}
-
-/**
- * Build the list of date range presets relative to "now".
- *
- * "All time" → null (no date filtering)
- * Other presets → { from: Date, to: null } (bounded filter)
- */
-function getPresets(): Preset[] {
-  return [
-    {label: 'All time', buildFilter: () => null},
-    {label: 'Last 7 days', buildFilter: () => ({from: daysAgo(7), to: null})},
-    {label: 'Last 30 days', buildFilter: () => ({from: daysAgo(30), to: null})},
-    {label: 'Last 3 months', buildFilter: () => ({from: monthsAgo(3), to: null})},
-    {label: 'Last 6 months', buildFilter: () => ({from: monthsAgo(6), to: null})},
-    {label: 'Last 12 months', buildFilter: () => ({from: monthsAgo(12), to: null})},
-    {label: 'Year to date', buildFilter: () => ({from: startOfYear(), to: null})},
-  ]
-}
-
-function daysAgo(n: number): Date {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function monthsAgo(n: number): Date {
-  const d = new Date()
-  d.setMonth(d.getMonth() - n)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function startOfYear(): Date {
-  const d = new Date()
-  return new Date(d.getFullYear(), 0, 1)
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,32 +30,16 @@ function fromInputValue(value: string): Date | null {
 }
 
 /**
- * Determine which preset label matches the current filter, or "Custom".
- * null → "All time" (no date filtering)
- * Compares dates at day-level precision.
+ * Resolve the display label for the current date range state.
+ *
+ * When a preset is active, returns the preset label.
+ * When no preset is active (custom range), returns "Custom".
  */
-export function resolvePresetLabel(filter: DateRangeFilter | null): string {
-  if (filter === null) return 'All time'
-
-  const presets = getPresets()
-  for (const preset of presets) {
-    const pf = preset.buildFilter()
-    if (pf === null) continue
-    if (sameDay(pf.from, filter.from) && sameDay(pf.to, filter.to)) {
-      return preset.label
-    }
-  }
-  return 'Custom'
-}
-
-function sameDay(a: Date | null, b: Date | null): boolean {
-  if (!a && !b) return true
-  if (!a || !b) return false
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
+export function resolvePresetLabel(
+  dateRangePreset: DateRangePresetId | null,
+): string {
+  if (dateRangePreset === null) return 'Custom'
+  return getPresetLabel(dateRangePreset)
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +60,8 @@ export function ChartDateRangePanel({
   className?: string
 }) {
   const {
+    dateRangePreset,
+    setDateRangePreset,
     dateRangeFilter,
     setDateRangeFilter,
     referenceDateId,
@@ -130,16 +69,11 @@ export function ChartDateRangePanel({
     availableDateColumns,
   } = useChartContext()
 
-  const presets = useMemo(() => getPresets(), [])
-
-  const activeLabel = resolvePresetLabel(dateRangeFilter)
   const hasMultipleDateColumns = availableDateColumns.length > 1
 
-  const handlePreset = (preset: Preset) => {
-    setDateRangeFilter(preset.buildFilter())
-    if (preset.label !== 'Custom') {
-      onClose?.()
-    }
+  const handlePreset = (presetId: DateRangePresetId) => {
+    setDateRangePreset(presetId)
+    onClose?.()
   }
 
   const handleCustomFrom = (value: string) => {
@@ -181,12 +115,13 @@ export function ChartDateRangePanel({
           Range
         </div>
         <div className="grid grid-cols-2 gap-1">
-          {presets.map((preset) => {
-            const isActive = activeLabel === preset.label
+          {DATE_RANGE_PRESETS.map((preset) => {
+            const isActive = dateRangePreset === preset.id
             return (
               <button
-                key={preset.label}
-                onClick={() => handlePreset(preset)}
+                key={preset.id}
+                onClick={() => handlePreset(preset.id)}
+                title={preset.description}
                 className={`rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
                   isActive
                     ? 'bg-primary/10 font-medium text-primary'

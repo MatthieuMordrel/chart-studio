@@ -297,7 +297,7 @@ function ComplexControlRow({
 
 /** Summary text for a complex control in the main menu. */
 function ControlSummary({controlId}: {controlId: ControlId}) {
-  const {metric, columns, filters, dateRange, dateRangeFilter} = useChartContext()
+  const {metric, columns, filters, dateRange, dateRangePreset} = useChartContext()
 
   switch (controlId) {
     case 'metric':
@@ -307,7 +307,7 @@ function ControlSummary({controlId}: {controlId: ControlId}) {
       return <span>{count > 0 ? `${count} active` : 'None'}</span>
     }
     case 'dateRange': {
-      const label = resolvePresetLabel(dateRangeFilter)
+      const label = resolvePresetLabel(dateRangePreset)
       const hasRange = dateRange?.min && dateRange?.max
       if (hasRange) {
         const fmt = (d: Date) =>

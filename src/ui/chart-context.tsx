@@ -48,6 +48,7 @@ type AnyChartInstance = {
   setTimeBucket: (...args: any[]) => unknown
   availableTimeBuckets: ChartContextChart['availableTimeBuckets']
   isTimeSeries: boolean
+  connectNulls: boolean
   filters: Map<any, Set<string>>
   toggleFilter: (...args: any[]) => unknown
   clearFilter: (...args: any[]) => unknown
@@ -59,6 +60,8 @@ type AnyChartInstance = {
   referenceDateId: string | null
   setReferenceDateId: (...args: any[]) => unknown
   availableDateColumns: ChartContextChart['availableDateColumns']
+  dateRangePreset: ChartContextChart['dateRangePreset']
+  setDateRangePreset: (...args: any[]) => unknown
   dateRangeFilter: ChartContextChart['dateRangeFilter']
   setDateRangeFilter: (...args: any[]) => unknown
   transformedData: ChartContextChart['transformedData']
@@ -130,6 +133,7 @@ function createChartContextChart(chart: AnyChartInstance): ChartContextChart {
     setTimeBucket: chart.setTimeBucket,
     availableTimeBuckets: chart.availableTimeBuckets,
     isTimeSeries: chart.isTimeSeries,
+    connectNulls: chart.connectNulls,
     filters: new Map(chart.filters),
     toggleFilter: (columnId, value) => {
       if (!isKnownColumnId<string>(columnIds, columnId)) {
@@ -159,6 +163,8 @@ function createChartContextChart(chart: AnyChartInstance): ChartContextChart {
       ;(chart.setReferenceDateId as (columnId: string) => void)(columnId)
     },
     availableDateColumns: chart.availableDateColumns,
+    dateRangePreset: chart.dateRangePreset,
+    setDateRangePreset: chart.setDateRangePreset,
     dateRangeFilter: chart.dateRangeFilter,
     setDateRangeFilter: chart.setDateRangeFilter,
     transformedData: chart.transformedData,

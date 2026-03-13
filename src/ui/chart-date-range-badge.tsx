@@ -23,11 +23,11 @@ function formatDate(date: Date): string {
  * Renders nothing if no date columns are available.
  */
 export function ChartDateRangeBadge({className}: {className?: string}) {
-  const {dateRange, dateRangeFilter, availableDateColumns} = useChartContext()
+  const {dateRange, dateRangePreset, availableDateColumns} = useChartContext()
 
   if (availableDateColumns.length === 0) return null
 
-  const activeLabel = resolvePresetLabel(dateRangeFilter)
+  const activeLabel = resolvePresetLabel(dateRangePreset)
   const hasRange = dateRange?.min && dateRange?.max
 
   return (

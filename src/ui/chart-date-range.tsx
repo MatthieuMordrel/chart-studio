@@ -25,14 +25,14 @@ function formatDate(date: Date): string {
  * Also serves as the reference date column picker when multiple date columns exist.
  */
 export function ChartDateRange({className}: {className?: string}) {
-  const {dateRange, dateRangeFilter, availableDateColumns} = useChartContext()
+  const {dateRange, dateRangePreset, availableDateColumns} = useChartContext()
   const [isOpen, setIsOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
   if (availableDateColumns.length === 0) return null
 
-  const activeLabel = resolvePresetLabel(dateRangeFilter)
-  const isFiltered = dateRangeFilter !== null
+  const activeLabel = resolvePresetLabel(dateRangePreset)
+  const isFiltered = dateRangePreset !== 'all-time'
   const hasRange = dateRange?.min && dateRange?.max
 
   return (

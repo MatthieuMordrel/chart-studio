@@ -226,11 +226,15 @@ function buildTimeBuckets<T, TColumnId extends string>(
     const groupMap = accumulator.get(key)!
 
     for (const group of groups) {
-      point[group] = aggregate(
-        groupMap.get(group) ?? [],
-        metric.kind === 'aggregate' ? metric.aggregate : 'count',
-        metric.kind === 'aggregate' ? (metric.includeZeros ?? true) : true,
-      )
+      const values = groupMap.get(group) ?? []
+      point[group] =
+        values.length === 0
+          ? null
+          : aggregate(
+              values,
+              metric.kind === 'aggregate' ? metric.aggregate : 'count',
+              metric.kind === 'aggregate' ? (metric.includeZeros ?? true) : true,
+            )
     }
 
     return point

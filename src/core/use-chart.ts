@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { TIME_BUCKET_ORDER, resolveConfiguredIdSelection, resolveConfiguredValue, restrictConfiguredIdOptions, restrictConfiguredValues } from './config-utils.js'
 import { CHART_TYPE_CONFIG, getAvailableChartTypes, type ChartAxisType } from './chart-capabilities.js'
 import { computeDateRange, filterByDateRange } from './date-utils.js'
+import { resolvePresetFilter, type DateRangePresetId } from './date-range-presets.js'
 import { inferColumnsFromData } from './infer-columns.js'
 import { buildAvailableMetrics, DEFAULT_METRIC, isSameMetric, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
 import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
@@ -163,7 +164,8 @@ export function useChart<
   const [filters, setFilters] = useState<FilterState<string>>(() => new Map())
   const [sorting, setSorting] = useState<SortConfig | null>(null)
   const [referenceDateIdRaw, setReferenceDateIdRaw] = useState<string | null>(null)
-  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter | null>(null)
+  const [dateRangePreset, setDateRangePresetRaw] = useState<DateRangePresetId | null>('all-time')
+  const [customDateRangeFilter, setCustomDateRangeFilter] = useState<DateRangeFilter | null>(null)
 
   const sourceIds = useMemo(() => new Set(sources.map(source => source.id)), [sources])
   const activeSourceId = sourceIds.has(activeSourceIdRaw) ? activeSourceIdRaw : (sources[0]?.id ?? 'default')
@@ -217,17 +219,6 @@ export function useChart<
     [referenceDateIdRaw, dateColumns, resolvedXAxisId, isTimeSeries]
   )
 
-  const effectiveData: readonly T[] = useMemo(() => {
-    const column = dateColumns.find(candidate => candidate.id === referenceDateId)
-    if (!column) return rawData
-
-    if (dateRangeFilter === null) {
-      return rawData
-    }
-
-    return filterByDateRange(rawData, column, dateRangeFilter)
-  }, [rawData, dateRangeFilter, dateColumns, referenceDateId])
-
   const availableGroupBys = useMemo(
     () =>
       restrictConfiguredIdOptions(
@@ -252,27 +243,6 @@ export function useChart<
     () => resolveMetric(metric, activeColumns, availableMetrics, activeSource.schema?.metric?.default as any),
     [metric, activeColumns, availableMetrics, activeSource.schema]
   )
-  const availableFilters = useMemo(
-    () => {
-      const extractedFilters = extractAvailableFilters(effectiveData, activeColumns)
-      const selectableFilters = extractedFilters.map(filter => ({
-        ...filter,
-        id: filter.columnId,
-      }))
-
-      return restrictConfiguredIdOptions(selectableFilters, activeSource.schema?.filters as any).map(({id: _id, ...filter}) => filter)
-    },
-    [effectiveData, activeColumns, activeSource.schema]
-  )
-  const availableFilterValues = useMemo(
-    () => createAvailableFilterValueMap(availableFilters),
-    [availableFilters]
-  )
-  const filterColumns = useMemo(
-    () => activeColumns.filter(column => availableFilters.some(filter => filter.columnId === column.id)),
-    [activeColumns, availableFilters]
-  )
-  const resolvedFilters = useMemo(() => sanitizeFilters(filters, filterColumns), [filters, filterColumns])
   const availableChartTypes = useMemo(
     () => restrictConfiguredValues(
       getAvailableChartTypes({
@@ -302,6 +272,49 @@ export function useChart<
     () => resolveConfiguredValue(timeBucket, availableTimeBuckets, activeSource.schema?.timeBucket?.default as any),
     [timeBucket, availableTimeBuckets, activeSource.schema]
   )
+
+  // Derive the effective date range filter from the active preset or custom range.
+  // When a preset is active, the filter is computed from the preset definition.
+  // The 'auto' preset reacts to time bucket changes automatically.
+  const dateRangeFilter: DateRangeFilter | null = useMemo(() => {
+    if (dateRangePreset !== null) {
+      return resolvePresetFilter(dateRangePreset, resolvedTimeBucket)
+    }
+    return customDateRangeFilter
+  }, [dateRangePreset, customDateRangeFilter, resolvedTimeBucket])
+
+  const effectiveData: readonly T[] = useMemo(() => {
+    const column = dateColumns.find(candidate => candidate.id === referenceDateId)
+    if (!column) return rawData
+
+    if (dateRangeFilter === null) {
+      return rawData
+    }
+
+    return filterByDateRange(rawData, column, dateRangeFilter)
+  }, [rawData, dateRangeFilter, dateColumns, referenceDateId])
+
+  const availableFilters = useMemo(
+    () => {
+      const extractedFilters = extractAvailableFilters(effectiveData, activeColumns)
+      const selectableFilters = extractedFilters.map(filter => ({
+        ...filter,
+        id: filter.columnId,
+      }))
+
+      return restrictConfiguredIdOptions(selectableFilters, activeSource.schema?.filters as any).map(({id: _id, ...filter}) => filter)
+    },
+    [effectiveData, activeColumns, activeSource.schema]
+  )
+  const availableFilterValues = useMemo(
+    () => createAvailableFilterValueMap(availableFilters),
+    [availableFilters]
+  )
+  const filterColumns = useMemo(
+    () => activeColumns.filter(column => availableFilters.some(filter => filter.columnId === column.id)),
+    [activeColumns, availableFilters]
+  )
+  const resolvedFilters = useMemo(() => sanitizeFilters(filters, filterColumns), [filters, filterColumns])
 
   const pipelineResult = useMemo(() => {
     if (!resolvedXAxisId) return { data: [], series: [], groups: [] }
@@ -420,6 +433,22 @@ export function useChart<
     setReferenceDateIdRaw(columnId)
   }
 
+  const setDateRangePreset = (preset: DateRangePresetId) => {
+    setDateRangePresetRaw(preset)
+  }
+
+  const setDateRangeFilter = (filter: DateRangeFilter | null) => {
+    // Direct filter sets clear the active preset (entering custom mode).
+    // Passing null is equivalent to clearing the custom range (all time).
+    if (filter === null) {
+      setDateRangePresetRaw('all-time')
+      setCustomDateRangeFilter(null)
+    } else {
+      setDateRangePresetRaw(null)
+      setCustomDateRangeFilter(filter)
+    }
+  }
+
   const chart: RuntimeChartInstance = {
     activeSourceId,
     setActiveSource,
@@ -441,6 +470,7 @@ export function useChart<
     setTimeBucket,
     availableTimeBuckets,
     isTimeSeries,
+    connectNulls: activeSource.schema?.connectNulls ?? true,
     filters: resolvedFilters,
     toggleFilter,
     clearFilter,
@@ -452,6 +482,8 @@ export function useChart<
     referenceDateId,
     setReferenceDateId,
     availableDateColumns,
+    dateRangePreset,
+    setDateRangePreset,
     dateRangeFilter,
     setDateRangeFilter,
     transformedData: pipelineResult.data,

@@ -51,8 +51,8 @@ describe('runPipeline', () => {
     expect(result.series.map((series) => series.label)).toEqual(['Alice', 'Bob'])
     expect(result.data).toEqual([
       expect.objectContaining({xKey: '2025-01', Alice: 100, Bob: 50}),
-      expect.objectContaining({xKey: '2025-02', Alice: 0, Bob: 0}),
-      expect.objectContaining({xKey: '2025-03', Alice: 200, Bob: 0}),
+      expect.objectContaining({xKey: '2025-02', Alice: null, Bob: null}),
+      expect.objectContaining({xKey: '2025-03', Alice: 200, Bob: null}),
     ])
   })
 

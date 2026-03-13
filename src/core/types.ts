@@ -1282,6 +1282,18 @@ export type ChartSchema<
   chartType?: ChartTypeConfig
   /** Restrict which time buckets are available for date X-axes. */
   timeBucket?: TimeBucketConfig
+  /**
+   * Whether line and area charts should connect across null (empty bucket)
+   * data points instead of showing a gap.
+   *
+   * When `true` (default), the line bridges across empty buckets.
+   * When `false`, empty time buckets produce a visible gap in the line/area.
+   *
+   * This is useful for sparse datasets (e.g. quarterly data displayed in a
+   * monthly time bucket) where connecting across gaps produces a cleaner
+   * visual than showing drops to zero.
+   */
+  connectNulls?: boolean
 }
 
 type ChartSchemaDefinitionBrand = {
@@ -1395,7 +1407,7 @@ export type ChartSeries = {
  * A single data point in the transformed output.
  * Keys are dynamic based on groupBy values.
  */
-export type TransformedDataPoint = Record<string, string | number>
+export type TransformedDataPoint = Record<string, string | number | null>
 
 /**
  * Available filter options extracted from the data for a column.
@@ -1438,6 +1450,12 @@ export type DateRangeFilter = {
   from: Date | null
   to: Date | null
 }
+
+/**
+ * Re-exported from `date-range-presets.ts` for convenience.
+ * See that module for the full preset registry and resolution logic.
+ */
+export type {DateRangePresetId} from './date-range-presets.js'
 
 /**
  * Full chart state returned by the useChart hook.
@@ -1524,6 +1542,11 @@ export type ChartInstance<
   availableTimeBuckets: TTimeBucket[]
   /** Whether time bucketing controls should be shown. */
   isTimeSeries: boolean
+  /**
+   * Whether line and area charts connect across null data points.
+   * Derived from the schema's `connectNulls` option.
+   */
+  connectNulls: boolean
 
   // -- Filters --
   /** Active filter values per column. */
@@ -1558,9 +1581,21 @@ export type ChartInstance<
   setReferenceDateId: (columnId: TDateColumnId) => void
   /** Date columns currently available as reference dates at runtime. */
   availableDateColumns: Array<{id: TDateColumnId; label: string}>
-  /** Active date range filter (null = all time). */
+  /** Active date range preset (null = custom range via `dateRangeFilter`). */
+  dateRangePreset: import('./date-range-presets.js').DateRangePresetId | null
+  /**
+   * Select a named date range preset.
+   * The `dateRangeFilter` is derived automatically from the preset.
+   * For `'auto'`, the filter adjusts reactively when the time bucket changes.
+   */
+  setDateRangePreset: (preset: import('./date-range-presets.js').DateRangePresetId) => void
+  /** Active date range filter (null = all time). Derived from the preset when one is active. */
   dateRangeFilter: DateRangeFilter | null
-  /** Set the date range filter. Pass null to clear (show all time). */
+  /**
+   * Set the date range filter directly (custom range).
+   * Clears any active preset — the range becomes "Custom".
+   * Pass null to clear (show all time, equivalent to selecting 'all-time' preset).
+   */
   setDateRangeFilter: (filter: DateRangeFilter | null) => void
 
   // -- Derived data --
