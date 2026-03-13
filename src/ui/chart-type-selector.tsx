@@ -194,7 +194,7 @@ function ChartTypeButton({
         onClick={onSelect}
         className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
           isActive
-            ? 'bg-muted text-foreground shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]'
+            ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
         }`}
       >
@@ -208,7 +208,7 @@ function ChartTypeButton({
       ref={triggerRef}
       className={`relative flex items-center rounded-md transition-all ${
         isActive
-          ? 'bg-muted shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]'
+          ? 'bg-primary/10'
           : 'hover:bg-muted/40'
       }`}
     >
@@ -224,7 +224,7 @@ function ChartTypeButton({
         }}
         className={`py-1 pl-2.5 pr-1 text-xs font-medium transition-colors ${
           isActive
-            ? 'text-foreground'
+            ? 'text-primary'
             : 'text-muted-foreground hover:text-foreground'
         }`}
       >
@@ -240,7 +240,7 @@ function ChartTypeButton({
         }}
         className={`py-1 pr-2 pl-0.5 transition-colors ${
           isActive
-            ? 'text-muted-foreground/70 hover:text-foreground'
+            ? 'text-primary/60 hover:text-primary'
             : 'text-muted-foreground/40 hover:text-muted-foreground'
         }`}
       >
@@ -260,8 +260,8 @@ function ChartTypeButton({
             onClick={() => onSelectVariant(variant.type)}
             className={`flex w-full items-center rounded-md px-2.5 py-1.5 text-xs transition-colors ${
               variant.type === chartType
-                ? 'bg-muted font-medium text-foreground'
-                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                ? 'bg-primary/8 font-medium text-primary'
+                : 'text-foreground hover:bg-muted/60'
             }`}
           >
             {variant.label}
