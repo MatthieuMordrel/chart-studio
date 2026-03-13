@@ -4,7 +4,7 @@ import { CHART_TYPE_CONFIG, getAvailableChartTypes, type ChartAxisType } from '.
 import { computeDateRange, filterByDateRange } from './date-utils.js'
 import { resolvePresetFilter, type DateRangePresetId } from './date-range-presets.js'
 import { inferColumnsFromData } from './infer-columns.js'
-import { buildAvailableMetrics, DEFAULT_METRIC, isSameMetric, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
+import { buildAvailableMetrics, isSameMetric, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
 import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
 import type {
   AvailableFilter,
@@ -156,11 +156,11 @@ export function useChart<
   const hasMultipleSources = sources.length > 1
 
   const [activeSourceIdRaw, setActiveSourceRaw] = useState(sources[0]?.id ?? 'default')
-  const [chartType, setChartTypeRaw] = useState<ChartType>('bar')
+  const [chartType, setChartTypeRaw] = useState<ChartType | null>(null)
   const [xAxisId, setXAxisRaw] = useState<string | null>(null)
   const [groupById, setGroupByRaw] = useState<string | null>(null)
-  const [metric, setMetricRaw] = useState<Metric<string>>(DEFAULT_METRIC)
-  const [timeBucket, setTimeBucketRaw] = useState<TimeBucket>(DEFAULT_TIME_BUCKET)
+  const [metric, setMetricRaw] = useState<Metric<string> | null>(null)
+  const [timeBucket, setTimeBucketRaw] = useState<TimeBucket | null>(null)
   const [filters, setFilters] = useState<FilterState<string>>(() => new Map())
   const [sorting, setSorting] = useState<SortConfig | null>(null)
   const [referenceDateIdRaw, setReferenceDateIdRaw] = useState<string | null>(null)
@@ -255,7 +255,7 @@ export function useChart<
     [resolvedGroupById, resolvedXAxisType, activeSource.schema]
   )
   const resolvedChartType = useMemo(
-    () => resolveConfiguredValue(chartType, availableChartTypes, activeSource.schema?.chartType?.default as any),
+    () => resolveConfiguredValue(chartType, availableChartTypes, activeSource.schema?.chartType?.default as any, 'bar'),
     [chartType, availableChartTypes, activeSource.schema]
   )
   const availableTimeBuckets = useMemo(
@@ -269,7 +269,7 @@ export function useChart<
     [isTimeSeries, resolvedXAxisType, resolvedChartType, activeSource.schema]
   )
   const resolvedTimeBucket = useMemo(
-    () => resolveConfiguredValue(timeBucket, availableTimeBuckets, activeSource.schema?.timeBucket?.default as any),
+    () => resolveConfiguredValue(timeBucket, availableTimeBuckets, activeSource.schema?.timeBucket?.default as any, DEFAULT_TIME_BUCKET),
     [timeBucket, availableTimeBuckets, activeSource.schema]
   )
 

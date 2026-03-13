@@ -574,6 +574,189 @@ describe('useChart', () => {
     )
   })
 
+  it('respects schema default for timeBucket even when the global default is in the allowed list', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
+          timeBucket: {
+            allowed: ['month', 'quarter', 'year'],
+            default: 'quarter',
+          },
+        }),
+      }),
+    )
+
+    expect(result.current.availableTimeBuckets).toEqual(['month', 'quarter', 'year'])
+    expect(result.current.timeBucket).toBe('quarter')
+  })
+
+  it('respects schema default for chartType even when the global default is in the allowed list', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
+          chartType: {
+            allowed: ['bar', 'line', 'area'],
+            default: 'line',
+          },
+        }),
+      }),
+    )
+
+    expect(result.current.availableChartTypes).toEqual(['bar', 'line', 'area'])
+    expect(result.current.chartType).toBe('line')
+  })
+
+  it('respects schema default for metric even when count is available', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
+          metric: {
+            allowed: [
+              {kind: 'count'},
+              {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
+            ],
+            default: {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+          },
+        }),
+      }),
+    )
+
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+  })
+
+  it('preserves explicit user selection over schema defaults', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
+          chartType: {
+            allowed: ['bar', 'line', 'area'],
+            default: 'line',
+          },
+          timeBucket: {
+            allowed: ['month', 'quarter', 'year'],
+            default: 'quarter',
+          },
+          metric: {
+            allowed: [
+              {kind: 'count'},
+              {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
+            ],
+            default: {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+          },
+        }),
+      }),
+    )
+
+    expect(result.current.chartType).toBe('line')
+    expect(result.current.timeBucket).toBe('quarter')
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+
+    act(() => {
+      result.current.setChartType('bar')
+      result.current.setTimeBucket('month')
+      result.current.setMetric({kind: 'count'})
+    })
+
+    expect(result.current.chartType).toBe('bar')
+    expect(result.current.timeBucket).toBe('month')
+    expect(result.current.metric).toEqual({kind: 'count'})
+  })
+
+  it('resets to schema default when switching sources', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        sources: [
+          {
+            id: 'jobs',
+            label: 'Jobs',
+            data: jobData,
+            schema: defineChartSchema<(typeof jobData)[number]>()({
+              columns: configuredJobSchema.columns,
+              chartType: {
+                allowed: ['bar', 'line'],
+                default: 'line',
+              },
+              timeBucket: {
+                allowed: ['month', 'quarter'],
+                default: 'quarter',
+              },
+              metric: {
+                allowed: [
+                  {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
+                ],
+                default: {kind: 'aggregate', columnId: 'salary', aggregate: 'avg'},
+              },
+            }),
+          },
+          {
+            id: 'candidates',
+            label: 'Candidates',
+            data: candidateData,
+            schema: defineChartSchema<(typeof candidateData)[number]>()({
+              columns: {
+                stage: {label: 'Hiring Stage'},
+                city: false,
+              },
+            }),
+          },
+        ],
+      }),
+    )
+
+    expect(result.current.chartType).toBe('line')
+    expect(result.current.timeBucket).toBe('quarter')
+    expect(result.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
+
+    act(() => {
+      result.current.setChartType('bar')
+      result.current.setTimeBucket('month')
+      result.current.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+    })
+
+    expect(result.current.chartType).toBe('bar')
+    expect(result.current.timeBucket).toBe('month')
+
+    act(() => {
+      result.current.setActiveSource('candidates')
+    })
+
+    // Candidates source has no schema defaults for chartType/timeBucket,
+    // so the global defaults should apply.
+    expect(result.current.metric).toEqual({kind: 'count'})
+
+    act(() => {
+      result.current.setActiveSource('jobs')
+    })
+
+    // Switching back: the user's previous explicit selections ('bar', 'month')
+    // are still in state and valid, so they should be preserved.
+    expect(result.current.chartType).toBe('bar')
+    expect(result.current.timeBucket).toBe('month')
+  })
+
+  it('falls back to global default when no schema default is configured', () => {
+    const {result} = renderHook(() =>
+      useChart({
+        data: jobData,
+        schema: defineChartSchema<(typeof jobData)[number]>()({
+          columns: configuredJobSchema.columns,
+        }),
+      }),
+    )
+
+    expect(result.current.chartType).toBe('bar')
+    expect(result.current.timeBucket).toBe('month')
+    expect(result.current.metric).toEqual({kind: 'count'})
+  })
+
   it('throws when multi-source charts are created without sources', () => {
     expect(() =>
       renderHook(() =>

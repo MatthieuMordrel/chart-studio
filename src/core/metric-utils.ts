@@ -190,25 +190,39 @@ export function restrictAvailableMetrics<TColumnId extends string>(
  * Validate a metric against the active source.
  */
 export function resolveMetric<T, TColumnId extends string>(
-  metric: Metric<TColumnId>,
+  metric: Metric<TColumnId> | null,
   columns: readonly ChartColumn<T, TColumnId>[],
   availableMetrics?: readonly Metric<TColumnId>[],
   configuredDefaultMetric?: Metric<TColumnId>,
 ): Metric<TColumnId> {
   if (availableMetrics && availableMetrics.length > 0) {
-    const selectedMetric = availableMetrics.find(candidate => isSameMetric(candidate, metric))
-    if (selectedMetric) {
-      return selectedMetric
+    // If the user has explicitly selected a metric and it's still valid, keep it.
+    if (metric !== null) {
+      const selectedMetric = availableMetrics.find(candidate => isSameMetric(candidate, metric))
+      if (selectedMetric) {
+        return selectedMetric
+      }
     }
 
+    // Schema-level default takes priority over the global default.
     const defaultMetric = configuredDefaultMetric
       ? availableMetrics.find(candidate => isSameMetric(candidate, configuredDefaultMetric))
       : undefined
 
-    return defaultMetric ?? availableMetrics[0]!
+    if (defaultMetric) {
+      return defaultMetric
+    }
+
+    // Global default (count) if available, otherwise first available metric.
+    if (metric === null) {
+      const countMetric = availableMetrics.find(candidate => candidate.kind === 'count')
+      if (countMetric) return countMetric
+    }
+
+    return availableMetrics[0]!
   }
 
-  if (!isAggregateMetric(metric)) {
+  if (metric === null || !isAggregateMetric(metric)) {
     return DEFAULT_METRIC
   }
 

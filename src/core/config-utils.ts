@@ -118,19 +118,27 @@ export function restrictConfiguredValues<TValue extends string>(
  * Resolve one primitive selection against the current option list.
  */
 export function resolveConfiguredValue<TValue extends string>(
-  currentValue: TValue,
+  currentValue: TValue | null,
   values: readonly TValue[],
   configuredDefault: TValue | undefined,
+  globalDefault?: TValue,
 ): TValue {
-  if (values.includes(currentValue)) {
+  // When the user has explicitly selected a value and it's still valid, keep it.
+  if (currentValue !== null && values.includes(currentValue)) {
     return currentValue
   }
 
+  // Schema-level default takes priority over the global default.
   if (configuredDefault && values.includes(configuredDefault)) {
     return configuredDefault
   }
 
-  return values[0] ?? currentValue
+  // Global default (e.g. 'month' for timeBucket, 'bar' for chartType).
+  if (globalDefault && values.includes(globalDefault)) {
+    return globalDefault
+  }
+
+  return values[0] ?? currentValue!
 }
 
 /**

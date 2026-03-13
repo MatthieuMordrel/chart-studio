@@ -20,7 +20,7 @@ const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()({
         }
       }
     },
-    ebitda: { type: 'number', label: 'EBITDA' },
+    ebitda: { type: 'number', label: 'EBITDA', format: { kind: 'number', options: { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 } } },
     ebitdaMargin: {
       kind: 'derived',
       type: 'number',
@@ -60,7 +60,7 @@ const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()({
     allowed: ['periodEnd']
   },
   chartType: { allowed: ['bar', 'line'] },
-  timeBucket: { allowed: ['year', 'quarter', 'month'] },
+  timeBucket: { allowed: ['year', 'quarter', 'month'], default: 'quarter' },
   groupBy: {
     allowed: ['segment', 'profitable']
   },
@@ -69,7 +69,7 @@ const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()({
   },
   metric: {
     allowed: [
-      { kind: 'aggregate', columnId: 'ebitda', aggregate: ['sum', 'avg'] },
+      { kind: 'aggregate', columnId: 'ebitda', aggregate: ['sum']},
       { kind: 'aggregate', columnId: 'ebitdaMargin', aggregate: 'avg' },
       { kind: 'aggregate', columnId: 'grossMargin', aggregate: 'avg' },
       { kind: 'aggregate', columnId: 'revenue', aggregate: 'sum' },
