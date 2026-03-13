@@ -37,6 +37,11 @@ export const CHART_TYPE_CONFIG = {
     supportsGrouping: true,
     supportsTimeBucketing: true,
   },
+  'percent-area': {
+    supportedXAxisTypes: ['date'],
+    supportsGrouping: true,
+    supportsTimeBucketing: true,
+  },
   pie: {
     supportedXAxisTypes: ['category', 'boolean'],
     supportsGrouping: false,

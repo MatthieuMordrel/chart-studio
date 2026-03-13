@@ -22,7 +22,7 @@
 
 :root {
   color-scheme: light;
-  --cs-radius: var(--radius, 0.5rem);
+  --cs-radius: var(--radius, 0.25rem);
   --cs-background: var(--background, hsl(220 16% 97.5%));
   --cs-foreground: var(--foreground, hsl(224 71% 4%));
   --cs-card: var(--card, hsl(0 0% 100%));

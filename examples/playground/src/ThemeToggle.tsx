@@ -99,6 +99,53 @@ const THEME_PRESETS: readonly ThemePreset[] = [
     vars: null,
   },
   {
+    name: 'stone',
+    label: 'Stone',
+    swatch: 'oklch(0.553 0.013 58.071)',
+    vars: {
+      light: {
+        background: 'oklch(1 0 0)',
+        foreground: 'oklch(0.147 0.004 49.25)',
+        card: 'oklch(1 0 0)',
+        'card-foreground': 'oklch(0.147 0.004 49.25)',
+        popover: 'oklch(1 0 0)',
+        'popover-foreground': 'oklch(0.147 0.004 49.25)',
+        primary: 'oklch(0.216 0.006 56.043)',
+        'primary-foreground': 'oklch(0.985 0.001 106.423)',
+        muted: 'oklch(0.97 0.001 106.424)',
+        'muted-foreground': 'oklch(0.553 0.013 58.071)',
+        border: 'oklch(0.923 0.003 48.717)',
+        input: 'oklch(0.923 0.003 48.717)',
+        ring: 'oklch(0.709 0.01 56.259)',
+        'chart-1': 'oklch(0.897 0.196 126.665)',
+        'chart-2': 'oklch(0.768 0.233 130.85)',
+        'chart-3': 'oklch(0.648 0.2 131.684)',
+        'chart-4': 'oklch(0.532 0.157 131.589)',
+        'chart-5': 'oklch(0.453 0.124 130.933)',
+      },
+      dark: {
+        background: 'oklch(0.147 0.004 49.25)',
+        foreground: 'oklch(0.985 0.001 106.423)',
+        card: 'oklch(0.216 0.006 56.043)',
+        'card-foreground': 'oklch(0.985 0.001 106.423)',
+        popover: 'oklch(0.216 0.006 56.043)',
+        'popover-foreground': 'oklch(0.985 0.001 106.423)',
+        primary: 'oklch(0.923 0.003 48.717)',
+        'primary-foreground': 'oklch(0.216 0.006 56.043)',
+        muted: 'oklch(0.268 0.007 34.298)',
+        'muted-foreground': 'oklch(0.709 0.01 56.259)',
+        border: 'oklch(1 0 0 / 10%)',
+        input: 'oklch(1 0 0 / 15%)',
+        ring: 'oklch(0.553 0.013 58.071)',
+        'chart-1': 'oklch(0.897 0.196 126.665)',
+        'chart-2': 'oklch(0.768 0.233 130.85)',
+        'chart-3': 'oklch(0.648 0.2 131.684)',
+        'chart-4': 'oklch(0.532 0.157 131.589)',
+        'chart-5': 'oklch(0.453 0.124 130.933)',
+      },
+    },
+  },
+  {
     name: 'blue',
     label: 'Blue',
     swatch: 'oklch(0.488 0.243 264.376)',
@@ -336,7 +383,7 @@ function buildThemeTooltip(preset: ThemePreset, mode: Mode): string {
  */
 export function ThemeToggle() {
   const [mode, setMode] = useState<Mode>(() => getStored(MODE_KEY, 'light'))
-  const [radius, setRadius] = useState(() => getStoredNumber(RADIUS_KEY, 0.5))
+  const [radius, setRadius] = useState(() => getStoredNumber(RADIUS_KEY, 0.25))
   const [themeName, setThemeName] = useState(() => getStored(THEME_KEY, 'default'))
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -464,6 +511,21 @@ export function ThemeToggle() {
               ))}
             </div>
           </div>
+
+          {/* Reset */}
+          {(mode !== 'light' || radius !== 0.25 || themeName !== 'default') && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode('light')
+                setRadius(0.25)
+                setThemeName('default')
+              }}
+              className="mt-3 w-full rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Reset to defaults
+            </button>
+          )}
         </div>
       )}
     </div>

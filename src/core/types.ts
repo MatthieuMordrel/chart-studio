@@ -1016,7 +1016,7 @@ export type ChartColumn<T, TId extends string = string> =
 // ---------------------------------------------------------------------------
 
 /** Chart types available for time-series (date X-axis). */
-export type TimeSeriesChartType = 'bar' | 'line' | 'area'
+export type TimeSeriesChartType = 'bar' | 'line' | 'area' | 'percent-area'
 
 /** Chart types available for categorical (category/boolean X-axis). */
 export type CategoricalChartType = 'bar' | 'pie' | 'donut'

@@ -10,6 +10,7 @@ const CHART_TYPE_LABELS: Record<ChartType, string> = {
   bar: 'Bar',
   line: 'Line',
   area: 'Area',
+  'percent-area': '% Area',
   pie: 'Pie',
   donut: 'Donut',
 }

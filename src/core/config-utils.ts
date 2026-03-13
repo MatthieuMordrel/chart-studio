@@ -141,4 +141,4 @@ export const TIME_BUCKET_ORDER: readonly TimeBucket[] = ['day', 'week', 'month',
 /**
  * Ordered chart types exposed by the headless API.
  */
-export const CHART_TYPE_ORDER: readonly ChartType[] = ['bar', 'line', 'area', 'pie', 'donut']
+export const CHART_TYPE_ORDER: readonly ChartType[] = ['bar', 'line', 'area', 'percent-area', 'pie', 'donut']

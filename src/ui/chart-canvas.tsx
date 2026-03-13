@@ -1,7 +1,7 @@
 /**
  * Chart canvas — renders the actual recharts chart based on the current state.
  *
- * Supports: bar, line, area (time-series), bar, pie, donut (categorical).
+ * Supports: bar, line, area, percent-area (time-series), bar, pie, donut (categorical).
  * Automatically switches between chart types based on the chart instance state.
  */
 
@@ -356,6 +356,19 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
           />
+        ) : chartType === 'percent-area' ? (
+          <PercentAreaChartRenderer
+            data={transformedData}
+            series={series}
+            width={width}
+            height={height}
+            valueColumn={valueColumn}
+            valueRange={valueRange}
+            allowDecimalTicks={allowDecimalTicks}
+            xColumn={xColumn}
+            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
+            showDataLabels={showDataLabels}
+          />
         ) : chartType === 'area' ? (
           <AreaChartRenderer
             data={transformedData}
@@ -637,6 +650,64 @@ function AreaChartRenderer(props: RendererProps) {
         </Area>
       )}
     />
+  )
+}
+
+function PercentAreaChartRenderer(props: RendererProps) {
+  const {series, data, xColumn, timeBucket, showDataLabels, width, height} = props
+
+  const yAxisWidth = estimateYAxisWidth({min: 0, max: 100}, {type: 'number', format: undefined, formatter: undefined})
+  const xAxisTickValues = selectVisibleXAxisTicks({
+    values: data.map(getXAxisTickValue),
+    labels: data.map((point) => formatXAxisValue(getXAxisTickValue(point), xColumn, timeBucket, 'axis')),
+    plotWidth: getCartesianPlotWidth(width, yAxisWidth),
+    minimumTickGap: X_AXIS_MINIMUM_TICK_GAP,
+    measureLabelWidth: measureAxisLabelWidth,
+  })
+
+  return (
+    <AreaChart data={data} width={width} height={height} margin={getCartesianChartMargin(showDataLabels)} stackOffset="expand">
+      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+      <XAxis
+        dataKey="xKey"
+        tickLine={false}
+        axisLine={false}
+        tickMargin={8}
+        interval={0}
+        padding={CARTESIAN_X_AXIS_PADDING}
+        ticks={xAxisTickValues}
+        tickFormatter={(value) => formatXAxisValue(value, xColumn, timeBucket, 'axis')}
+      />
+      <YAxis
+        tickLine={false}
+        axisLine={false}
+        tickMargin={4}
+        tickFormatter={(value) => typeof value === 'number' ? `${Math.round(value * 100)}%` : String(value)}
+        width={yAxisWidth}
+      />
+      <Tooltip
+        formatter={(value, name) => {
+          if (typeof value === 'number') {
+            return [`${(value * 100).toFixed(1)}%`, name]
+          }
+          return [value, name]
+        }}
+        labelFormatter={(label, payload) => formatTooltipLabel(label, payload, xColumn, timeBucket)}
+      />
+      {series.length > 1 && <Legend />}
+      {series.map((s) => (
+        <Area
+          key={s.dataKey}
+          type="monotone"
+          dataKey={s.dataKey}
+          name={s.label}
+          stroke={s.color}
+          fill={s.color}
+          fillOpacity={0.8}
+          stackId="percent"
+        />
+      ))}
+    </AreaChart>
   )
 }
 
