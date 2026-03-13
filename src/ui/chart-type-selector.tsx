@@ -123,17 +123,12 @@ export function ChartTypeSelector({className}: {className?: string}) {
       {visibleGroups.map((group) => {
         const isActive = activeGroup?.primary === group.primary
         const hasVariants = group.visibleVariants.length > 1
-        const activeVariant = isActive
-          ? group.visibleVariants.find((v) => v.type === chartType)
-          : undefined
-
         return (
           <ChartTypeButton
             key={group.primary}
             group={group}
             isActive={isActive}
             hasVariants={hasVariants}
-            activeVariantLabel={activeVariant?.label}
             isDropdownOpen={openGroup === group.primary}
             chartType={chartType}
             onSelect={() => {
@@ -141,7 +136,7 @@ export function ChartTypeSelector({className}: {className?: string}) {
               if (availableChartTypes.includes(group.primary)) {
                 setChartType(group.primary)
               } else if (group.visibleVariants.length > 0) {
-                setChartType(group.visibleVariants[0].type)
+                setChartType(group.visibleVariants[0]!.type)
               }
             }}
             onToggleDropdown={() => setOpenGroup(openGroup === group.primary ? null : group.primary)}
@@ -165,7 +160,6 @@ function ChartTypeButton({
   group,
   isActive,
   hasVariants,
-  activeVariantLabel,
   isDropdownOpen,
   chartType,
   onSelect,
@@ -176,7 +170,6 @@ function ChartTypeButton({
   group: VisibleGroup
   isActive: boolean
   hasVariants: boolean
-  activeVariantLabel: string | undefined
   isDropdownOpen: boolean
   chartType: ChartType
   onSelect: () => void

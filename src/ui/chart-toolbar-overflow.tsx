@@ -279,7 +279,6 @@ function ComplexControlRow({
   controlId: ControlId
   onNavigate: () => void
 }) {
-  const entry = CONTROL_REGISTRY[controlId]
   const Icon = CONTROL_ICONS[controlId]
 
   return (
