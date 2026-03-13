@@ -194,8 +194,8 @@ function ChartTypeButton({
         onClick={onSelect}
         className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
           isActive
-            ? 'bg-muted text-foreground'
-            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            ? 'bg-muted text-foreground shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]'
+            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
         }`}
       >
         {group.label}
@@ -208,8 +208,8 @@ function ChartTypeButton({
       ref={triggerRef}
       className={`relative flex items-center rounded-md transition-all ${
         isActive
-          ? 'bg-muted'
-          : 'hover:bg-muted/50'
+          ? 'bg-muted shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]'
+          : 'hover:bg-muted/40'
       }`}
     >
       <button
@@ -238,13 +238,13 @@ function ChartTypeButton({
           if (!isActive) onSelect()
           onToggleDropdown()
         }}
-        className={`py-1 pr-1.5 pl-0 transition-colors ${
+        className={`py-1 pr-2 pl-0.5 transition-colors ${
           isActive
-            ? 'text-muted-foreground hover:text-foreground'
-            : 'text-muted-foreground/50 hover:text-muted-foreground'
+            ? 'text-muted-foreground/70 hover:text-foreground'
+            : 'text-muted-foreground/40 hover:text-muted-foreground'
         }`}
       >
-        <ChevronDown className={`h-3 w-3 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-2.5 w-2.5 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
       </button>
 
       <ChartDropdownPanel
@@ -258,10 +258,10 @@ function ChartTypeButton({
           <button
             key={variant.type}
             onClick={() => onSelectVariant(variant.type)}
-            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+            className={`flex w-full items-center rounded-md px-2.5 py-1.5 text-xs transition-colors ${
               variant.type === chartType
-                ? 'bg-primary/8 font-medium text-primary'
-                : 'text-foreground hover:bg-muted/60'
+                ? 'bg-muted font-medium text-foreground'
+                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
             }`}
           >
             {variant.label}
