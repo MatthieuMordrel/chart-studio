@@ -1,6 +1,6 @@
 {
   "name": "@matthieumordrel/chart-studio",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "Headless, composable charting for React with an optional batteries-included UI layer.",
   "type": "module",
   "sideEffects": false,
