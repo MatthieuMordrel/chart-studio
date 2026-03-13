@@ -75,7 +75,7 @@ const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()({
       { kind: 'aggregate', columnId: 'revenue', aggregate: 'sum' },
       { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
     ],
-    default: { kind: 'aggregate', columnId: 'grossMargin', aggregate: 'avg' }
+    default: { kind: 'aggregate', columnId: 'ebitda', aggregate: 'sum' }
   }
 })
 

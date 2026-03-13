@@ -80,3 +80,183 @@ describe('formatting', () => {
     expect(formatTimeBucketLabel('2026-Q1', 'quarter', 'axis')).toBe('Q1 26')
   })
 })
+
+/**
+ * Data-label formatting tests for every chart rendering engine.
+ *
+ * Each test exercises the exact path the LabelList formatter takes at runtime:
+ * the value Recharts passes into the formatter + the column/range config the
+ * renderer provides.
+ *
+ * For standard charts (bar, line, area, pie), LabelList passes the raw data
+ * value and the renderer uses the original column config — these work fine.
+ *
+ * For percent-stacked charts (percent-bar, percent-area), stackOffset="expand"
+ * normalizes values to 0–1.  The renderer's valueAccessor extracts the segment
+ * proportion from Recharts' stacked [lower, upper] entry, so the formatter
+ * receives a 0–1 value and format:'percent' correctly displays it
+ * (e.g. 6/18 ≈ 0.333 → "33.3%").
+ *
+ * Realistic fixture — mirrors the Kitchen Sink / Home Cooking playground
+ * with count metric grouped by cuisine:
+ *
+ *   Last time bucket: Italian=6, Mexican=5, Asian=3, American=4 (total=18)
+ *   Large-value bucket: north=6400, south=5500, east=3200 (total=15100)
+ */
+describe('data label formatting per chart type', () => {
+  // --- shared fixtures ---------------------------------------------------
+  const allRawValues = [6400, 5500, 3200, 4800, 7200, 2100]
+  const rawRange = createNumericRange(allRawValues)
+  const defaultColumn = {type: 'number' as const, format: undefined}
+
+  // Percent-stacked config — what the renderers currently pass to the formatter
+  const percentColumn = {type: 'number' as const, format: 'percent' as const}
+  const percentRange: {min: number; max: number} = {min: 0, max: 1}
+
+  // --- bar / line / area (raw values, auto-format) -----------------------
+
+  describe('bar chart — raw values, auto-detected compact format', () => {
+    it('formats large values with compact notation on data-label surface', () => {
+      expect(formatChartValue(6400, {column: defaultColumn, surface: 'data-label', numericRange: rawRange})).toBe('6.4K')
+      expect(formatChartValue(2100, {column: defaultColumn, surface: 'data-label', numericRange: rawRange})).toBe('2.1K')
+    })
+
+    it('shows full precision on tooltip surface', () => {
+      expect(formatChartValue(6400, {column: defaultColumn, surface: 'tooltip', numericRange: rawRange})).toBe('6,400')
+      expect(formatChartValue(5500, {column: defaultColumn, surface: 'tooltip', numericRange: rawRange})).toBe('5,500')
+    })
+  })
+
+  describe('line chart — raw values, small range', () => {
+    const smallValues = [12, 47, 83]
+    const smallRange = createNumericRange(smallValues)
+
+    it('formats small raw values as plain numbers on data-label surface', () => {
+      expect(formatChartValue(47, {column: defaultColumn, surface: 'data-label', numericRange: smallRange})).toBe('47')
+    })
+  })
+
+  describe('area chart — raw values, same as bar/line', () => {
+    it('uses same formatting pipeline as bar chart data labels', () => {
+      expect(formatChartValue(3200, {column: defaultColumn, surface: 'data-label', numericRange: rawRange})).toBe('3.2K')
+    })
+  })
+
+  // --- percent-bar / percent-area (100% stacked) -------------------------
+  //
+  // These tests reproduce the actual broken runtime path.
+  //
+  // At runtime, Recharts' LabelList passes the RAW data value to the
+  // formatter, while the renderer wraps it with format:'percent' and
+  // numericRange:{0,1}.  Intl.NumberFormat({ style:'percent' }) then
+  // multiplies the raw value by 100, producing absurd labels.
+  //
+  // Home Cooking fixture:
+  //   Italian=4  → formatter gets 4 → Intl says "400%"   (broken)
+  //   Mexican=3  → formatter gets 3 → Intl says "300%"   (broken)
+  //   Asian=6    → formatter gets 6 → Intl says "600%"   (broken)
+  //   American=5 → formatter gets 5 → Intl says "500%"   (broken)
+
+  describe('percent-bar chart — tooltip/axis (normalized 0-1 from Recharts, works)', () => {
+    it('formats normalized values as clean percentages on axis', () => {
+      const result = formatChartValue(0.4238, {column: percentColumn, surface: 'axis', numericRange: percentRange})
+      expect(result).toBe('42.4%')
+    })
+
+    it('formats normalized values as clean percentages on tooltip', () => {
+      const result = formatChartValue(0.4238, {column: percentColumn, surface: 'tooltip', numericRange: percentRange})
+      expect(result).toBe('42.38%')
+    })
+  })
+
+  describe('percent-bar chart — data labels (normalized proportions from valueAccessor)', () => {
+    // With stackOffset="expand", Recharts normalizes values to 0–1.
+    // The renderer's percentStackedValueAccessor extracts the segment
+    // proportion (upper - lower) so the formatter receives 0.333 for
+    // "6 out of 18", not the raw count 6.
+    //
+    // Kitchen Sink / Home Cooking last time bucket (count by cuisine):
+    //   Italian=6, Mexican=5, Asian=3, American=4  (total=18)
+
+    it('Italian=6 out of 18 should display ~33.3%', () => {
+      const label = formatChartValue(6 / 18, {column: percentColumn, surface: 'data-label', numericRange: percentRange})
+      expect(label).toBe('33.3%')
+    })
+
+    it('Mexican=5 out of 18 should display ~27.8%', () => {
+      const label = formatChartValue(5 / 18, {column: percentColumn, surface: 'data-label', numericRange: percentRange})
+      expect(label).toBe('27.8%')
+    })
+
+    it('Asian=3 out of 18 should display ~16.7%', () => {
+      const label = formatChartValue(3 / 18, {column: percentColumn, surface: 'data-label', numericRange: percentRange})
+      expect(label).toBe('16.7%')
+    })
+
+    it('American=4 out of 18 should display ~22.2%', () => {
+      const label = formatChartValue(4 / 18, {column: percentColumn, surface: 'data-label', numericRange: percentRange})
+      expect(label).toBe('22.2%')
+    })
+  })
+
+  describe('percent-bar chart — data labels with large values', () => {
+    // Same normalization at a larger scale: north=6400/15100 ≈ 0.4238 → "42.4%"
+
+    it('north=6400 out of 15100 should display ~42.4%', () => {
+      const label = formatChartValue(6400 / 15100, {column: percentColumn, surface: 'data-label', numericRange: percentRange})
+      expect(label).toBe('42.4%')
+    })
+
+    it('east=3200 out of 15100 should display ~21.2%', () => {
+      const label = formatChartValue(3200 / 15100, {column: percentColumn, surface: 'data-label', numericRange: percentRange})
+      expect(label).toBe('21.2%')
+    })
+  })
+
+  describe('percent-area chart — normalized proportions, same as percent-bar', () => {
+    it('Italian=6 out of 18 should display ~33.3%', () => {
+      const label = formatChartValue(6 / 18, {column: percentColumn, surface: 'data-label', numericRange: percentRange})
+      expect(label).toBe('33.3%')
+    })
+
+    it('American=4 out of 18 should display ~22.2%', () => {
+      const label = formatChartValue(4 / 18, {column: percentColumn, surface: 'data-label', numericRange: percentRange})
+      expect(label).toBe('22.2%')
+    })
+  })
+
+  describe('percent-bar chart — segment proportions must sum to 100%', () => {
+    // Italian=6, Mexican=5, Asian=3, American=4 (total=18)
+    // The renderer normalizes each to its proportion: 6/18 + 5/18 + 3/18 + 4/18 = 1.0
+
+    it('all segment labels should sum to 100%', () => {
+      const rawCounts = [6, 5, 3, 4]
+      const total = rawCounts.reduce((a, b) => a + b, 0)
+      const labels = rawCounts.map((v) =>
+        formatChartValue(v / total, {column: percentColumn, surface: 'data-label', numericRange: percentRange}),
+      )
+      const sum = labels.reduce((acc, label) => acc + parseFloat(label), 0)
+      expect(sum).toBeCloseTo(100, 0)
+    })
+  })
+
+  describe('percent-area chart — segment proportions must sum to 100%', () => {
+    it('all segment labels should sum to 100%', () => {
+      const rawCounts = [6, 5, 3, 4]
+      const total = rawCounts.reduce((a, b) => a + b, 0)
+      const labels = rawCounts.map((v) =>
+        formatChartValue(v / total, {column: percentColumn, surface: 'data-label', numericRange: percentRange}),
+      )
+      const sum = labels.reduce((acc, label) => acc + parseFloat(label), 0)
+      expect(sum).toBeCloseTo(100, 0)
+    })
+  })
+
+  // --- pie / donut (raw values, standard column) -------------------------
+
+  describe('pie chart — raw values, standard column', () => {
+    it('formats data labels as compact values', () => {
+      expect(formatChartValue(6400, {column: defaultColumn, surface: 'data-label', numericRange: rawRange})).toBe('6.4K')
+    })
+  })
+})

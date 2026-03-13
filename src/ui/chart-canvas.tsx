@@ -33,6 +33,7 @@ import {useChartContext} from './chart-context.js'
 import {getSeriesColor} from '../core/colors.js'
 import type {ChartColumn} from '../core/types.js'
 import {selectVisibleXAxisTicks} from './chart-axis-ticks.js'
+import {getPercentStackedDisplayValue} from './percent-stacked.js'
 
 /**
  * Estimates the pixel width the YAxis needs so no label is ever clipped.
@@ -444,7 +445,7 @@ type SeriesItem = {dataKey: string; label: string; color: string}
  * the 0–1 range.  These constants let the shared formatting pipeline treat
  * them as proper percentages via Intl.NumberFormat({ style: 'percent' }).
  */
-const PERCENT_STACKED_COLUMN: Pick<ChartColumn<any>, 'type' | 'format' | 'formatter'> = {type: 'number', format: 'percent', formatter: undefined}
+const PERCENT_STACKED_COLUMN: Pick<ChartColumn<any>, 'type' | 'format'> = {type: 'number', format: 'percent'}
 const PERCENT_STACKED_RANGE: NumericRange = {min: 0, max: 1}
 
 
@@ -480,6 +481,16 @@ type CartesianShellProps = RendererProps & {
   Chart: CartesianChartComponent
   /** Renders each series element (Bar, Line, Area, …) inside the chart. */
   renderSeries: (s: SeriesItem) => ReactNode
+  /** Optional tooltip item sorter for charts where visual series order matters. */
+  tooltipItemSorter?: (item: {dataKey?: unknown; name?: unknown}) => number
+}
+
+function createStackedTooltipItemSorter(series: SeriesItem[]) {
+  const order = new Map(series.map((s, index) => [s.dataKey, index]))
+  return (item: {dataKey?: unknown; name?: unknown}) => {
+    const dataKey = typeof item.dataKey === 'string' ? item.dataKey : typeof item.name === 'string' ? item.name : ''
+    return -(order.get(dataKey) ?? -1)
+  }
 }
 
 /**
@@ -517,6 +528,7 @@ function CartesianChartShell({
   showDataLabels,
   Chart,
   renderSeries,
+  tooltipItemSorter,
 }: CartesianShellProps) {
   const yAxisWidth = estimateYAxisWidth(valueRange, valueColumn)
   const xAxisTickValues = selectVisibleXAxisTicks({
@@ -556,6 +568,7 @@ function CartesianChartShell({
         }
       />
       <Tooltip
+        itemSorter={tooltipItemSorter}
         formatter={(value) =>
           typeof value === 'number'
             ? formatChartValue(value, {
@@ -628,6 +641,7 @@ function BarChartRenderer(props: RendererProps) {
     <CartesianChartShell
       {...props}
       Chart={BarChart}
+      tooltipItemSorter={isStacked ? createStackedTooltipItemSorter(series) : undefined}
       renderSeries={(s) => {
         const isTop = !isStacked || s.dataKey === topSeriesKey
         return (
@@ -717,6 +731,8 @@ function AreaChartRenderer(props: RendererProps) {
 
 function PercentAreaChartRenderer(props: RendererProps) {
   const {series, data, xColumn, timeBucket, showDataLabels, connectNulls, width, height} = props
+  const seriesKeys = series.map((s) => s.dataKey)
+  const tooltipItemSorter = createStackedTooltipItemSorter(series)
 
   const stackableData = filterAllNullPoints(data, series)
   const yAxisWidth = estimateYAxisWidth(PERCENT_STACKED_RANGE, PERCENT_STACKED_COLUMN)
@@ -753,11 +769,16 @@ function PercentAreaChartRenderer(props: RendererProps) {
         width={yAxisWidth}
       />
       <Tooltip
-        formatter={(value) =>
-          typeof value === 'number'
-            ? formatChartValue(value, {column: PERCENT_STACKED_COLUMN, surface: 'tooltip', numericRange: PERCENT_STACKED_RANGE})
-            : value
-        }
+        itemSorter={tooltipItemSorter}
+        formatter={(_value, _name, entry) => {
+          const proportion = getPercentStackedDisplayValue(entry, String(entry.dataKey ?? ''), seriesKeys)
+          if (proportion != null) {
+            return formatChartValue(proportion, {column: PERCENT_STACKED_COLUMN, surface: 'tooltip', numericRange: PERCENT_STACKED_RANGE})
+          }
+          return typeof _value === 'number'
+            ? formatChartValue(_value, {column: PERCENT_STACKED_COLUMN, surface: 'tooltip', numericRange: PERCENT_STACKED_RANGE})
+            : _value
+        }}
         labelFormatter={(label, payload) => formatTooltipLabel(label, payload, xColumn, timeBucket)}
       />
       {series.length > 1 && <Legend />}
@@ -777,6 +798,7 @@ function PercentAreaChartRenderer(props: RendererProps) {
             <LabelList
               position="top"
               offset={8}
+              valueAccessor={(entry) => getPercentStackedDisplayValue(entry, s.dataKey, seriesKeys) ?? 0}
               formatter={(value: unknown) => formatDataLabel(value, PERCENT_STACKED_COLUMN, PERCENT_STACKED_RANGE)}
             />
           )}
@@ -819,8 +841,10 @@ function PercentBarChartRenderer(props: RendererProps) {
   const {series, data, xColumn, timeBucket, showDataLabels, width, height} = props
   const barRadius = useCssBarRadius()
   const topSeriesKey = series[series.length - 1]?.dataKey
+  const seriesKeys = series.map((s) => s.dataKey)
+  const tooltipItemSorter = createStackedTooltipItemSorter(series)
 
-  const yAxisWidth = estimateYAxisWidth({min: 0, max: 100}, {type: 'number', format: undefined, formatter: undefined})
+  const yAxisWidth = estimateYAxisWidth(PERCENT_STACKED_RANGE, PERCENT_STACKED_COLUMN)
   const xAxisTickValues = selectVisibleXAxisTicks({
     values: data.map(getXAxisTickValue),
     labels: data.map((point) => formatXAxisValue(getXAxisTickValue(point), xColumn, timeBucket, 'axis')),
@@ -846,15 +870,23 @@ function PercentBarChartRenderer(props: RendererProps) {
         tickLine={false}
         axisLine={false}
         tickMargin={4}
-        tickFormatter={(value) => typeof value === 'number' ? `${Math.round(value * 100)}%` : String(value)}
+        tickFormatter={(value) =>
+          typeof value === 'number'
+            ? formatChartValue(value, {column: PERCENT_STACKED_COLUMN, surface: 'axis', numericRange: PERCENT_STACKED_RANGE})
+            : String(value)
+        }
         width={yAxisWidth}
       />
       <Tooltip
-        formatter={(value, name) => {
-          if (typeof value === 'number') {
-            return [`${(value * 100).toFixed(1)}%`, name]
+        itemSorter={tooltipItemSorter}
+        formatter={(_value, _name, entry) => {
+          const proportion = getPercentStackedDisplayValue(entry, String(entry.dataKey ?? ''), seriesKeys)
+          if (proportion != null) {
+            return formatChartValue(proportion, {column: PERCENT_STACKED_COLUMN, surface: 'tooltip', numericRange: PERCENT_STACKED_RANGE})
           }
-          return [value, name]
+          return typeof _value === 'number'
+            ? formatChartValue(_value, {column: PERCENT_STACKED_COLUMN, surface: 'tooltip', numericRange: PERCENT_STACKED_RANGE})
+            : _value
         }}
         labelFormatter={(label, payload) => formatTooltipLabel(label, payload, xColumn, timeBucket)}
       />
@@ -870,7 +902,16 @@ function PercentBarChartRenderer(props: RendererProps) {
             fillOpacity={0.7}
             radius={isTop ? [barRadius, barRadius, 0, 0] : 0}
             stackId="percent"
-          />
+          >
+            {showDataLabels && (
+              <LabelList
+                position="top"
+                offset={8}
+                valueAccessor={(entry) => getPercentStackedDisplayValue(entry, s.dataKey, seriesKeys) ?? 0}
+                formatter={(value: unknown) => formatDataLabel(value, PERCENT_STACKED_COLUMN, PERCENT_STACKED_RANGE)}
+              />
+            )}
+          </Bar>
         )
       })}
     </BarChart>

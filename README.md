@@ -22,6 +22,10 @@ You get:
 - transformed chart data
 - filtering, grouping, metrics, and time bucketing logic
 
+Requirements:
+
+- `react` >= 18.2.0
+
 Install:
 
 ```bash
@@ -45,6 +49,12 @@ You get:
 - `<ChartToolbar>`
 - `<ChartCanvas>`
 - granular UI controls from `@matthieumordrel/chart-studio/ui`
+
+Requirements:
+
+- `react` >= 18.2.0
+- `recharts` >= 3.0.0 (v2 is **not** supported)
+- `lucide-react` >= 0.577.0 (optional, for toolbar icons)
 
 Install:
 
@@ -297,12 +307,6 @@ Minimal example:
   --chart-5: 346.8 77.2% 49.8%;
 }
 ```
-
-## Compatibility
-
-- `react`: `>=18.2.0 <20`
-- `recharts`: `>=3.0.0 <4` for the UI layer
-- `lucide-react`: `>=0.577.0 <1` for the UI layer
 
 ## Common Questions
 
