@@ -57,7 +57,7 @@ export type DateRangePreset = {
  *   Last year     |
  */
 export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = [
-  {id: 'auto', label: 'Auto', description: 'Adjusts the date range automatically based on the selected time bucket', buildFilter: () => null /* resolved dynamically */},
+  {id: 'auto', label: 'Auto', description: 'Adjusts the date range based on the time bucket: day → last 30 days, week → last 3 months, month → last 12 months, quarter/year → all time', buildFilter: () => null /* resolved dynamically */},
   {id: 'all-time', label: 'All time', buildFilter: () => null},
   {id: 'last-7-days', label: 'Last 7 days', buildFilter: () => ({from: daysAgo(7), to: null})},
   {id: 'last-30-days', label: 'Last 30 days', buildFilter: () => ({from: daysAgo(30), to: null})},

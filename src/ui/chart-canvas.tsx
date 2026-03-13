@@ -474,6 +474,23 @@ type CartesianShellProps = RendererProps & {
 }
 
 /**
+ * Remove data points where every series value is null.
+ *
+ * Stacked charts (percent-area, percent-bar) cannot represent null in the
+ * stack — d3's stack layout coerces missing values to 0 which distorts the
+ * visual.  Dropping entirely-empty buckets lets `connectNulls` bridge the
+ * gap while keeping partially-populated buckets intact (null → 0 is
+ * acceptable there because the segment genuinely contributes nothing to the
+ * total).
+ */
+function filterAllNullPoints(
+  data: Record<string, string | number | null>[],
+  series: SeriesItem[],
+): Record<string, string | number | null>[] {
+  return data.filter((point) => series.some((s) => point[s.dataKey] != null))
+}
+
+/**
  * Shared shell for all Cartesian chart types.
  * Owns the grid, axes, tooltip, and legend — the only things that change
  * per chart type are the root component and the series element.
@@ -660,7 +677,7 @@ function LineChartRenderer(props: RendererProps) {
 }
 
 function AreaChartRenderer(props: RendererProps) {
-  const {series, showDataLabels, valueColumn, valueRange, connectNulls} = props
+  const {showDataLabels, valueColumn, valueRange, connectNulls} = props
   return (
     <CartesianChartShell
       {...props}
@@ -674,7 +691,6 @@ function AreaChartRenderer(props: RendererProps) {
           stroke={s.color}
           fill={s.color}
           fillOpacity={0.3}
-          stackId={series.length > 1 ? 'stack' : undefined}
           connectNulls={connectNulls}
         >
           {showDataLabels && (
@@ -693,17 +709,18 @@ function AreaChartRenderer(props: RendererProps) {
 function PercentAreaChartRenderer(props: RendererProps) {
   const {series, data, xColumn, timeBucket, showDataLabels, connectNulls, width, height} = props
 
+  const stackableData = filterAllNullPoints(data, series)
   const yAxisWidth = estimateYAxisWidth({min: 0, max: 100}, {type: 'number', format: undefined, formatter: undefined})
   const xAxisTickValues = selectVisibleXAxisTicks({
-    values: data.map(getXAxisTickValue),
-    labels: data.map((point) => formatXAxisValue(getXAxisTickValue(point), xColumn, timeBucket, 'axis')),
+    values: stackableData.map(getXAxisTickValue),
+    labels: stackableData.map((point) => formatXAxisValue(getXAxisTickValue(point), xColumn, timeBucket, 'axis')),
     plotWidth: getCartesianPlotWidth(width, yAxisWidth),
     minimumTickGap: X_AXIS_MINIMUM_TICK_GAP,
     measureLabelWidth: measureAxisLabelWidth,
   })
 
   return (
-    <AreaChart data={data} width={width} height={height} margin={getCartesianChartMargin(showDataLabels)} stackOffset="expand">
+    <AreaChart data={stackableData} width={width} height={height} margin={getCartesianChartMargin(showDataLabels)} stackOffset="expand">
       <CartesianGrid vertical={false} strokeDasharray="3 3" />
       <XAxis
         dataKey="xKey"
