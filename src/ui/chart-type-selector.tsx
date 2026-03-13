@@ -116,7 +116,7 @@ export function ChartTypeSelector({className}: {className?: string}) {
 
   return (
     <div
-      className={`inline-flex items-center rounded-lg border border-border/50 bg-muted/50 p-0.5 shadow-sm ${className ?? ''}`}
+      className={`inline-flex items-center rounded-lg border border-border/50 bg-background p-0.5 shadow-sm ${className ?? ''}`}
       role="tablist"
       aria-label="Chart type"
     >
@@ -194,8 +194,8 @@ function ChartTypeButton({
         onClick={onSelect}
         className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
           isActive
-            ? 'bg-background text-foreground shadow-sm'
-            : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
+            ? 'bg-muted text-foreground'
+            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
       >
         {group.label}
@@ -208,8 +208,8 @@ function ChartTypeButton({
       ref={triggerRef}
       className={`relative flex items-center rounded-md transition-all ${
         isActive
-          ? 'bg-background shadow-sm'
-          : 'hover:bg-background/50'
+          ? 'bg-muted'
+          : 'hover:bg-muted/50'
       }`}
     >
       <button
