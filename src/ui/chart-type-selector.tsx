@@ -1,15 +1,17 @@
 /**
- * Chart type selector — two-level toggle: primary type + variant sub-selector.
+ * Chart type selector — inline toggle buttons with variant dropdown.
  *
  * Primary types: Bar, Line, Area, Pie, Donut.
- * Variants (shown only when the active primary has more than one available):
+ * Types with variants show a small chevron that opens a dropdown:
  *   Bar  → Stacked, Grouped, 100%
  *   Area → Stacked, 100%
  */
 
-import {useMemo} from 'react'
+import {useRef, useMemo, useState} from 'react'
+import {ChevronDown} from 'lucide-react'
 import type {ChartType} from '../core/types.js'
 import {useChartContext} from './chart-context.js'
+import {ChartDropdownPanel} from './chart-dropdown.js'
 
 // ---------------------------------------------------------------------------
 // Grouping definition (UI-only)
@@ -18,11 +20,8 @@ import {useChartContext} from './chart-context.js'
 type ChartTypeVariant = {type: ChartType; label: string}
 
 type ChartTypeGroup = {
-  /** The "base" chart type that represents this group. */
   primary: ChartType
-  /** Label shown on the primary toggle button. */
   label: string
-  /** Variant options within this group (empty = no sub-selector). */
   variants: ChartTypeVariant[]
 }
 
@@ -73,12 +72,10 @@ function buildVisibleGroups(availableChartTypes: ChartType[]): VisibleGroup[] {
 
   for (const group of CHART_TYPE_GROUPS) {
     if (group.variants.length === 0) {
-      // No variants — show if the primary is available.
       if (available.has(group.primary)) {
         result.push({...group, visibleVariants: []})
       }
     } else {
-      // Has variants — show if at least one variant is available.
       const visibleVariants = group.variants.filter((v) => available.has(v.type))
       if (visibleVariants.length > 0) {
         result.push({...group, visibleVariants})
@@ -99,9 +96,10 @@ function findGroupForType(chartType: ChartType): ChartTypeGroup | undefined {
 // Component
 // ---------------------------------------------------------------------------
 
-/** Two-level toggle buttons to select the chart type. */
+/** Inline toggle buttons with variant dropdown for chart type selection. */
 export function ChartTypeSelector({className}: {className?: string}) {
   const {chartType, setChartType, availableChartTypes} = useChartContext()
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   const visibleGroups = useMemo(
     () => buildVisibleGroups(availableChartTypes),
@@ -117,68 +115,159 @@ export function ChartTypeSelector({className}: {className?: string}) {
   if (visibleGroups.length <= 1 && (activeGroup?.visibleVariants.length ?? 0) <= 1) return null
 
   return (
-    <div className={`flex flex-col gap-1 ${className ?? ''}`}>
-      {/* Primary type selector */}
-      <div
-        className="inline-flex items-center rounded-lg border border-border/50 bg-muted/50 p-0.5 shadow-sm"
-        role="tablist"
-        aria-label="Chart type"
-      >
-        {visibleGroups.map((group) => {
-          const isActive = activeGroup?.primary === group.primary
-          return (
-            <button
-              key={group.primary}
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => {
-                if (isActive) return
-                // Select the group's primary type, or its first available variant
-                if (availableChartTypes.includes(group.primary)) {
-                  setChartType(group.primary)
-                } else if (group.visibleVariants.length > 0) {
-                  setChartType(group.visibleVariants[0].type)
-                }
-              }}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
-                isActive
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
-              }`}
-            >
-              {group.label}
-            </button>
-          )
-        })}
-      </div>
+    <div
+      className={`inline-flex items-center rounded-lg border border-border/50 bg-muted/50 p-0.5 shadow-sm ${className ?? ''}`}
+      role="tablist"
+      aria-label="Chart type"
+    >
+      {visibleGroups.map((group) => {
+        const isActive = activeGroup?.primary === group.primary
+        const hasVariants = group.visibleVariants.length > 1
+        const activeVariant = isActive
+          ? group.visibleVariants.find((v) => v.type === chartType)
+          : undefined
 
-      {/* Variant sub-selector — only shown when the active group has multiple visible variants */}
-      {activeGroup && activeGroup.visibleVariants.length > 1 && (
-        <div
-          className="inline-flex items-center rounded-md border border-border/30 bg-muted/30 p-0.5"
-          role="tablist"
-          aria-label={`${activeGroup.label} variant`}
-        >
-          {activeGroup.visibleVariants.map((variant) => {
-            const isActive = variant.type === chartType
-            return (
-              <button
-                key={variant.type}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setChartType(variant.type)}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-all ${
-                  isActive
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
-                }`}
-              >
-                {variant.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
+        return (
+          <ChartTypeButton
+            key={group.primary}
+            group={group}
+            isActive={isActive}
+            hasVariants={hasVariants}
+            activeVariantLabel={activeVariant?.label}
+            isDropdownOpen={openGroup === group.primary}
+            chartType={chartType}
+            onSelect={() => {
+              if (isActive) return
+              if (availableChartTypes.includes(group.primary)) {
+                setChartType(group.primary)
+              } else if (group.visibleVariants.length > 0) {
+                setChartType(group.visibleVariants[0].type)
+              }
+            }}
+            onToggleDropdown={() => setOpenGroup(openGroup === group.primary ? null : group.primary)}
+            onSelectVariant={(type) => {
+              setChartType(type)
+              setOpenGroup(null)
+            }}
+            onCloseDropdown={() => setOpenGroup(null)}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Button with optional chevron + dropdown
+// ---------------------------------------------------------------------------
+
+function ChartTypeButton({
+  group,
+  isActive,
+  hasVariants,
+  activeVariantLabel,
+  isDropdownOpen,
+  chartType,
+  onSelect,
+  onToggleDropdown,
+  onSelectVariant,
+  onCloseDropdown,
+}: {
+  group: VisibleGroup
+  isActive: boolean
+  hasVariants: boolean
+  activeVariantLabel: string | undefined
+  isDropdownOpen: boolean
+  chartType: ChartType
+  onSelect: () => void
+  onToggleDropdown: () => void
+  onSelectVariant: (type: ChartType) => void
+  onCloseDropdown: () => void
+}) {
+  const triggerRef = useRef<HTMLDivElement>(null)
+
+  if (!hasVariants) {
+    return (
+      <button
+        role="tab"
+        aria-selected={isActive}
+        onClick={onSelect}
+        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
+          isActive
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
+        }`}
+      >
+        {group.label}
+      </button>
+    )
+  }
+
+  return (
+    <div
+      ref={triggerRef}
+      className={`relative flex items-center rounded-md transition-all ${
+        isActive
+          ? 'bg-background shadow-sm'
+          : 'hover:bg-background/50'
+      }`}
+    >
+      <button
+        role="tab"
+        aria-selected={isActive}
+        onClick={() => {
+          if (isActive) {
+            onToggleDropdown()
+          } else {
+            onSelect()
+          }
+        }}
+        className={`py-1 pl-2.5 pr-1 text-xs font-medium transition-colors ${
+          isActive
+            ? 'text-foreground'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        {group.label}
+      </button>
+
+      <button
+        aria-label={`${group.label} options`}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (!isActive) onSelect()
+          onToggleDropdown()
+        }}
+        className={`py-1 pr-1.5 pl-0 transition-colors ${
+          isActive
+            ? 'text-muted-foreground hover:text-foreground'
+            : 'text-muted-foreground/50 hover:text-muted-foreground'
+        }`}
+      >
+        <ChevronDown className={`h-3 w-3 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <ChartDropdownPanel
+        isOpen={isDropdownOpen}
+        onClose={onCloseDropdown}
+        triggerRef={triggerRef}
+        minWidth="trigger"
+        className="p-1"
+      >
+        {group.visibleVariants.map((variant) => (
+          <button
+            key={variant.type}
+            onClick={() => onSelectVariant(variant.type)}
+            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+              variant.type === chartType
+                ? 'bg-primary/8 font-medium text-primary'
+                : 'text-foreground hover:bg-muted/60'
+            }`}
+          >
+            {variant.label}
+          </button>
+        ))}
+      </ChartDropdownPanel>
     </div>
   )
 }

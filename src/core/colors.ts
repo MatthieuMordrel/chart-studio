@@ -21,11 +21,11 @@ const FALLBACK_COLORS = [
 
 /** Shadcn chart CSS variables (5 colors) with safe fallbacks. */
 const SHADCN_CHART_COLORS = [
-  `var(--chart-1, var(--cs-chart-1, hsl(245 72% 57%)))`,
-  `var(--chart-2, var(--cs-chart-2, hsl(271 72% 55%)))`,
-  `var(--chart-3, var(--cs-chart-3, hsl(330 68% 54%)))`,
-  `var(--chart-4, var(--cs-chart-4, hsl(170 65% 38%)))`,
-  `var(--chart-5, var(--cs-chart-5, hsl(30 90% 54%)))`,
+  `var(--chart-1, var(--cs-chart-1, oklch(0.501 0.228 277.992)))`,
+  `var(--chart-2, var(--cs-chart-2, oklch(0.550 0.235 302.715)))`,
+  `var(--chart-3, var(--cs-chart-3, oklch(0.609 0.206 354.673)))`,
+  `var(--chart-4, var(--cs-chart-4, oklch(0.635 0.109 178.228)))`,
+  `var(--chart-5, var(--cs-chart-5, oklch(0.732 0.166 58.213)))`,
 ] as const
 
 /**

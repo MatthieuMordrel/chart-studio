@@ -95,7 +95,7 @@ const THEME_PRESETS: readonly ThemePreset[] = [
   {
     name: 'default',
     label: 'Default',
-    swatch: 'hsl(245 72% 57%)',
+    swatch: 'oklch(0.501 0.228 277.992)',
     vars: null,
   },
   {
@@ -369,44 +369,44 @@ const RADIUS_PRESETS = [
 /** Chart-studio's built-in defaults from theme.css — used as comparison baseline. */
 const CS_DEFAULTS: ThemeVars = {
   light: {
-    background: 'hsl(220 16% 97.5%)',
-    foreground: 'hsl(224 71% 4%)',
-    card: 'hsl(0 0% 100%)',
-    'card-foreground': 'hsl(224 71% 4%)',
-    popover: 'hsl(0 0% 100%)',
-    'popover-foreground': 'hsl(224 71% 4%)',
-    primary: 'hsl(245 72% 57%)',
-    'primary-foreground': 'hsl(0 0% 100%)',
-    muted: 'hsl(220 14% 93.5%)',
-    'muted-foreground': 'hsl(220 9% 46%)',
-    border: 'hsl(220 13% 90%)',
-    input: 'hsl(220 13% 90%)',
-    ring: 'hsl(245 72% 57%)',
-    'chart-1': 'hsl(245 72% 57%)',
-    'chart-2': 'hsl(271 72% 55%)',
-    'chart-3': 'hsl(330 68% 54%)',
-    'chart-4': 'hsl(170 65% 38%)',
-    'chart-5': 'hsl(30 90% 54%)',
+    background: 'oklch(0.980 0.002 264.545)',
+    foreground: 'oklch(0.128 0.027 261.594)',
+    card: 'oklch(1.000 0 0)',
+    'card-foreground': 'oklch(0.128 0.027 261.594)',
+    popover: 'oklch(1.000 0 0)',
+    'popover-foreground': 'oklch(0.128 0.027 261.594)',
+    primary: 'oklch(0.501 0.228 277.992)',
+    'primary-foreground': 'oklch(1.000 0 0)',
+    muted: 'oklch(0.948 0.004 264.536)',
+    'muted-foreground': 'oklch(0.550 0.023 264.362)',
+    border: 'oklch(0.920 0.006 264.529)',
+    input: 'oklch(0.920 0.006 264.529)',
+    ring: 'oklch(0.501 0.228 277.992)',
+    'chart-1': 'oklch(0.501 0.228 277.992)',
+    'chart-2': 'oklch(0.550 0.235 302.715)',
+    'chart-3': 'oklch(0.609 0.206 354.673)',
+    'chart-4': 'oklch(0.635 0.109 178.228)',
+    'chart-5': 'oklch(0.732 0.166 58.213)',
   },
   dark: {
-    background: 'hsl(228 25% 7%)',
-    foreground: 'hsl(220 15% 93%)',
-    card: 'hsl(228 22% 10%)',
-    'card-foreground': 'hsl(220 15% 93%)',
-    popover: 'hsl(228 20% 12%)',
-    'popover-foreground': 'hsl(220 15% 93%)',
-    primary: 'hsl(245 80% 67%)',
-    'primary-foreground': 'hsl(0 0% 100%)',
-    muted: 'hsl(228 16% 14%)',
-    'muted-foreground': 'hsl(220 10% 54%)',
-    border: 'hsl(228 14% 15%)',
-    input: 'hsl(228 14% 18%)',
-    ring: 'hsl(245 80% 67%)',
-    'chart-1': 'hsl(245 85% 70%)',
-    'chart-2': 'hsl(271 82% 68%)',
-    'chart-3': 'hsl(190 85% 55%)',
-    'chart-4': 'hsl(155 72% 50%)',
-    'chart-5': 'hsl(38 90% 62%)',
+    background: 'oklch(0.171 0.015 273.761)',
+    foreground: 'oklch(0.944 0.005 264.534)',
+    card: 'oklch(0.203 0.018 273.739)',
+    'card-foreground': 'oklch(0.944 0.005 264.534)',
+    popover: 'oklch(0.224 0.019 273.793)',
+    'popover-foreground': 'oklch(0.944 0.005 264.534)',
+    primary: 'oklch(0.597 0.196 282.474)',
+    'primary-foreground': 'oklch(1.000 0 0)',
+    muted: 'oklch(0.246 0.018 274.033)',
+    'muted-foreground': 'oklch(0.618 0.025 264.372)',
+    border: 'oklch(0.258 0.016 274.161)',
+    input: 'oklch(0.287 0.019 274.112)',
+    ring: 'oklch(0.597 0.196 282.474)',
+    'chart-1': 'oklch(0.625 0.188 283.272)',
+    'chart-2': 'oklch(0.660 0.198 305.491)',
+    'chart-3': 'oklch(0.785 0.132 215.571)',
+    'chart-4': 'oklch(0.789 0.176 158.514)',
+    'chart-5': 'oklch(0.815 0.143 77.593)',
   },
 }
 
@@ -416,7 +416,14 @@ const CS_DEFAULTS: ThemeVars = {
  * OKLCH vs the default HSL, so we show everything that's set.
  */
 function buildThemeTooltip(preset: ThemePreset, mode: Mode): string {
-  if (!preset.vars) return `${preset.label}\nUses built-in theme from @matthieumordrel/chart-studio/ui/theme.css`
+  if (!preset.vars) {
+    const vars = mode === 'dark' ? CS_DEFAULTS.dark : CS_DEFAULTS.light
+    const lines = [preset.label, 'Built-in theme from @matthieumordrel/chart-studio/ui/theme.css:']
+    for (const key of [...CHROME_VARS, ...CHART_VARS]) {
+      if (vars[key]) lines.push(`--${key}: ${vars[key]}`)
+    }
+    return lines.join('\n')
+  }
   const vars = mode === 'dark' ? preset.vars.dark : preset.vars.light
   const base = mode === 'dark' ? CS_DEFAULTS.dark : CS_DEFAULTS.light
   const lines = [preset.label, 'Overrides vs default:']
