@@ -7,7 +7,7 @@ import {useChartContext} from './chart-context.js'
 import {ChartSelect} from './chart-select.js'
 
 /** Custom dropdown to select the X-axis column. */
-export function ChartXAxisSelector({className}: {className?: string}) {
+export function ChartXAxisSelector({className, hideIcon}: {className?: string; hideIcon?: boolean}) {
   const {xAxisId, setXAxis, availableXAxes} = useChartContext()
 
   if (availableXAxes.length <= 1) return null
@@ -21,6 +21,7 @@ export function ChartXAxisSelector({className}: {className?: string}) {
       onChange={(v) => setXAxis(v)}
       ariaLabel="X-axis"
       icon={MoveHorizontal}
+      hideIcon={hideIcon}
       className={className}
     />
   )

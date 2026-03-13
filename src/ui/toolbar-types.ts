@@ -48,7 +48,7 @@ export type ControlSection = 'data' | 'visualization' | 'filters'
 export type ControlEntry = {
   label: string
   section: ControlSection
-  component: ComponentType<{className?: string}>
+  component: ComponentType<{className?: string; hideIcon?: boolean}>
 }
 
 /**

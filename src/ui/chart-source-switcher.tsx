@@ -20,7 +20,7 @@ function formatCount(n: number): string {
  * - Single source → read-only badge: "[icon] Jobs · 1,247 records"
  * - Multi source → dropdown to switch between sources
  */
-export function ChartSourceSwitcher({className}: {className?: string}) {
+export function ChartSourceSwitcher({className, hideIcon}: {className?: string; hideIcon?: boolean}) {
   const {hasMultipleSources, sources, activeSourceId, setActiveSource, recordCount} =
     useChartContext()
 
@@ -31,7 +31,7 @@ export function ChartSourceSwitcher({className}: {className?: string}) {
       <div
         className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground ${className ?? ''}`}
       >
-        <Database className="h-3 w-3 shrink-0" />
+        {!hideIcon && <Database className="h-3 w-3 shrink-0" />}
         <span className="font-medium text-foreground">{label}</span>
         <span className="text-muted-foreground/40">·</span>
         <span>{formatCount(recordCount)} records</span>
@@ -49,6 +49,7 @@ export function ChartSourceSwitcher({className}: {className?: string}) {
       onChange={(v) => setActiveSource(v)}
       ariaLabel="Data source"
       icon={Database}
+      hideIcon={hideIcon}
       className={className}
     />
   )

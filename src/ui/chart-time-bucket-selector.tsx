@@ -19,7 +19,7 @@ const BUCKET_LABELS: Record<TimeBucket, string> = {
 }
 
 /** Custom dropdown to select time granularity. */
-export function ChartTimeBucketSelector({className}: {className?: string}) {
+export function ChartTimeBucketSelector({className, hideIcon}: {className?: string; hideIcon?: boolean}) {
   const {chartType, isTimeSeries, timeBucket, setTimeBucket, availableTimeBuckets} = useChartContext()
 
   if (!isTimeSeries || !CHART_TYPE_CONFIG[chartType].supportsTimeBucketing || availableTimeBuckets.length === 0) {
@@ -35,6 +35,7 @@ export function ChartTimeBucketSelector({className}: {className?: string}) {
       onChange={setTimeBucket}
       ariaLabel="Time granularity"
       icon={Clock}
+      hideIcon={hideIcon}
       className={className}
     />
   )

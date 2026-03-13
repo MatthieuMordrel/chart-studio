@@ -24,6 +24,7 @@ export function ChartSelect<T extends string>({
   onChange,
   ariaLabel,
   icon: Icon,
+  hideIcon,
   className,
 }: {
   value: T
@@ -31,6 +32,7 @@ export function ChartSelect<T extends string>({
   onChange: (value: T) => void
   ariaLabel?: string
   icon?: ComponentType<{className?: string}>
+  hideIcon?: boolean
   className?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -57,7 +59,7 @@ export function ChartSelect<T extends string>({
         className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 text-xs font-medium text-foreground shadow-sm transition-all hover:border-border hover:bg-muted/30 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
         aria-label={ariaLabel}
       >
-        {Icon && <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />}
+        {Icon && !hideIcon && <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />}
         <span className="truncate">{selected?.label ?? value}</span>
         <ChevronDown
           className={`h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform ${isOpen ? 'rotate-180' : ''}`}

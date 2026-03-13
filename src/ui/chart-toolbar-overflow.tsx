@@ -11,6 +11,7 @@ import type {ComponentType} from 'react'
 import {useRef, useState} from 'react'
 import {
   ArrowLeft,
+  BarChart3,
   Calendar,
   ChevronRight,
   Clock,
@@ -34,10 +35,11 @@ import {CONTROL_IDS, CONTROL_REGISTRY, SECTIONS} from './toolbar-types.js'
 /** Controls that drill-down into a detail page instead of rendering inline. */
 const COMPLEX_CONTROLS = new Set<ControlId>(['metric', 'filters', 'dateRange'])
 
-/** Icon for each control in the overflow menu (chartType excluded). */
+/** Icon for each control in the overflow menu. */
 const CONTROL_ICONS: Partial<Record<ControlId, ComponentType<{className?: string}>>> = {
   source: Database,
   xAxis: MoveHorizontal,
+  chartType: BarChart3,
   groupBy: Layers,
   timeBucket: Clock,
   metric: MoveVertical,
@@ -257,13 +259,10 @@ function SimpleControlRow({controlId}: {controlId: ControlId}) {
   const Icon = CONTROL_ICONS[controlId]
 
   return (
-    <div className="flex items-center gap-3 rounded-lg px-1 py-1.5">
-      <div className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-        {Icon && <Icon className="h-3.5 w-3.5" />}
-        {entry.label}
-      </div>
-      <div className="ml-auto flex min-w-0 items-center">
-        <Component />
+    <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
+      {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+      <div className="flex min-w-0 items-center">
+        <Component hideIcon />
       </div>
     </div>
   )
@@ -288,11 +287,8 @@ function ComplexControlRow({
       onClick={onNavigate}
       className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted/50"
     >
-      <div className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-        {Icon && <Icon className="h-3.5 w-3.5" />}
-        {entry.label}
-      </div>
-      <div className="ml-auto truncate text-xs text-foreground">
+      {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+      <div className="truncate text-xs text-foreground">
         <ControlSummary controlId={controlId} />
       </div>
       <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />

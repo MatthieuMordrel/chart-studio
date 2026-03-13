@@ -8,7 +8,7 @@ import {useChartContext} from './chart-context.js'
 import {ChartSelect} from './chart-select.js'
 
 /** Custom dropdown to select the groupBy column. */
-export function ChartGroupBySelector({className}: {className?: string}) {
+export function ChartGroupBySelector({className, hideIcon}: {className?: string; hideIcon?: boolean}) {
   const {chartType, groupById, setGroupBy, availableGroupBys} = useChartContext()
 
   if (!CHART_TYPE_CONFIG[chartType].supportsGrouping || availableGroupBys.length === 0) {
@@ -27,6 +27,7 @@ export function ChartGroupBySelector({className}: {className?: string}) {
       onChange={(v) => setGroupBy(v || null)}
       ariaLabel="Group by"
       icon={Layers}
+      hideIcon={hideIcon}
       className={className}
     />
   )
