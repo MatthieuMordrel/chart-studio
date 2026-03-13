@@ -27,6 +27,16 @@ export const CHART_TYPE_CONFIG = {
     supportsGrouping: true,
     supportsTimeBucketing: true,
   },
+  'grouped-bar': {
+    supportedXAxisTypes: ['date', 'category', 'boolean'],
+    supportsGrouping: true,
+    supportsTimeBucketing: true,
+  },
+  'percent-bar': {
+    supportedXAxisTypes: ['date', 'category', 'boolean'],
+    supportsGrouping: true,
+    supportsTimeBucketing: true,
+  },
   line: {
     supportedXAxisTypes: ['date'],
     supportsGrouping: true,

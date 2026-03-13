@@ -366,15 +366,89 @@ const RADIUS_PRESETS = [
 // Component
 // ---------------------------------------------------------------------------
 
-/** Build a tooltip showing all CSS vars a theme preset sets. */
+/** Chart-studio's built-in defaults from theme.css — used as comparison baseline. */
+const CS_DEFAULTS: ThemeVars = {
+  light: {
+    background: 'hsl(220 16% 97.5%)',
+    foreground: 'hsl(224 71% 4%)',
+    card: 'hsl(0 0% 100%)',
+    'card-foreground': 'hsl(224 71% 4%)',
+    popover: 'hsl(0 0% 100%)',
+    'popover-foreground': 'hsl(224 71% 4%)',
+    primary: 'hsl(245 72% 57%)',
+    'primary-foreground': 'hsl(0 0% 100%)',
+    muted: 'hsl(220 14% 93.5%)',
+    'muted-foreground': 'hsl(220 9% 46%)',
+    border: 'hsl(220 13% 90%)',
+    input: 'hsl(220 13% 90%)',
+    ring: 'hsl(245 72% 57%)',
+    'chart-1': 'hsl(245 72% 57%)',
+    'chart-2': 'hsl(271 72% 55%)',
+    'chart-3': 'hsl(330 68% 54%)',
+    'chart-4': 'hsl(170 65% 38%)',
+    'chart-5': 'hsl(30 90% 54%)',
+  },
+  dark: {
+    background: 'hsl(228 25% 7%)',
+    foreground: 'hsl(220 15% 93%)',
+    card: 'hsl(228 22% 10%)',
+    'card-foreground': 'hsl(220 15% 93%)',
+    popover: 'hsl(228 20% 12%)',
+    'popover-foreground': 'hsl(220 15% 93%)',
+    primary: 'hsl(245 80% 67%)',
+    'primary-foreground': 'hsl(0 0% 100%)',
+    muted: 'hsl(228 16% 14%)',
+    'muted-foreground': 'hsl(220 10% 54%)',
+    border: 'hsl(228 14% 15%)',
+    input: 'hsl(228 14% 18%)',
+    ring: 'hsl(245 80% 67%)',
+    'chart-1': 'hsl(245 85% 70%)',
+    'chart-2': 'hsl(271 82% 68%)',
+    'chart-3': 'hsl(190 85% 55%)',
+    'chart-4': 'hsl(155 72% 50%)',
+    'chart-5': 'hsl(38 90% 62%)',
+  },
+}
+
+/**
+ * Build a tooltip showing only the CSS vars that differ from chart-studio's
+ * built-in defaults. Every shadcn theme overrides all values since they use
+ * OKLCH vs the default HSL, so we show everything that's set.
+ */
 function buildThemeTooltip(preset: ThemePreset, mode: Mode): string {
   if (!preset.vars) return `${preset.label}\nUses built-in theme from @matthieumordrel/chart-studio/ui/theme.css`
   const vars = mode === 'dark' ? preset.vars.dark : preset.vars.light
-  const lines = [preset.label]
+  const base = mode === 'dark' ? CS_DEFAULTS.dark : CS_DEFAULTS.light
+  const lines = [preset.label, 'Overrides vs default:']
   for (const key of [...CHROME_VARS, ...CHART_VARS]) {
-    if (vars[key]) lines.push(`--${key}: ${vars[key]}`)
+    if (vars[key] && vars[key] !== base[key]) {
+      lines.push(`--${key}: ${vars[key]}`)
+    }
   }
   return lines.join('\n')
+}
+
+/** Build a full CSS snippet of all active overrides for the current config. */
+function buildCssPreview(themeName: string, mode: Mode, radius: number): string {
+  const preset = THEME_PRESETS.find((t) => t.name === themeName)
+  const lines: string[] = []
+
+  lines.push(`--radius: ${radius}rem;`)
+
+  const preamble: string[] = []
+
+  if (preset?.vars) {
+    const vars = mode === 'dark' ? preset.vars.dark : preset.vars.light
+    for (const key of [...CHROME_VARS, ...CHART_VARS]) {
+      if (vars[key]) lines.push(`--${key}: ${vars[key]};`)
+    }
+  } else {
+    preamble.push('@import "@matthieumordrel/chart-studio/ui/theme.css";')
+    preamble.push('')
+  }
+
+  const rootBlock = `${mode === 'dark' ? '.dark' : ':root'} {\n${lines.map((l) => `  ${l}`).join('\n')}\n}`
+  return [...preamble, rootBlock].join('\n')
 }
 
 /**
@@ -386,6 +460,7 @@ export function ThemeToggle() {
   const [radius, setRadius] = useState(() => getStoredNumber(RADIUS_KEY, 0.25))
   const [themeName, setThemeName] = useState(() => getStored(THEME_KEY, 'default'))
   const [open, setOpen] = useState(false)
+  const [showCss, setShowCss] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => applyMode(mode), [mode])
@@ -510,6 +585,31 @@ export function ThemeToggle() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* CSS preview */}
+          <div className="mt-3 border-t border-border/50 pt-3">
+            <button
+              type="button"
+              onClick={() => setShowCss((v) => !v)}
+              className="flex w-full items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+            >
+              CSS config
+              <svg
+                className={`h-3 w-3 transition-transform ${showCss ? 'rotate-180' : ''}`}
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path d="M3 4.5L6 7.5L9 4.5" />
+              </svg>
+            </button>
+            {showCss && (
+              <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-card p-2.5 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                {buildCssPreview(themeName, mode, radius)}
+              </pre>
+            )}
           </div>
 
           {/* Reset */}

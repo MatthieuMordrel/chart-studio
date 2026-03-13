@@ -1,7 +1,7 @@
 /**
  * Chart canvas — renders the actual recharts chart based on the current state.
  *
- * Supports: bar, line, area, percent-area (time-series), bar, pie, donut (categorical).
+ * Supports: bar, grouped-bar, percent-bar, line, area, percent-area (time-series), bar, grouped-bar, percent-bar, pie, donut (categorical).
  * Automatically switches between chart types based on the chart instance state.
  */
 
@@ -382,6 +382,32 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
             showDataLabels={showDataLabels}
           />
+        ) : chartType === 'grouped-bar' ? (
+          <GroupedBarChartRenderer
+            data={transformedData}
+            series={series}
+            width={width}
+            height={height}
+            valueColumn={valueColumn}
+            valueRange={valueRange}
+            allowDecimalTicks={allowDecimalTicks}
+            xColumn={xColumn}
+            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
+            showDataLabels={showDataLabels}
+          />
+        ) : chartType === 'percent-bar' ? (
+          <PercentBarChartRenderer
+            data={transformedData}
+            series={series}
+            width={width}
+            height={height}
+            valueColumn={valueColumn}
+            valueRange={valueRange}
+            allowDecimalTicks={allowDecimalTicks}
+            xColumn={xColumn}
+            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
+            showDataLabels={showDataLabels}
+          />
         ) : (
           <BarChartRenderer
             data={transformedData}
@@ -708,6 +734,95 @@ function PercentAreaChartRenderer(props: RendererProps) {
         />
       ))}
     </AreaChart>
+  )
+}
+
+function GroupedBarChartRenderer(props: RendererProps) {
+  const {showDataLabels, valueColumn, valueRange} = props
+  const barRadius = useCssBarRadius()
+  return (
+    <CartesianChartShell
+      {...props}
+      Chart={BarChart}
+      renderSeries={(s) => (
+        <Bar
+          key={s.dataKey}
+          dataKey={s.dataKey}
+          name={s.label}
+          fill={s.color}
+          radius={[barRadius, barRadius, 0, 0]}
+        >
+          {showDataLabels && (
+            <LabelList
+              position="top"
+              offset={8}
+              formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
+            />
+          )}
+        </Bar>
+      )}
+    />
+  )
+}
+
+function PercentBarChartRenderer(props: RendererProps) {
+  const {series, data, xColumn, timeBucket, showDataLabels, width, height} = props
+  const barRadius = useCssBarRadius()
+  const topSeriesKey = series[series.length - 1]?.dataKey
+
+  const yAxisWidth = estimateYAxisWidth({min: 0, max: 100}, {type: 'number', format: undefined, formatter: undefined})
+  const xAxisTickValues = selectVisibleXAxisTicks({
+    values: data.map(getXAxisTickValue),
+    labels: data.map((point) => formatXAxisValue(getXAxisTickValue(point), xColumn, timeBucket, 'axis')),
+    plotWidth: getCartesianPlotWidth(width, yAxisWidth),
+    minimumTickGap: X_AXIS_MINIMUM_TICK_GAP,
+    measureLabelWidth: measureAxisLabelWidth,
+  })
+
+  return (
+    <BarChart data={data} width={width} height={height} margin={getCartesianChartMargin(showDataLabels)} stackOffset="expand">
+      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+      <XAxis
+        dataKey="xKey"
+        tickLine={false}
+        axisLine={false}
+        tickMargin={8}
+        interval={0}
+        padding={CARTESIAN_X_AXIS_PADDING}
+        ticks={xAxisTickValues}
+        tickFormatter={(value) => formatXAxisValue(value, xColumn, timeBucket, 'axis')}
+      />
+      <YAxis
+        tickLine={false}
+        axisLine={false}
+        tickMargin={4}
+        tickFormatter={(value) => typeof value === 'number' ? `${Math.round(value * 100)}%` : String(value)}
+        width={yAxisWidth}
+      />
+      <Tooltip
+        formatter={(value, name) => {
+          if (typeof value === 'number') {
+            return [`${(value * 100).toFixed(1)}%`, name]
+          }
+          return [value, name]
+        }}
+        labelFormatter={(label, payload) => formatTooltipLabel(label, payload, xColumn, timeBucket)}
+      />
+      {series.length > 1 && <Legend />}
+      {series.map((s) => {
+        const isTop = s.dataKey === topSeriesKey
+        return (
+          <Bar
+            key={s.dataKey}
+            dataKey={s.dataKey}
+            name={s.label}
+            fill={s.color}
+            radius={isTop ? [barRadius, barRadius, 0, 0] : 0}
+            stackId="percent"
+          />
+        )
+      })}
+    </BarChart>
   )
 }
 
