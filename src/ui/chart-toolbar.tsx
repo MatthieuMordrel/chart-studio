@@ -37,8 +37,11 @@ const DEFAULT_PINNED_CONTROLS = ['dateRange'] as const satisfies readonly Contro
  * @property hidden - Control IDs to completely hide (not in toolbar, not in overflow)
  */
 type ChartToolbarProps = {
+  /** Additional CSS classes for the toolbar container. */
   className?: string
+  /** Control IDs to always show in the toolbar row (outside the overflow menu) */
   pinned?: readonly ControlId[]
+  /** Control IDs to completely hide (not in toolbar, not in overflow) */
   hidden?: readonly ControlId[]
 }
 
@@ -47,6 +50,10 @@ type ChartToolbarProps = {
  *
  * Controls are rendered in registry order. Each sub-component still
  * auto-hides when not relevant (e.g. time bucket only shows for date X-axis).
+ * 
+ * @param className - Additional CSS classes for the toolbar container
+ * @param pinned - Control IDs to always show in the toolbar row (outside the overflow menu)
+ * @param hidden - Control IDs to completely hide (not in toolbar, not in overflow)
  */
 export function ChartToolbar({
   className,

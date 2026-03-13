@@ -163,12 +163,18 @@ function TabButton({
   )
 }
 
-/** Debug panel that renders chart internals as formatted JSON. */
+/** Debug panel that renders chart internals as formatted JSON.
+ * 
+ * @param className - Additional CSS classes for the debug panel.
+ * @param defaultOpen - Whether the debug panel should be open by default. (default: false)
+ */
 export function ChartDebug({
   className,
   defaultOpen = false,
 }: {
+  /** Additional CSS classes for the debug panel. */
   className?: string
+  /** Whether the debug panel should be open by default. (default: false) */
   defaultOpen?: boolean
 }) {
   const chart = useChartContext()

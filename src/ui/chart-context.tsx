@@ -217,7 +217,11 @@ export function useTypedChartContext<
 
 /**
  * Root provider component. Wraps children with the chart instance context.
- *
+ * 
+ * @param chart - The chart instance to share
+ * @param children - The children to render
+ * @param className - Additional CSS classes for the chart container
+ * 
  * @example
  * ```tsx
  * <Chart chart={chart}>
@@ -231,8 +235,11 @@ export function Chart({
   children,
   className,
 }: {
+  /** The chart instance to share. Create it with `useChart()` first.*/
   chart: AnyChartInstance
+  /** The children to render. Can be any UI primitives from the UI package. */
   children: ReactNode
+  /** Additional CSS classes for the chart container. */
   className?: string
 }): ReactElement
 export function Chart({

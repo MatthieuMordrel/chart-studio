@@ -187,8 +187,11 @@ function getXAxisTickValue(point: Record<string, string | number | null>): strin
  * @property showDataLabels - Opt into cartesian/pie value labels using the shared formatting rules.
  */
 type ChartCanvasProps = {
+  /** Chart height in pixels (default: 300) */
   height?: number
+  /** Additional CSS classes */
   className?: string
+  /** Will show labels using the shared formatting rules. (default: false) */
   showDataLabels?: boolean
 }
 
@@ -294,7 +297,11 @@ function useCssBarRadius(): number {
   return radiusPx
 }
 
-/** Renders the appropriate recharts chart based on the chart instance state. */
+/** Renders the appropriate recharts chart based on the chart instance state.
+ * @param height - Chart height in pixels (default: 300)
+ * @param className - Additional CSS classes
+ * @param showDataLabels - Opt into cartesian/pie value labels using the shared formatting rules.
+ */
 export function ChartCanvas({height = 300, className, showDataLabels = false}: ChartCanvasProps) {
   const chart = useChartContext()
   const {chartType, transformedData, series, connectNulls} = chart
