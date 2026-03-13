@@ -3,6 +3,7 @@
  * Only renders when the X-axis is a date column.
  */
 
+import {Clock} from 'lucide-react'
 import {CHART_TYPE_CONFIG} from '../core/chart-capabilities.js'
 import type {TimeBucket} from '../core/types.js'
 import {useChartContext} from './chart-context.js'
@@ -33,6 +34,7 @@ export function ChartTimeBucketSelector({className}: {className?: string}) {
       options={options}
       onChange={setTimeBucket}
       ariaLabel="Time granularity"
+      icon={Clock}
       className={className}
     />
   )

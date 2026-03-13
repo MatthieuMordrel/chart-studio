@@ -2,6 +2,7 @@
  * GroupBy selector — premium custom dropdown replacing native <select>.
  */
 
+import {Layers} from 'lucide-react'
 import {CHART_TYPE_CONFIG} from '../core/chart-capabilities.js'
 import {useChartContext} from './chart-context.js'
 import {ChartSelect} from './chart-select.js'
@@ -25,6 +26,7 @@ export function ChartGroupBySelector({className}: {className?: string}) {
       options={options}
       onChange={(v) => setGroupBy(v || null)}
       ariaLabel="Group by"
+      icon={Layers}
       className={className}
     />
   )

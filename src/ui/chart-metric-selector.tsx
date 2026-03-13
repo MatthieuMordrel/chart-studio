@@ -5,7 +5,7 @@
  */
 
 import {useRef, useState} from 'react'
-import {ChevronDown, TrendingUpDown} from 'lucide-react'
+import {ChevronDown, MoveVertical} from 'lucide-react'
 import {getMetricLabel, isAggregateMetric} from '../core/metric-utils.js'
 import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
@@ -37,7 +37,7 @@ export function ChartMetricSelector({className}: {className?: string}) {
         }`}
         aria-label="Metric"
       >
-        <TrendingUpDown className="h-3 w-3" />
+        <MoveVertical className="h-3 w-3" />
         <span>{label}</span>
         {isActive && !includeZeros && (
           <span className="rounded bg-muted px-1 py-px text-[9px] font-normal text-muted-foreground">

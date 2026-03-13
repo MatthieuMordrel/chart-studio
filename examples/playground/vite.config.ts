@@ -48,9 +48,18 @@ export default defineConfig({
       },
     ],
   },
+  optimizeDeps: {
+    // Exclude the library source from pre-bundling so Vite always serves
+    // the latest files and HMR propagates correctly.
+    exclude: ['@matthieumordrel/chart-studio', '@matthieumordrel/chart-studio/ui'],
+  },
   server: {
     fs: {
       allow: [repoRoot, playgroundRoot],
+    },
+    watch: {
+      // Ensure Vite watches the library source outside the playground root.
+      ignored: ['!**/src/**'],
     },
   },
 })

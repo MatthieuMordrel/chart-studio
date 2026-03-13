@@ -2,6 +2,7 @@
  * X-axis selector — premium custom dropdown for choosing which column drives the X-axis.
  */
 
+import {MoveHorizontal} from 'lucide-react'
 import {useChartContext} from './chart-context.js'
 import {ChartSelect} from './chart-select.js'
 
@@ -19,6 +20,7 @@ export function ChartXAxisSelector({className}: {className?: string}) {
       options={options}
       onChange={(v) => setXAxis(v)}
       ariaLabel="X-axis"
+      icon={MoveHorizontal}
       className={className}
     />
   )

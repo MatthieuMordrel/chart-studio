@@ -7,8 +7,21 @@
  * navigate to a full-page detail view within the panel (Notion-style drill-down).
  */
 
+import type {ComponentType} from 'react'
 import {useRef, useState} from 'react'
-import {ArrowLeft, ChevronRight, Ellipsis, Eraser} from 'lucide-react'
+import {
+  ArrowLeft,
+  Calendar,
+  ChevronRight,
+  Clock,
+  Database,
+  Ellipsis,
+  Eraser,
+  Filter,
+  Layers,
+  MoveHorizontal,
+  MoveVertical,
+} from 'lucide-react'
 import {getMetricLabel} from '../core/metric-utils.js'
 import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
@@ -20,6 +33,17 @@ import {CONTROL_IDS, CONTROL_REGISTRY, SECTIONS} from './toolbar-types.js'
 
 /** Controls that drill-down into a detail page instead of rendering inline. */
 const COMPLEX_CONTROLS = new Set<ControlId>(['metric', 'filters', 'dateRange'])
+
+/** Icon for each control in the overflow menu (chartType excluded). */
+const CONTROL_ICONS: Partial<Record<ControlId, ComponentType<{className?: string}>>> = {
+  source: Database,
+  xAxis: MoveHorizontal,
+  groupBy: Layers,
+  timeBucket: Clock,
+  metric: MoveVertical,
+  filters: Filter,
+  dateRange: Calendar,
+}
 
 /**
  * Props for ChartToolbarOverflow.
@@ -230,10 +254,14 @@ function DetailPage({controlId, onBack}: {controlId: ControlId; onBack: () => vo
 function SimpleControlRow({controlId}: {controlId: ControlId}) {
   const entry = CONTROL_REGISTRY[controlId]
   const Component = entry.component
+  const Icon = CONTROL_ICONS[controlId]
 
   return (
     <div className="flex items-center gap-3 rounded-lg px-1 py-1.5">
-      <div className="shrink-0 text-xs text-muted-foreground">{entry.label}</div>
+      <div className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+        {Icon && <Icon className="h-3.5 w-3.5" />}
+        {entry.label}
+      </div>
       <div className="ml-auto flex min-w-0 items-center">
         <Component />
       </div>
@@ -253,13 +281,17 @@ function ComplexControlRow({
   onNavigate: () => void
 }) {
   const entry = CONTROL_REGISTRY[controlId]
+  const Icon = CONTROL_ICONS[controlId]
 
   return (
     <button
       onClick={onNavigate}
       className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted/50"
     >
-      <div className="shrink-0 text-xs text-muted-foreground">{entry.label}</div>
+      <div className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+        {Icon && <Icon className="h-3.5 w-3.5" />}
+        {entry.label}
+      </div>
       <div className="ml-auto truncate text-xs text-foreground">
         <ControlSummary controlId={controlId} />
       </div>
@@ -270,7 +302,7 @@ function ComplexControlRow({
 
 /** Summary text for a complex control in the main menu. */
 function ControlSummary({controlId}: {controlId: ControlId}) {
-  const {metric, columns, filters, dateRangeFilter} = useChartContext()
+  const {metric, columns, filters, dateRange, dateRangeFilter} = useChartContext()
 
   switch (controlId) {
     case 'metric':
@@ -279,8 +311,24 @@ function ControlSummary({controlId}: {controlId: ControlId}) {
       const count = [...filters.values()].reduce((sum, set) => sum + set.size, 0)
       return <span>{count > 0 ? `${count} active` : 'None'}</span>
     }
-    case 'dateRange':
-      return <span>{resolvePresetLabel(dateRangeFilter)}</span>
+    case 'dateRange': {
+      const label = resolvePresetLabel(dateRangeFilter)
+      const hasRange = dateRange?.min && dateRange?.max
+      if (hasRange) {
+        const fmt = (d: Date) =>
+          d.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: '2-digit'})
+        return (
+          <span>
+            {label}
+            <span className="text-muted-foreground/40"> · </span>
+            <span className="font-normal">
+              {fmt(dateRange!.min!)} – {fmt(dateRange!.max!)}
+            </span>
+          </span>
+        )
+      }
+      return <span>{label}</span>
+    }
     default:
       return null
   }

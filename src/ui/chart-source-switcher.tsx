@@ -48,6 +48,7 @@ export function ChartSourceSwitcher({className}: {className?: string}) {
       options={options}
       onChange={(v) => setActiveSource(v)}
       ariaLabel="Data source"
+      icon={Database}
       className={className}
     />
   )
