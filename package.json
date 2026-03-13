@@ -1,6 +1,6 @@
 {
   "name": "@matthieumordrel/chart-studio",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Headless, composable charting for React with an optional batteries-included UI layer.",
   "type": "module",
   "sideEffects": false,
@@ -47,6 +47,7 @@
     "build": "tsdown",
     "typecheck": "bunx tsc --noEmit",
     "test": "vitest run",
+    "release": "bun run ./scripts/release-package.ts --bump",
     "release:check": "bun run ./scripts/release-package.ts --dry-run",
     "release:publish": "bun run ./scripts/release-package.ts --publish",
     "prepublishOnly": "bun run release:check"
