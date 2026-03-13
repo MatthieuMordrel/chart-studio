@@ -30,7 +30,6 @@ import {createChartSchemaBuilder} from './schema-builder.js'
  *   )
  *
  * // Pass the builder directly to useChart(...) or inferColumnsFromData(...).
- * // Call .build() only if you specifically need the final plain schema object.
  * ```
  */
 export function defineChartSchema<TRow>() {

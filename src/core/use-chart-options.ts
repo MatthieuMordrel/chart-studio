@@ -24,8 +24,8 @@ export interface SingleSourceOptions<
   /**
    * Optional explicit schema layered on top of inference.
    *
-   * Pass a plain schema object or the fluent builder returned by
-   * `defineChartSchema<Row>()`.
+   * Usually this is the fluent builder returned by `defineChartSchema<Row>()`.
+   * Plain schema objects are also accepted.
    *
    * Use this when you want to:
    * - rename fields with `label`

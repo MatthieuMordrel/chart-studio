@@ -98,7 +98,7 @@ export function JobsChart() {
 ## How It Works
 
 1. Pass your raw data to `useChart()`.
-2. Add an optional `schema` with `defineChartSchema<Row>()...` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.). You can pass that builder directly to `useChart(...)`. Call `.build()` only if you specifically need the final plain schema object itself.
+2. Add an optional `schema` with `defineChartSchema<Row>()...` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
 3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
 
 ## Column Types
@@ -386,7 +386,7 @@ Each chart instance operates on a single flat dataset. Overlaying series from di
 
 ### Schema Builder Ergonomics
 
-`defineChartSchema<Row>()` now returns one fluent builder. Pass that builder directly to `useChart(...)` or `inferColumnsFromData(...)`. Call `.build()` only if you specifically need the final plain schema object itself, instead of just passing the schema into chart-studio. That keeps the public API strongly typed while improving IntelliSense for raw field ids, derived columns, and control restrictions.
+`defineChartSchema<Row>()` now returns one fluent builder that you pass directly to `useChart(...)` or `inferColumnsFromData(...)`. That keeps the public API strongly typed while improving IntelliSense for raw field ids, derived columns, and control restrictions.
 
 ## Release
 

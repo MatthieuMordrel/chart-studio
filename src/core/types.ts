@@ -831,10 +831,8 @@ export type DefinedChartSchema<
 /**
  * Public schema definition input accepted by chart-studio APIs.
  *
- * This can be either:
- * - a plain schema object,
- * - a fully built schema object, or
- * - the fluent builder returned by `defineChartSchema<Row>()`
+ * Most callers use the fluent builder returned by `defineChartSchema<Row>()`.
+ * Plain schema objects are also accepted at the runtime boundary.
  */
 export type ChartSchemaDefinition<
   T,
