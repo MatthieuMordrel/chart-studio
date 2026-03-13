@@ -1,5 +1,5 @@
 import {spawnSync} from 'node:child_process'
-import {existsSync, readFileSync} from 'node:fs'
+import {existsSync, readFileSync, writeFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
@@ -15,7 +15,10 @@ type PackageManifest = {
   types?: string
 }
 
+type BumpLevel = 'major' | 'minor' | 'patch'
+
 type ReleaseOptions = {
+  bump?: BumpLevel
   dryRun: boolean
   provenance: boolean
   publish: boolean
@@ -30,12 +33,28 @@ const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 function releasePackage() {
   const options = parseReleaseOptions(process.argv.slice(2))
 
+  // Always validate first
   runCommand('bun', ['run', 'typecheck'])
   runCommand('bun', ['run', 'test'])
   runCommand('bun', ['run', 'build'])
 
   validatePackageManifest()
   runCommand('bun', ['pm', 'pack', '--dry-run'])
+
+  // Bump after validation passes
+  if (options.bump) {
+    const nextVersion = bumpVersion(options.bump)
+
+    if (!options.dryRun) {
+      console.log('Pushing to remote...')
+      runCommand('git', ['push'])
+      runCommand('git', ['push', 'origin', `v${nextVersion}`])
+      console.log(`Pushed v${nextVersion} — CI will publish to npm and create the GitHub release.`)
+    } else {
+      console.log(`Dry run: would push v${nextVersion} to remote.`)
+    }
+    return
+  }
 
   if (!options.publish) {
     return
@@ -48,6 +67,9 @@ function releasePackage() {
   }
   if (options.tag) {
     publishArgs.push('--tag', options.tag)
+  }
+  if (options.provenance) {
+    publishArgs.push('--provenance')
   }
   if (options.dryRun) {
     publishArgs.push('--dry-run')
@@ -72,6 +94,20 @@ function parseReleaseOptions(args: string[]): ReleaseOptions {
       throw new Error('Missing release option.')
     }
 
+    if (argument.startsWith('--bump=')) {
+      options.bump = parseBumpLevel(argument.slice('--bump='.length))
+      continue
+    }
+    if (argument === '--bump') {
+      const nextArgument = args[index + 1]
+      if (!nextArgument) {
+        throw new Error('Missing value for `--bump`. Expected: patch, minor, or major.')
+      }
+
+      options.bump = parseBumpLevel(nextArgument)
+      index += 1
+      continue
+    }
     if (argument === '--dry-run') {
       options.dryRun = true
       continue
@@ -195,6 +231,51 @@ function assertDependencyRangesArePublishSafe(dependencyMap: DependencyMap | und
       )
     }
   }
+}
+
+/**
+ * Validate and return a bump level from a CLI argument.
+ */
+function parseBumpLevel(value: string): BumpLevel {
+  if (value !== 'patch' && value !== 'minor' && value !== 'major') {
+    throw new Error(`Invalid bump level "${value}". Expected: patch, minor, or major.`)
+  }
+  return value
+}
+
+/**
+ * Bump the version in package.json, commit, and create a git tag.
+ * Returns the new version string.
+ */
+function bumpVersion(level: BumpLevel): string {
+  const manifestPath = join(packageRoot, 'package.json')
+  const raw = readFileSync(manifestPath, 'utf8')
+  const manifest = JSON.parse(raw) as {version: string}
+
+  const parts = manifest.version.split('.').map(Number)
+  if (parts.length !== 3 || parts.some(Number.isNaN)) {
+    throw new Error(`Cannot parse current version "${manifest.version}".`)
+  }
+
+  const [major, minor, patch] = parts as [number, number, number]
+  const nextVersion =
+    level === 'major'
+      ? `${major + 1}.0.0`
+      : level === 'minor'
+        ? `${major}.${minor + 1}.0`
+        : `${major}.${minor}.${patch + 1}`
+
+  const updated = raw.replace(`"version": "${manifest.version}"`, `"version": "${nextVersion}"`)
+  writeFileSync(manifestPath, updated)
+
+  console.log(`Bumped version: ${manifest.version} → ${nextVersion}`)
+
+  runCommand('git', ['add', 'package.json'])
+  runCommand('git', ['commit', '-m', `release: v${nextVersion}`])
+  runCommand('git', ['tag', `v${nextVersion}`])
+
+  console.log(`Created tag: v${nextVersion}`)
+  return nextVersion
 }
 
 releasePackage()
