@@ -110,6 +110,8 @@ That builder should expose:
 - `.connectNulls(...)`
 - `.build()`
 
+`useChart(...)` and `inferColumnsFromData(...)` should accept either the fluent builder directly or the result of `.build()`.
+
 ### Columns API
 
 `columns` should accept a callback that receives a typed helper and returns a const-inferred list of entries.
@@ -304,7 +306,7 @@ This is conceptually similar to the current `SchemaFromSections<...>` flow, but 
 1. Column helper methods produce typed intermediate entry objects.
 2. `.columns(...)` converts the returned entry tuple into one `columns` map type.
 3. Later section builders produce literal config types directly.
-4. `.build()` returns:
+4. `.build()` returns the concrete schema object when callers want it eagerly:
 
 ```ts
 DefinedChartSchema<
@@ -322,6 +324,8 @@ Do not keep the current generic exact-object types as the public authoring bound
 The runtime shape consumed by `useChart` should stay the same.
 
 This migration should change authoring, not pipeline behavior.
+
+The builder itself should also be a first-class schema input at the public API boundary, with runtime resolution happening once inside the library instead of forcing every caller to remember `.build()`.
 
 `build()` should return a plain schema object equivalent to the current one:
 

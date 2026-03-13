@@ -16,6 +16,7 @@ import type {
 } from './schema-builder.types.js'
 import type {
   ChartType,
+  ChartSchemaDefinition,
   ChartTypeConfig,
   FiltersConfig,
   GroupByConfig,
@@ -23,6 +24,7 @@ import type {
   MetricAllowance,
   MetricConfig,
   NumericAggregateFunction,
+  ResolvedChartSchemaFromDefinition,
   TimeBucket,
   TimeBucketConfig,
   XAxisConfig,
@@ -448,6 +450,23 @@ function assertColumnEntries<TRow>(
   }
 }
 
+export function resolveChartSchemaDefinition<
+  T,
+  TSchema extends ChartSchemaDefinition<T, any> | undefined,
+>(
+  schema: TSchema,
+): ResolvedChartSchemaFromDefinition<TSchema> {
+  if (!schema) {
+    return undefined as ResolvedChartSchemaFromDefinition<TSchema>
+  }
+
+  if (typeof schema === 'object' && 'build' in schema && typeof schema.build === 'function') {
+    return schema.build() as ResolvedChartSchemaFromDefinition<TSchema>
+  }
+
+  return schema as ResolvedChartSchemaFromDefinition<TSchema>
+}
+
 export function createChartSchemaBuilder<
   TRow,
   TColumns extends Record<string, unknown> | undefined = undefined,
@@ -480,6 +499,8 @@ export function createChartSchemaBuilder<
   TTimeBucket,
   TConnectNulls
 > {
+  let cachedSchema: unknown
+
   return {
     columns(defineColumns) {
       const entries = defineColumns(COLUMN_HELPER as ColumnHelper<TRow>)
@@ -555,7 +576,23 @@ export function createChartSchemaBuilder<
       })
     },
     build() {
-      return {
+      if (cachedSchema) {
+        return cachedSchema as ReturnType<
+          ChartSchemaBuilder<
+            TRow,
+            TColumns,
+            TXAxis,
+            TGroupBy,
+            TFilters,
+            TMetric,
+            TChartType,
+            TTimeBucket,
+            TConnectNulls
+          >['build']
+        >
+      }
+
+      cachedSchema = {
         ...(state.columns !== undefined ? {columns: state.columns} : {}),
         ...(state.xAxis !== undefined ? {xAxis: state.xAxis} : {}),
         ...(state.groupBy !== undefined ? {groupBy: state.groupBy} : {}),
@@ -566,6 +603,20 @@ export function createChartSchemaBuilder<
         ...(state.connectNulls !== undefined ? {connectNulls: state.connectNulls} : {}),
         __chartSchemaBrand: 'chart-schema-definition',
       }
+
+      return cachedSchema as ReturnType<
+        ChartSchemaBuilder<
+          TRow,
+          TColumns,
+          TXAxis,
+          TGroupBy,
+          TFilters,
+          TMetric,
+          TChartType,
+          TTimeBucket,
+          TConnectNulls
+        >['build']
+      >
     },
   } as ChartSchemaBuilder<
     TRow,

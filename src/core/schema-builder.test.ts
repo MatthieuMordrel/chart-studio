@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {defineChartSchema} from './define-chart-schema.js'
+import {inferColumnsFromData} from './infer-columns.js'
 
 type ExampleRow = {
   createdAt: string
@@ -112,5 +113,41 @@ describe('defineChartSchema builder', () => {
         ] as unknown as ReturnType<typeof c.date>[])
         .build()
     ).toThrow('Duplicate chart schema column id: "createdAt"')
+  })
+
+  it('can be passed directly to inference without calling build', () => {
+    const data: ExampleRow[] = [
+      {
+        createdAt: '2026-01-01',
+        ownerName: 'Alice',
+        isOpen: true,
+        salary: 120000,
+        internalId: 'job-1',
+      },
+    ]
+
+    const schema = defineChartSchema<ExampleRow>()
+      .columns((c) => [
+        c.date('createdAt', {label: 'Created'}),
+        c.category('ownerName', {label: 'Owner'}),
+        c.number('salary', {format: 'currency'}),
+        c.exclude('internalId'),
+      ])
+
+    const columns = inferColumnsFromData(data, schema)
+
+    expect(columns.map((column) => column.id)).toEqual(['createdAt', 'ownerName', 'isOpen', 'salary'])
+    expect(columns.find((column) => column.id === 'createdAt')?.label).toBe('Created')
+    expect(columns.find((column) => column.id === 'salary')?.format).toBe('currency')
+  })
+
+  it('memoizes the built schema object per builder instance', () => {
+    const builder = defineChartSchema<ExampleRow>()
+      .columns((c) => [
+        c.date('createdAt'),
+        c.category('ownerName'),
+      ])
+
+    expect(builder.build()).toBe(builder.build())
   })
 })

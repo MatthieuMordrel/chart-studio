@@ -6,12 +6,13 @@ import { resolvePresetFilter, type DateRangePresetId } from './date-range-preset
 import { inferColumnsFromData } from './infer-columns.js'
 import { buildAvailableMetrics, isSameMetric, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
 import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
+import { resolveChartSchemaDefinition } from './schema-builder.js'
 import type {
   AvailableFilter,
   ChartColumn,
   ChartInstance,
-  ChartInstanceFromSchema,
-  ChartSchema,
+  ChartInstanceFromSchemaDefinition,
+  ChartSchemaDefinition,
   ChartType,
   DateColumn,
   DateRange,
@@ -43,17 +44,17 @@ function finalizeChartReturn<const TSources extends NonEmptyChartSourceOptions>(
 ): MultiSourceChartInstance<TSources>
 function finalizeChartReturn<
   T,
-  const TSchema extends ChartSchema<T, any> | undefined = undefined,
+  const TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
 >(
   _options: SingleSourceOptions<T, TSchema>,
   chart: RuntimeChartInstance,
-): ChartInstanceFromSchema<T, TSchema>
+): ChartInstanceFromSchemaDefinition<T, TSchema>
 function finalizeChartReturn(
-  _options: SingleSourceOptions<any, any> | MultiSourceOptions,
+  _options: SingleSourceOptions<any, any> | {sources: NonEmptyChartSourceOptions},
   chart: RuntimeChartInstance,
-): ChartInstanceFromSchema<any, any> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
+): unknown {
   return chart as unknown as
-    | ChartInstanceFromSchema<any, any>
+    | ChartInstanceFromSchemaDefinition<any, any>
     | MultiSourceChartInstance<NonEmptyChartSourceOptions>
 }
 
@@ -85,7 +86,9 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   - `data`, optional `schema`, and (optionally) `sourceLabel` for a single source
  *   - or `sources` array for multiple sources
  *   Any explicit single-source or per-source schema should be created with
- *   `defineChartSchema<Row>()...build()` so the schema shape stays exact and strongly typed.
+ *   `defineChartSchema<Row>()...`, or provided directly as a plain schema object.
+ *   You can pass the builder directly to `useChart(...)`.
+ *   Call `.build()` only if you specifically need the final plain schema object itself.
  *
  * @returns {ChartInstance}
  *   An object representing chart configuration, state, and all derived data/operations:
@@ -118,38 +121,41 @@ export function useChart<const TSources extends NonEmptyChartSourceOptions>(
 ): MultiSourceChartInstance<TSources>
 export function useChart<
   T,
-  const TSchema extends ChartSchema<T, any> | undefined = undefined,
+  const TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
 >(
   options: SingleSourceOptions<T, TSchema>
-): ChartInstanceFromSchema<T, TSchema>
-export function useChart<
-  T,
-  const TSchema extends ChartSchema<T, any> | undefined = undefined,
->(
-  options: SingleSourceOptions<T, TSchema> | MultiSourceOptions
-): ChartInstanceFromSchema<T, TSchema> | MultiSourceChartInstance<NonEmptyChartSourceOptions> {
+): ChartInstanceFromSchemaDefinition<T, TSchema>
+export function useChart(
+  options: SingleSourceOptions<any, any> | MultiSourceOptions<NonEmptyChartSourceOptions>
+): unknown {
   if ('sources' in options && options.sources?.length === 0) {
     throw new Error('useChart requires at least one source')
   }
 
   const sources = useMemo<ResolvedChartSource<any, string>[]>(() => {
     if ('sources' in options && options.sources) {
-      return options.sources.map(source => ({
-        id: source.id,
-        label: source.label,
-        data: source.data,
-        columns: inferColumnsFromData(source.data, source.schema),
-        schema: source.schema,
-      }))
+      return options.sources.map(source => {
+        const schema = resolveChartSchemaDefinition(source.schema)
+
+        return {
+          id: source.id,
+          label: source.label,
+          data: source.data,
+          columns: inferColumnsFromData(source.data, schema),
+          schema,
+        }
+      })
     }
+
+    const schema = resolveChartSchemaDefinition(options.schema)
 
     return [
       {
         id: 'default',
         label: options.sourceLabel ?? 'Unnamed Source',
         data: options.data,
-        columns: inferColumnsFromData(options.data, options.schema),
-        schema: options.schema,
+        columns: inferColumnsFromData(options.data, schema),
+        schema,
       },
     ]
   }, [options])
@@ -283,7 +289,7 @@ export function useChart<
     return customDateRangeFilter
   }, [dateRangePreset, customDateRangeFilter, resolvedTimeBucket])
 
-  const effectiveData: readonly T[] = useMemo(() => {
+  const effectiveData = useMemo(() => {
     const column = dateColumns.find(candidate => candidate.id === referenceDateId)
     if (!column) return rawData
 

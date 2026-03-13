@@ -28,7 +28,9 @@ import {createChartSchemaBuilder} from './schema-builder.js'
  *       .aggregate('salary', 'sum', 'avg')
  *       .defaultAggregate('salary', 'sum')
  *   )
- *   .build()
+ *
+ * // Pass the builder directly to useChart(...) or inferColumnsFromData(...).
+ * // Call .build() only if you specifically need the final plain schema object.
  * ```
  */
 export function defineChartSchema<TRow>() {

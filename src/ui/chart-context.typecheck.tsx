@@ -20,7 +20,6 @@ const exampleSchema = defineChartSchema<ExampleRecord>()
   ])
   .groupBy((g) => g.allowed('isOpen'))
   .metric((m) => m.aggregate('salary', 'sum'))
-  .build()
 
 /**
  * Compile-time helper used to assert inferred types.

@@ -828,8 +828,28 @@ export type DefinedChartSchema<
   TSchema extends ChartSchema<T, any> = ChartSchema<T, any>,
 > = TSchema & ChartSchemaDefinitionBrand
 
+/**
+ * Public schema definition input accepted by chart-studio APIs.
+ *
+ * This can be either:
+ * - a plain schema object,
+ * - a fully built schema object, or
+ * - the fluent builder returned by `defineChartSchema<Row>()`
+ */
+export type ChartSchemaDefinition<
+  T,
+  TSchema extends ChartSchema<T, any> = ChartSchema<T, any>,
+> =
+  | TSchema
+  | {
+      build: () => DefinedChartSchema<T, TSchema>
+    }
+
 export type ResolvedChartSchemaFromDefinition<TSchema> =
-  TSchema extends DefinedChartSchema<any, infer TResolvedSchema> ? TResolvedSchema : undefined
+  TSchema extends DefinedChartSchema<any, infer TResolvedSchema> ? TResolvedSchema
+  : TSchema extends {build: () => DefinedChartSchema<any, infer TResolvedSchema>} ? TResolvedSchema
+  : TSchema extends ChartSchema<any, any> ? TSchema
+  : undefined
 
 export type ResolvedChartConfigFromDefinition<TConfig> =
   TConfig extends DefinedChartConfigFromHints<any, any, infer TResolvedConfig> ? TResolvedConfig : undefined
@@ -1346,12 +1366,12 @@ export type SortConfig = {
 export type ChartSourceOptions<
   TId extends string = string,
   T = unknown,
-  TSchema extends ChartSchema<T, any> | undefined = undefined,
+  TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
 > = {
   id: TId
   label: string
   data: readonly T[]
-  schema?: DefinedChartSchema<T, Exclude<TSchema, undefined>>
+  schema?: TSchema
 }
 
 /** Convenience alias for any multi-source input definition. */
@@ -1671,35 +1691,41 @@ export type ChartInstanceFromSchema<
   RestrictedTimeBucketFromSchema<TSchema>
 >
 
+/** Single-source chart instance narrowed by any supported schema input. */
+export type ChartInstanceFromSchemaDefinition<
+  T,
+  TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
+> = ChartInstanceFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>
+
 type SourceIdFromSource<TSource extends AnyChartSourceOptions> = TSource['id']
 type SourceRowFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, any> ? TRow : never
 type SourceColumnIdFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
-    ? ResolvedColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
+    ? ResolvedColumnIdFromSchema<TRow, ResolvedChartSchemaFromDefinition<TSchema>>
     : never
 type SourceXAxisColumnIdFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
-    ? RestrictedXAxisColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
+    ? RestrictedXAxisColumnIdFromSchema<TRow, ResolvedChartSchemaFromDefinition<TSchema>>
     : never
 type SourceGroupByColumnIdFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
-    ? RestrictedGroupByColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
+    ? RestrictedGroupByColumnIdFromSchema<TRow, ResolvedChartSchemaFromDefinition<TSchema>>
     : never
 type SourceMetricColumnIdFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
     ? Extract<
-        MetricColumnIdFromMetric<RestrictedMetricFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>>,
-        ResolvedMetricColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
+        MetricColumnIdFromMetric<RestrictedMetricFromSchema<TRow, ResolvedChartSchemaFromDefinition<TSchema>>>,
+        ResolvedMetricColumnIdFromSchema<TRow, ResolvedChartSchemaFromDefinition<TSchema>>
       >
     : never
 type SourceFilterColumnIdFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
-    ? RestrictedFilterColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
+    ? RestrictedFilterColumnIdFromSchema<TRow, ResolvedChartSchemaFromDefinition<TSchema>>
     : never
 type SourceDateColumnIdFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, infer TSchema>
-    ? ResolvedDateColumnIdFromSchema<TRow, Extract<TSchema, ChartSchema<TRow> | undefined>>
+    ? ResolvedDateColumnIdFromSchema<TRow, ResolvedChartSchemaFromDefinition<TSchema>>
     : never
 type SourceIdFromSources<TSources extends NonEmptyChartSourceOptions> =
   Extract<TSources[number]['id'], string>

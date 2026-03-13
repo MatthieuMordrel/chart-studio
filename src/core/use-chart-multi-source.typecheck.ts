@@ -24,7 +24,6 @@ const salesSchema = defineChartSchema<SalesRecord>()
   ])
   .groupBy((g) => g.allowed('region'))
   .metric((m) => m.aggregate('revenue', 'sum'))
-  .build()
 
 const userSchema = defineChartSchema<UserRecord>()
   .columns((c) => [
@@ -34,7 +33,6 @@ const userSchema = defineChartSchema<UserRecord>()
     c.exclude('city'),
   ])
   .groupBy((g) => g.allowed('plan', 'isActive'))
-  .build()
 
 /**
  * Compile-time helper used to assert inferred types.

@@ -1,7 +1,6 @@
 import type {
-  ChartSchema,
+  ChartSchemaDefinition,
   ChartSourceOptions,
-  DefinedChartSchema,
   NonEmptyChartSourceOptions,
 } from './types.js'
 
@@ -13,7 +12,7 @@ import type {
  */
 export interface SingleSourceOptions<
   T,
-  TSchema extends ChartSchema<T, any> | undefined = undefined,
+  TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
 > {
   /**
    * Raw rows that chart-studio should inspect and transform.
@@ -25,6 +24,9 @@ export interface SingleSourceOptions<
   /**
    * Optional explicit schema layered on top of inference.
    *
+   * Pass a plain schema object or the fluent builder returned by
+   * `defineChartSchema<Row>()`.
+   *
    * Use this when you want to:
    * - rename fields with `label`
    * - force or refine column `type`
@@ -33,7 +35,7 @@ export interface SingleSourceOptions<
    * - create derived columns
    * - restrict what users can select in the chart UI
    */
-  schema?: DefinedChartSchema<T, Exclude<TSchema, undefined>>
+  schema?: TSchema
   /**
    * Human-readable source name shown by the built-in UI when relevant.
    *
@@ -70,7 +72,7 @@ export interface MultiSourceOptions<TSources extends NonEmptyChartSourceOptions 
  */
 export type UseChartOptions<
   T,
-  TSchema extends ChartSchema<T, any> | undefined = undefined,
+  TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
 > = SingleSourceOptions<T, TSchema> | MultiSourceOptions
 
 export type {ChartSourceOptions}

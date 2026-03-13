@@ -6,10 +6,9 @@ import {createContext, useContext, useMemo, type ReactElement, type ReactNode} f
 import type {
   ChartColumn,
   ChartInstance,
-  ChartInstanceFromSchema,
-  ChartSchema,
+  ChartInstanceFromSchemaDefinition,
+  ChartSchemaDefinition,
   Metric,
-  ResolvedChartSchemaFromDefinition,
 } from '../core/types.js'
 
 /**
@@ -199,8 +198,8 @@ export function useChartContext() {
  */
 export function useTypedChartContext<
   T,
-  const TSchema extends ChartSchema<T, any> | undefined = undefined,
->(): ChartInstanceFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>> {
+  const TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
+>(): ChartInstanceFromSchemaDefinition<T, TSchema> {
   const ctx = useContext(ChartContext)
   if (!ctx) {
     throw new Error('useTypedChartContext must be used within a <Chart> provider')
@@ -212,7 +211,7 @@ export function useTypedChartContext<
     )
   }
 
-  return ctx.typedChart as ChartInstanceFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>
+  return ctx.typedChart as ChartInstanceFromSchemaDefinition<T, TSchema>
 }
 
 /**

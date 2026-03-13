@@ -113,7 +113,6 @@ const schema = defineChartSchema<Row>()
       falseLabel: 'Closed',
     }),
   ])
-  .build()
 ```
 
 Result:
@@ -165,7 +164,6 @@ const schema = defineChartSchema<Row>()
       },
     }),
   ])
-  .build()
 ```
 
 Result:
@@ -188,7 +186,6 @@ const schema = defineChartSchema<Row>()
       formatter: (value) => `${value} per seat`,
     }),
   ])
-  .build()
 ```
 
 Result:

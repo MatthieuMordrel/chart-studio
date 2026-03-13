@@ -3,6 +3,7 @@ import type {
   CategoryColumn,
   ChartColumn,
   ColumnFormat,
+  ChartSchemaDefinition,
   ChartSchema,
   ChartColumnType,
   ColumnInferenceMetadata,
@@ -15,9 +16,11 @@ import type {
   InferenceConfidence,
   InferableFieldKey,
   NumberColumn,
+  ResolvedChartSchemaFromDefinition,
   RawColumnSchemaMap,
   ResolvedColumnIdFromSchema,
 } from './types.js'
+import { resolveChartSchemaDefinition } from './schema-builder.js'
 
 const MAX_SAMPLE_COUNT = 50
 const DATE_KEY_PATTERN = /(date|time|timestamp|created|updated|start|end|deadline|due|scheduled|posted|published|at)$/i
@@ -216,11 +219,11 @@ function getNumberSamples(samples: readonly PrimitiveSample[]): readonly number[
  */
 function finalizeResolvedColumns<
   T,
-  const TSchema extends ChartSchema<T, any> | undefined,
+  TColumnId extends string,
 >(
   columns: readonly ChartColumn<T, string>[],
-): readonly ChartColumn<T, ResolvedColumnIdFromSchema<T, TSchema>>[] {
-  return columns as unknown as readonly ChartColumn<T, ResolvedColumnIdFromSchema<T, TSchema>>[]
+): readonly ChartColumn<T, TColumnId>[] {
+  return columns as unknown as readonly ChartColumn<T, TColumnId>[]
 }
 
 /**
@@ -654,11 +657,15 @@ function sortResolvedColumns<T>(
 /**
  * Resolve chart columns directly from raw data and an optional explicit schema.
  */
-export function inferColumnsFromData<T, const TSchema extends ChartSchema<T, any> | undefined = undefined>(
+export function inferColumnsFromData<
+  T,
+  const TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
+>(
   data: readonly T[],
   schema?: TSchema,
-): readonly ChartColumn<T, ResolvedColumnIdFromSchema<T, TSchema>>[] {
-  const rawColumnSchema = getRawColumnSchemaMap(schema)
+): readonly ChartColumn<T, ResolvedColumnIdFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>>[] {
+  const resolvedSchema = resolveChartSchemaDefinition(schema) as ChartSchema<T, any> | undefined
+  const rawColumnSchema = getRawColumnSchemaMap<T>(resolvedSchema)
   const fields = collectFieldKeys(data, rawColumnSchema)
   const rawFieldIds = new Set(fields)
   const resolvedColumns: ChartColumn<T, string>[] = []
@@ -672,7 +679,7 @@ export function inferColumnsFromData<T, const TSchema extends ChartSchema<T, any
     }
   }
 
-  for (const [key, columnSchema] of getDerivedColumnSchemas(schema, rawFieldIds)) {
+  for (const [key, columnSchema] of getDerivedColumnSchemas(resolvedSchema, rawFieldIds)) {
     resolvedColumns.push(buildDerivedColumn(key, columnSchema))
   }
 
@@ -680,5 +687,8 @@ export function inferColumnsFromData<T, const TSchema extends ChartSchema<T, any
     warn('No inferable or explicit chart columns were found. Provide non-empty data or schema.columns.')
   }
 
-  return finalizeResolvedColumns<T, TSchema>(sortResolvedColumns(resolvedColumns))
+  return finalizeResolvedColumns<
+    T,
+    ResolvedColumnIdFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>
+  >(sortResolvedColumns(resolvedColumns))
 }

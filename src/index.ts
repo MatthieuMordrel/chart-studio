@@ -20,7 +20,6 @@
  *         c.category('ownerName', { label: 'Consultant' }),
  *         c.number('salary', { format: 'currency' }),
  *       ])
- *       .build()
  *   })
  *   return (
  *     <Chart chart={chart}>
@@ -68,6 +67,7 @@ export type {
   DerivedBooleanColumnSchema,
   DerivedNumberColumnSchema,
   ChartSchema,
+  ChartSchemaDefinition,
   DefinedChartSchema,
   ValidatedChartSchema,
   InferableFieldKey,
@@ -107,4 +107,5 @@ export type {
   AvailableFilter,
   ChartInstance,
   ChartInstanceFromSchema,
+  ChartInstanceFromSchemaDefinition,
 } from './core/index.js'

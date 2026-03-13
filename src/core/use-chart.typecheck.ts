@@ -41,7 +41,7 @@ const exampleSchemaBuilder = defineChartSchema<ExampleRecord>()
     }),
   ])
 
-const exampleSchema = exampleSchemaBuilder.build()
+const exampleSchema = exampleSchemaBuilder
 
 const restrictedSchema = exampleSchemaBuilder
   .groupBy((g) => g.allowed('ownerName', 'isOpen', 'marginBucket'))
@@ -262,8 +262,7 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema() {
     data: [] as ExampleRecord[],
     schema: defineChartSchema<ExampleRecord>()
       .groupBy((g) => g.allowed('ownerName'))
-      .metric((m) => m.count())
-      .build(),
+      .metric((m) => m.count()),
   })
 
   restrictedChart.setGroupBy('ownerName')

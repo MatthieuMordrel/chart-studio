@@ -35,6 +35,7 @@ export type {
   DerivedBooleanColumnSchema,
   DerivedNumberColumnSchema,
   ChartSchema,
+  ChartSchemaDefinition,
   DefinedChartSchema,
   ValidatedChartSchema,
   InferableFieldKey,
@@ -85,4 +86,5 @@ export type {
   AvailableFilter,
   ChartInstance,
   ChartInstanceFromSchema,
+  ChartInstanceFromSchemaDefinition,
 } from './types.js'

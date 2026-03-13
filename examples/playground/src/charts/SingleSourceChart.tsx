@@ -74,7 +74,6 @@ const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()
       .aggregate('netIncome', 'sum')
       .defaultAggregate('ebitda', 'sum')
   )
-  .build()
 
 /**
  * Dedicated single-source example for the formatting API.
