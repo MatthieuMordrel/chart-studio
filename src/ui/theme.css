@@ -14,10 +14,15 @@
   --color-border: hsl(var(--cs-border));
   --color-input: hsl(var(--cs-input));
   --color-ring: hsl(var(--cs-ring));
+  --radius-sm: calc(var(--cs-radius) - 4px);
+  --radius-md: calc(var(--cs-radius) - 2px);
+  --radius-lg: var(--cs-radius);
+  --radius-xl: calc(var(--cs-radius) + 4px);
 }
 
 :root {
   color-scheme: light;
+  --cs-radius: var(--radius, 0.5rem);
   --cs-background: var(--background, 220 16% 97.5%);
   --cs-foreground: var(--foreground, 224 71% 4%);
   --cs-card: var(--card, 0 0% 100%);
@@ -31,11 +36,11 @@
   --cs-border: var(--border, 220 13% 90%);
   --cs-input: var(--input, 220 13% 90%);
   --cs-ring: var(--ring, 245 72% 57%);
-  --cs-chart-1: 245 72% 57%;
-  --cs-chart-2: 271 72% 55%;
-  --cs-chart-3: 330 68% 54%;
-  --cs-chart-4: 170 65% 38%;
-  --cs-chart-5: 30 90% 54%;
+  --cs-chart-1: hsl(245 72% 57%);
+  --cs-chart-2: hsl(271 72% 55%);
+  --cs-chart-3: hsl(330 68% 54%);
+  --cs-chart-4: hsl(170 65% 38%);
+  --cs-chart-5: hsl(30 90% 54%);
 }
 
 :root[data-theme='dark'],
@@ -54,9 +59,9 @@
   --cs-border: var(--border, 228 14% 15%);
   --cs-input: var(--input, 228 14% 18%);
   --cs-ring: var(--ring, 245 80% 67%);
-  --cs-chart-1: 245 85% 70%;
-  --cs-chart-2: 271 82% 68%;
-  --cs-chart-3: 190 85% 55%;
-  --cs-chart-4: 155 72% 50%;
-  --cs-chart-5: 38 90% 62%;
+  --cs-chart-1: hsl(245 85% 70%);
+  --cs-chart-2: hsl(271 82% 68%);
+  --cs-chart-3: hsl(190 85% 55%);
+  --cs-chart-4: hsl(155 72% 50%);
+  --cs-chart-5: hsl(38 90% 62%);
 }

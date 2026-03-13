@@ -103,7 +103,7 @@ export function KitchenSinkChart() {
       <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]'>
         {/* ── Left: live chart ─────────────────────────────────────── */}
         <div className='space-y-4'>
-          <div className='overflow-hidden rounded-2xl border border-border bg-background'>
+          <div className='overflow-hidden rounded-xl border border-border bg-background'>
             <div className='p-4'>
               <ChartToolbar pinned={pinned} hidden={hidden} />
             </div>
@@ -117,7 +117,7 @@ export function KitchenSinkChart() {
             </div>
           </div>
 
-          <details className='group rounded-2xl border border-border bg-background'>
+          <details className='group rounded-xl border border-border bg-background'>
             <summary className='cursor-pointer px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground'>
               Inspect live chart state
             </summary>
@@ -129,7 +129,7 @@ export function KitchenSinkChart() {
 
         {/* ── Right: toolbar editor ────────────────────────────────── */}
         <div className='xl:sticky xl:top-6 xl:self-start'>
-          <div className='overflow-hidden rounded-2xl border border-border bg-background shadow-sm'>
+          <div className='overflow-hidden rounded-xl border border-border bg-background shadow-sm'>
             <div className='flex items-center justify-between border-b border-border px-4 py-3'>
               <p className='text-sm font-semibold text-foreground'>Toolbar editor</p>
               <button

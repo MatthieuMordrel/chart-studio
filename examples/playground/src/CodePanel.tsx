@@ -13,7 +13,7 @@ export function CodePanel({source}: Props) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-background">
+    <div className="overflow-hidden rounded-xl border border-border bg-background">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}

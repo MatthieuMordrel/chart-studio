@@ -260,6 +260,39 @@ function useContainerWidth() {
   return {ref, width}
 }
 
+/**
+ * Read the resolved `--cs-radius` CSS variable and convert it to a pixel value
+ * suitable for recharts bar corner radius (roughly half the theme radius).
+ * Observes style attribute mutations on the root element so the chart reacts
+ * when the consumer changes `--radius` at runtime.
+ */
+function useCssBarRadius(): number {
+  const [radiusPx, setRadiusPx] = useState(4)
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+
+    function read() {
+      const style = getComputedStyle(root)
+      const raw = style.getPropertyValue('--cs-radius').trim()
+      if (!raw) return
+      const rem = parseFloat(raw)
+      if (Number.isNaN(rem)) return
+      const fontSize = parseFloat(style.fontSize) || 16
+      setRadiusPx(Math.max(0, Math.round((rem * fontSize) / 2)))
+    }
+
+    read()
+
+    const observer = new MutationObserver(read)
+    observer.observe(root, {attributes: true, attributeFilter: ['style', 'class', 'data-theme']})
+    return () => observer.disconnect()
+  }, [])
+
+  return radiusPx
+}
+
 /** Renders the appropriate recharts chart based on the chart instance state. */
 export function ChartCanvas({height = 300, className, showDataLabels = false}: ChartCanvasProps) {
   const chart = useChartContext()
@@ -515,28 +548,34 @@ function formatXAxisValue(
 
 function BarChartRenderer(props: RendererProps) {
   const {series, showDataLabels, valueColumn, valueRange} = props
+  const barRadius = useCssBarRadius()
+  const isStacked = series.length > 1
+  const topSeriesKey = series[series.length - 1]?.dataKey
   return (
     <CartesianChartShell
       {...props}
       Chart={BarChart}
-      renderSeries={(s) => (
-        <Bar
-          key={s.dataKey}
-          dataKey={s.dataKey}
-          name={s.label}
-          fill={s.color}
-          radius={[4, 4, 0, 0]}
-          stackId={series.length > 1 ? 'stack' : undefined}
-        >
-          {showDataLabels && (
-            <LabelList
-              position="top"
-              offset={8}
-              formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
-            />
-          )}
-        </Bar>
-      )}
+      renderSeries={(s) => {
+        const isTop = !isStacked || s.dataKey === topSeriesKey
+        return (
+          <Bar
+            key={s.dataKey}
+            dataKey={s.dataKey}
+            name={s.label}
+            fill={s.color}
+            radius={isTop ? [barRadius, barRadius, 0, 0] : 0}
+            stackId={isStacked ? 'stack' : undefined}
+          >
+            {showDataLabels && (
+              <LabelList
+                position="top"
+                offset={8}
+                formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
+              />
+            )}
+          </Bar>
+        )
+      }}
     />
   )
 }

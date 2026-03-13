@@ -16,13 +16,13 @@ export function HeadlessChart() {
     <div className='space-y-4'>
       {/* Native controls backed by fully-typed chart state. */}
       {/* TypeScript enforces that setXAxis only accepts valid column IDs — try passing 'invalid' and it errors. */}
-      <div className='flex flex-wrap gap-4 rounded-2xl border border-border bg-background p-4'>
+      <div className='flex flex-wrap gap-4 rounded-xl border border-border bg-background p-4'>
         <label className='flex flex-col gap-1'>
           <span className='text-xs text-muted-foreground'>X-Axis</span>
           <select
             value={chart.xAxisId ?? ''}
             onChange={e => chart.setXAxis(e.target.value as Parameters<typeof chart.setXAxis>[0])}
-            className='rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground'>
+            className='rounded-sm border border-border bg-card px-2 py-1.5 text-sm text-foreground'>
             {chart.availableXAxes.map(ax => (
               <option key={ax.id} value={ax.id}>
                 {ax.label}
@@ -36,7 +36,7 @@ export function HeadlessChart() {
           <select
             value={chart.chartType}
             onChange={e => chart.setChartType(e.target.value as ChartType)}
-            className='rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground'>
+            className='rounded-sm border border-border bg-card px-2 py-1.5 text-sm text-foreground'>
             {chart.availableChartTypes.map(type => (
               <option key={type} value={type}>
                 {type}
@@ -50,7 +50,7 @@ export function HeadlessChart() {
           <select
             value={chart.groupById ?? ''}
             onChange={e => chart.setGroupBy((e.target.value || null) as Parameters<typeof chart.setGroupBy>[0])}
-            className='rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground'>
+            className='rounded-sm border border-border bg-card px-2 py-1.5 text-sm text-foreground'>
             <option value=''>None</option>
             {chart.availableGroupBys.map(col => (
               <option key={col.id} value={col.id}>
@@ -65,7 +65,7 @@ export function HeadlessChart() {
           <select
             value={chart.timeBucket}
             onChange={e => chart.setTimeBucket(e.target.value as Parameters<typeof chart.setTimeBucket>[0])}
-            className='rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground'
+            className='rounded-sm border border-border bg-card px-2 py-1.5 text-sm text-foreground'
             disabled={!chart.isTimeSeries}>
             {(['day', 'week', 'month', 'quarter', 'year'] as const).map(bucket => (
               <option key={bucket} value={bucket}>
@@ -95,7 +95,7 @@ export function HeadlessChart() {
 
       {/* chart.transformedData — the pipeline output after groupBy, time bucketing and aggregation. */}
       {/* This is exactly what ChartCanvas receives internally. Pass it to Recharts, Victory, or any renderer. */}
-      <div className='overflow-hidden rounded-2xl border border-border bg-background'>
+      <div className='overflow-hidden rounded-xl border border-border bg-background'>
         <div className='border-b border-border px-4 py-3'>
           <p className='font-mono text-xs font-medium text-muted-foreground'>
             chart.transformedData — first 8 of {chart.transformedData.length} rows

@@ -19,7 +19,7 @@ export function MinimalChart() {
       {/* Pin only the most useful controls for the compact embed; the rest stay in overflow. */}
       <ChartToolbar pinned={['chartType', 'timeBucket', 'groupBy']} />
 
-      <div className='rounded-2xl border border-border bg-background p-4'>
+      <div className='rounded-xl border border-border bg-background p-4'>
         <ChartCanvas height={320} />
       </div>
     </Chart>
