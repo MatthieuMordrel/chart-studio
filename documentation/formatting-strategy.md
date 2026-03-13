@@ -106,15 +106,14 @@ Default behavior:
 Target API:
 
 ```tsx
-const schema = defineChartSchema<Row>()({
-  columns: {
-    isOpen: {
-      type: 'boolean',
+const schema = defineChartSchema<Row>()
+  .columns((c) => [
+    c.boolean('isOpen', {
       trueLabel: 'Open',
       falseLabel: 'Closed',
-    },
-  },
-})
+    }),
+  ])
+  .build()
 ```
 
 Result:
@@ -151,14 +150,12 @@ type ColumnFormat =
 Target API:
 
 ```tsx
-const schema = defineChartSchema<Row>()({
-  columns: {
-    revenue: {
-      type: 'number',
+const schema = defineChartSchema<Row>()
+  .columns((c) => [
+    c.number('revenue', {
       format: 'currency',
-    },
-    closedAt: {
-      type: 'date',
+    }),
+    c.date('closedAt', {
       format: {
         kind: 'date',
         options: {
@@ -166,9 +163,9 @@ const schema = defineChartSchema<Row>()({
           year: 'numeric',
         },
       },
-    },
-  },
-})
+    }),
+  ])
+  .build()
 ```
 
 Result:
@@ -185,14 +182,13 @@ That is what `formatter` should remain for.
 Target API:
 
 ```tsx
-const schema = defineChartSchema<Row>()({
-  columns: {
-    revenuePerSeat: {
-      type: 'number',
+const schema = defineChartSchema<Row>()
+  .columns((c) => [
+    c.number('revenuePerSeat', {
       formatter: (value) => `${value} per seat`,
-    },
-  },
-})
+    }),
+  ])
+  .build()
 ```
 
 Result:

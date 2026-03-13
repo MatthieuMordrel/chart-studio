@@ -4,50 +4,62 @@ import {candidateData, jobData, type JobRecord} from '../test/chart-test-fixture
 import {defineChartSchema} from './define-chart-schema.js'
 import {useChart} from './use-chart.js'
 
-const configuredJobSchema = defineChartSchema<(typeof jobData)[number]>()({
-  columns: {
-    dateAdded: {type: 'date'},
-    ownerName: {type: 'category'},
-    isOpen: {type: 'boolean'},
-    salary: {type: 'number'},
-  },
-})
+const jobSchemaBuilder = defineChartSchema<JobRecord>()
+  .columns((c) => [
+    c.date('dateAdded'),
+    c.category('ownerName'),
+    c.boolean('isOpen'),
+    c.number('salary'),
+  ])
 
-const derivedJobSchema = defineChartSchema<JobRecord>()({
-  columns: {
-    dateAdded: {type: 'date'},
-    ownerName: {type: 'category'},
-    isOpen: {type: 'boolean'},
-    salary: {type: 'number'},
-    salaryBand: {
-      kind: 'derived',
-      type: 'category',
+const configuredJobSchema = jobSchemaBuilder.build()
+
+const derivedJobSchema = defineChartSchema<JobRecord>()
+  .columns((c) => [
+    c.date('dateAdded'),
+    c.category('ownerName'),
+    c.boolean('isOpen'),
+    c.number('salary'),
+    c.derived.category('salaryBand', {
       label: 'Salary Band',
-      accessor: (row: JobRecord) => (row.salary != null && row.salary >= 100 ? 'High' : 'Low'),
-    },
-    hasOwner: {
-      kind: 'derived',
-      type: 'boolean',
+      accessor: (row) => (row.salary != null && row.salary >= 100 ? 'High' : 'Low'),
+    }),
+    c.derived.boolean('hasOwner', {
       label: 'Has Owner',
-      accessor: (row: JobRecord) => row.ownerName != null,
+      accessor: (row) => row.ownerName != null,
       trueLabel: 'Assigned',
       falseLabel: 'Unassigned',
-    },
-    salaryDate: {
-      kind: 'derived',
-      type: 'date',
+    }),
+    c.derived.date('salaryDate', {
       label: 'Salary Date',
-      accessor: (row: JobRecord) => row.dateAdded,
-    },
-    salaryValue: {
-      kind: 'derived',
-      type: 'number',
+      accessor: (row) => row.dateAdded,
+    }),
+    c.derived.number('salaryValue', {
       label: 'Salary Value',
       format: 'currency',
-      accessor: (row: JobRecord) => row.salary,
-    },
-  },
-})
+      accessor: (row) => row.salary,
+    }),
+  ])
+  .build()
+
+const jobDisplaySchema = defineChartSchema<JobRecord>()
+  .columns((c) => [
+    c.field('ownerName', {label: 'Owner'}),
+    c.field('salary', {format: 'currency'}),
+  ])
+  .build()
+
+const candidateDisplaySchema = defineChartSchema<(typeof candidateData)[number]>()
+  .columns((c) => [
+    c.field('stage', {label: 'Hiring Stage'}),
+    c.exclude('city'),
+  ])
+  .build()
+
+const restrictedJobSchema = jobSchemaBuilder
+  .groupBy((g) => g.allowed('isOpen'))
+  .metric((m) => m.aggregate('salary', 'avg', 'sum'))
+  .build()
 
 describe('useChart', () => {
   beforeEach(() => {
@@ -108,23 +120,13 @@ describe('useChart', () => {
             id: 'jobs',
             label: 'Jobs',
             data: jobData,
-            schema: defineChartSchema<(typeof jobData)[number]>()({
-              columns: {
-                ownerName: {label: 'Owner'},
-                salary: {format: 'currency'},
-              },
-            }),
+            schema: jobDisplaySchema,
           },
           {
             id: 'candidates',
             label: 'Candidates',
             data: candidateData,
-            schema: defineChartSchema<(typeof candidateData)[number]>()({
-              columns: {
-                stage: {label: 'Hiring Stage'},
-                city: false,
-              },
-            }),
+            schema: candidateDisplaySchema,
           },
         ],
       }),
@@ -227,13 +229,13 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: {
-            ownerName: {label: 'Owner'},
-            salary: {format: 'currency'},
-            isOpen: false,
-          },
-        }),
+        schema: defineChartSchema<(typeof jobData)[number]>()
+          .columns((c) => [
+            c.field('ownerName', {label: 'Owner'}),
+            c.field('salary', {format: 'currency'}),
+            c.exclude('isOpen'),
+          ])
+          .build(),
       }),
     )
 
@@ -245,17 +247,7 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          groupBy: {
-            allowed: ['isOpen'],
-          },
-          metric: {
-            allowed: [
-              {kind: 'aggregate', columnId: 'salary', aggregate: ['avg', 'sum']},
-            ],
-          },
-        }),
+        schema: restrictedJobSchema,
       }),
     )
 
@@ -342,17 +334,7 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          groupBy: {
-            allowed: ['isOpen'],
-          },
-          metric: {
-            allowed: [
-              {kind: 'aggregate', columnId: 'salary', aggregate: ['avg', 'sum']},
-            ],
-          },
-        }),
+        schema: restrictedJobSchema,
       }),
     )
 
@@ -392,38 +374,19 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          xAxis: {
-            allowed: ['dateAdded'],
-            default: 'dateAdded',
-          },
-          groupBy: {
-            allowed: ['ownerName', 'isOpen'],
-            hidden: ['ownerName'],
-            default: 'isOpen',
-          },
-          filters: {
-            allowed: ['ownerName', 'isOpen'],
-            hidden: ['isOpen'],
-          },
-          metric: {
-            allowed: [
-              {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
-            ],
-            hidden: [{kind: 'aggregate', columnId: 'salary', aggregate: 'avg'}],
-            default: {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
-          },
-          chartType: {
-            allowed: ['line', 'area'],
-            default: 'area',
-          },
-          timeBucket: {
-            allowed: ['quarter', 'year'],
-            hidden: ['year'],
-            default: 'quarter',
-          },
-        }),
+        schema: jobSchemaBuilder
+          .xAxis((x) => x.allowed('dateAdded').default('dateAdded'))
+          .groupBy((g) => g.allowed('ownerName', 'isOpen').hidden('ownerName').default('isOpen'))
+          .filters((f) => f.allowed('ownerName', 'isOpen').hidden('isOpen'))
+          .metric((m) =>
+            m
+              .aggregate('salary', 'sum', 'avg')
+              .hideAggregate('salary', 'avg')
+              .defaultAggregate('salary', 'sum')
+          )
+          .chartType((t) => t.allowed('line', 'area').default('area'))
+          .timeBucket((tb) => tb.allowed('quarter', 'year').hidden('year').default('quarter'))
+          .build(),
       }),
     )
 
@@ -446,29 +409,14 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          xAxis: {
-            allowed: ['ownerName', 'dateAdded'],
-          },
-          groupBy: {
-            allowed: ['isOpen', 'ownerName'],
-          },
-          filters: {
-            allowed: ['isOpen', 'ownerName'],
-          },
-          metric: {
-            allowed: [
-              {kind: 'aggregate', columnId: 'salary', aggregate: ['max', 'sum']},
-            ],
-          },
-          chartType: {
-            allowed: ['area', 'line'],
-          },
-          timeBucket: {
-            allowed: ['year', 'quarter'],
-          },
-        }),
+        schema: jobSchemaBuilder
+          .xAxis((x) => x.allowed('ownerName', 'dateAdded'))
+          .groupBy((g) => g.allowed('isOpen', 'ownerName'))
+          .filters((f) => f.allowed('isOpen', 'ownerName'))
+          .metric((m) => m.aggregate('salary', 'max', 'sum'))
+          .chartType((t) => t.allowed('area', 'line'))
+          .timeBucket((tb) => tb.allowed('year', 'quarter'))
+          .build(),
       }),
     )
 
@@ -496,19 +444,11 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          xAxis: {
-            allowed: ['dateAdded', 'ownerName'],
-            default: 'dateAdded',
-          },
-          chartType: {
-            allowed: ['bar', 'pie'],
-          },
-          timeBucket: {
-            allowed: ['year'],
-          },
-        }),
+        schema: jobSchemaBuilder
+          .xAxis((x) => x.allowed('dateAdded', 'ownerName').default('dateAdded'))
+          .chartType((t) => t.allowed('bar', 'pie'))
+          .timeBucket((tb) => tb.allowed('year'))
+          .build(),
       }),
     )
 
@@ -549,12 +489,12 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data,
-        schema: defineChartSchema<(typeof data)[number]>()({
-          columns: {
-            revenue: {label: 'Revenue'},
-            internalId: false,
-          },
-        }),
+        schema: defineChartSchema<(typeof data)[number]>()
+          .columns((c) => [
+            c.field('revenue', {label: 'Revenue'}),
+            c.exclude('internalId'),
+          ])
+          .build(),
       }),
     )
 
@@ -578,13 +518,9 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          timeBucket: {
-            allowed: ['month', 'quarter', 'year'],
-            default: 'quarter',
-          },
-        }),
+        schema: jobSchemaBuilder
+          .timeBucket((tb) => tb.allowed('month', 'quarter', 'year').default('quarter'))
+          .build(),
       }),
     )
 
@@ -596,13 +532,9 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          chartType: {
-            allowed: ['bar', 'line', 'area'],
-            default: 'line',
-          },
-        }),
+        schema: jobSchemaBuilder
+          .chartType((t) => t.allowed('bar', 'line', 'area').default('line'))
+          .build(),
       }),
     )
 
@@ -614,16 +546,9 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          metric: {
-            allowed: [
-              {kind: 'count'},
-              {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
-            ],
-            default: {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
-          },
-        }),
+        schema: jobSchemaBuilder
+          .metric((m) => m.count().aggregate('salary', 'sum', 'avg').defaultAggregate('salary', 'sum'))
+          .build(),
       }),
     )
 
@@ -634,24 +559,11 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-          chartType: {
-            allowed: ['bar', 'line', 'area'],
-            default: 'line',
-          },
-          timeBucket: {
-            allowed: ['month', 'quarter', 'year'],
-            default: 'quarter',
-          },
-          metric: {
-            allowed: [
-              {kind: 'count'},
-              {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
-            ],
-            default: {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
-          },
-        }),
+        schema: jobSchemaBuilder
+          .chartType((t) => t.allowed('bar', 'line', 'area').default('line'))
+          .timeBucket((tb) => tb.allowed('month', 'quarter', 'year').default('quarter'))
+          .metric((m) => m.count().aggregate('salary', 'sum', 'avg').defaultAggregate('salary', 'sum'))
+          .build(),
       }),
     )
 
@@ -678,34 +590,17 @@ describe('useChart', () => {
             id: 'jobs',
             label: 'Jobs',
             data: jobData,
-            schema: defineChartSchema<(typeof jobData)[number]>()({
-              columns: configuredJobSchema.columns,
-              chartType: {
-                allowed: ['bar', 'line'],
-                default: 'line',
-              },
-              timeBucket: {
-                allowed: ['month', 'quarter'],
-                default: 'quarter',
-              },
-              metric: {
-                allowed: [
-                  {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
-                ],
-                default: {kind: 'aggregate', columnId: 'salary', aggregate: 'avg'},
-              },
-            }),
+            schema: jobSchemaBuilder
+              .chartType((t) => t.allowed('bar', 'line').default('line'))
+              .timeBucket((tb) => tb.allowed('month', 'quarter').default('quarter'))
+              .metric((m) => m.aggregate('salary', 'sum', 'avg').defaultAggregate('salary', 'avg'))
+              .build(),
           },
           {
             id: 'candidates',
             label: 'Candidates',
             data: candidateData,
-            schema: defineChartSchema<(typeof candidateData)[number]>()({
-              columns: {
-                stage: {label: 'Hiring Stage'},
-                city: false,
-              },
-            }),
+            schema: candidateDisplaySchema,
           },
         ],
       }),
@@ -746,9 +641,7 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()({
-          columns: configuredJobSchema.columns,
-        }),
+        schema: configuredJobSchema,
       }),
     )
 

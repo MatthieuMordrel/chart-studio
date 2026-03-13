@@ -98,7 +98,7 @@ export function JobsChart() {
 ## How It Works
 
 1. Pass your raw data to `useChart()`.
-2. Add an optional `schema` with `defineChartSchema<Row>()(...)` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
+2. Add an optional `schema` with `defineChartSchema<Row>()...build()` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
 3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
 
 ## Column Types
@@ -112,41 +112,40 @@ export function JobsChart() {
 
 ## Declarative Schema and Control Restrictions
 
-If you want to expose only a subset of groupings, metrics, chart types, or axes, use `defineChartSchema<Row>()()` with the control sections:
+If you want to expose only a subset of groupings, metrics, chart types, or axes, use the fluent `defineChartSchema<Row>()` builder:
 
 ```tsx
 import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
 
 type Row = { periodEnd: string; segment: string; revenue: number; netIncome: number }
 
-const schema = defineChartSchema<Row>()({
-  columns: {
-    periodEnd: { type: 'date', label: 'Period End' },
-    segment: { type: 'category' },
-    revenue: { type: 'number' },
-    netIncome: { type: 'number' }
-  },
-  xAxis: { allowed: ['periodEnd'] },
-  groupBy: { allowed: ['segment'] },
-  metric: {
-    allowed: [
-      { kind: 'count' },
-      { kind: 'aggregate', columnId: 'revenue', aggregate: ['sum', 'avg'] },
-      { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
-    ]
-  },
-  chartType: { allowed: ['bar', 'line'] },
-  timeBucket: { allowed: ['year', 'quarter', 'month'] }
-})
+const schema = defineChartSchema<Row>()
+  .columns((c) => [
+    c.date('periodEnd', { label: 'Period End' }),
+    c.category('segment'),
+    c.number('revenue'),
+    c.number('netIncome')
+  ])
+  .xAxis((x) => x.allowed('periodEnd'))
+  .groupBy((g) => g.allowed('segment'))
+  .metric((m) =>
+    m
+      .count()
+      .aggregate('revenue', 'sum', 'avg')
+      .aggregate('netIncome', 'sum')
+  )
+  .chartType((t) => t.allowed('bar', 'line'))
+  .timeBucket((tb) => tb.allowed('year', 'quarter', 'month'))
+  .build()
 
 const chart = useChart({ data, schema })
 ```
 
 Why this pattern:
 
-- `columns` defines types, labels, and formats for raw fields; use `false` to exclude a column from the chart
-- Derived columns use `{ kind: 'derived', type, label?, accessor, format? }` for computed values from each row
-- `xAxis`, `groupBy`, `metric`, `chartType`, `timeBucket` restrict the allowed options
+- `columns` defines types, labels, and formats for raw fields; use `c.exclude(...)` to remove a column from the chart
+- Derived columns use `c.derived.*(...)` helpers for computed values from each row
+- `xAxis`, `groupBy`, `metric`, `chartType`, and `timeBucket` restrict the allowed options
 - invalid column IDs and config keys are rejected at compile time
 - metric restrictions preserve the order you declare, so the first allowed metric becomes the default
 
@@ -163,13 +162,13 @@ type Job = {
   salary: number
 }
 
-const jobSchema = defineChartSchema<Job>()({
-  columns: {
-    dateAdded: { type: 'date', label: 'Date Added' },
-    ownerName: { type: 'category', label: 'Consultant' },
-    salary: { type: 'number', label: 'Salary' }
-  }
-})
+const jobSchema = defineChartSchema<Job>()
+  .columns((c) => [
+    c.date('dateAdded', { label: 'Date Added' }),
+    c.category('ownerName', { label: 'Consultant' }),
+    c.number('salary', { label: 'Salary' })
+  ])
+  .build()
 
 export function JobsChartHeadless({ data }: { data: Job[] }) {
   const chart = useChart({ data, schema: jobSchema })
@@ -336,9 +335,9 @@ const chart = useChart({
       id: 'jobs',
       label: 'Jobs',
       data: jobs,
-      schema: defineChartSchema<Job>()({
-        columns: { dateAdded: { type: 'date', label: 'Date Added' } }
-      })
+      schema: defineChartSchema<Job>()
+        .columns((c) => [c.date('dateAdded', { label: 'Date Added' })])
+        .build()
     },
     { id: 'candidates', label: 'Candidates', data: candidates }
   ]
@@ -388,9 +387,9 @@ There is currently no built-in support for drill-down, click-to-filter, brush se
 
 Each chart instance operates on a single flat dataset. Overlaying series from different schemas (e.g. revenue on the left Y-axis and headcount on the right) would require separate chart instances today. Dual-axis and cross-dataset composition are not yet supported.
 
-### The double-call schema syntax
+### Schema Builder Ergonomics
 
-`defineChartSchema<Row>()()` uses a double function call as a workaround for TypeScript's lack of partial type argument inference. This lets you provide the row type explicitly while the column IDs are inferred automatically. It works well but can surprise newcomers — this will be revisited if TypeScript adds native support for partial inference.
+`defineChartSchema<Row>()` now returns one fluent builder. That keeps the public API strongly typed while improving IntelliSense for raw field ids, derived columns, and control restrictions.
 
 ## Release
 

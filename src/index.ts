@@ -14,13 +14,13 @@
  * function MyChart({ data }) {
  *   const chart = useChart({
  *     data,
- *     schema: defineChartSchema<typeof data[number]>()({
- *       columns: {
- *         dateAdded: { label: 'Date Added', type: 'date' },
- *         ownerName: { label: 'Consultant' },
- *         salary: { format: 'currency' }
- *       }
- *     })
+ *     schema: defineChartSchema<typeof data[number]>()
+ *       .columns((c) => [
+ *         c.date('dateAdded', { label: 'Date Added' }),
+ *         c.category('ownerName', { label: 'Consultant' }),
+ *         c.number('salary', { format: 'currency' }),
+ *       ])
+ *       .build()
  *   })
  *   return (
  *     <Chart chart={chart}>

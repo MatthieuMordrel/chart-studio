@@ -2,13 +2,12 @@ import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
 import { quarterlyFinancialData, type QuarterlyFinancialRecord } from '../mock-data'
 
-const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()({
-  columns: {
-    periodEnd: { type: 'date', label: 'Period End' },
-    segment: { type: 'category' },
-    revenue: { type: 'number', label: 'Revenue', format: 'currency' },
-    netIncome: {
-      type: 'number',
+const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()
+  .columns((c) => [
+    c.date('periodEnd', {label: 'Period End'}),
+    c.category('segment'),
+    c.number('revenue', {label: 'Revenue', format: 'currency'}),
+    c.number('netIncome', {
       label: 'Net Income',
       format: {
         kind: 'number',
@@ -16,68 +15,66 @@ const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()({
           style: 'currency',
           currency: 'EUR',
           notation: 'compact',
-          maximumFractionDigits: 1
-        }
-      }
-    },
-    ebitda: { type: 'number', label: 'EBITDA', format: { kind: 'number', options: { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 } } },
-    ebitdaMargin: {
-      kind: 'derived',
-      type: 'number',
+          maximumFractionDigits: 1,
+        },
+      },
+    }),
+    c.number('ebitda', {
+      label: 'EBITDA',
+      format: {
+        kind: 'number',
+        options: {
+          style: 'currency',
+          currency: 'EUR',
+          notation: 'compact',
+          maximumFractionDigits: 1,
+        },
+      },
+    }),
+    c.derived.number('ebitdaMargin', {
       label: 'EBITDA Margin',
       format: 'percent',
-      accessor: (record: QuarterlyFinancialRecord) => {
+      accessor: (record) => {
         if (record.revenue <= 0) {
           return null
         }
 
         return record.ebitda / record.revenue
-      }
-    },
-    grossMargin: {
-      kind: 'derived',
-      type: 'number',
+      },
+    }),
+    c.derived.number('grossMargin', {
       label: 'Gross Margin',
       format: 'percent',
-      accessor: (record: QuarterlyFinancialRecord) => {
+      accessor: (record) => {
         if (record.revenue <= 0) {
           return null
         }
 
         return record.grossProfit / record.revenue
-      }
-    },
-    profitable: {
-      kind: 'derived',
-      type: 'boolean',
+      },
+    }),
+    c.derived.boolean('profitable', {
       label: 'Profitability',
       trueLabel: 'Profitable',
       falseLabel: 'Unprofitable',
-      accessor: (record: QuarterlyFinancialRecord) => record.netIncome > 0
-    }
-  },
-  xAxis: {
-    allowed: ['periodEnd']
-  },
-  chartType: { allowed: ['bar', 'line'] },
-  timeBucket: { allowed: ['year', 'quarter', 'month'], default: 'quarter' },
-  groupBy: {
-    allowed: ['segment', 'profitable']
-  },
-  filters: {
-    allowed: ['segment', 'profitable']
-  },
-  metric: {
-    allowed: [
-      { kind: 'aggregate', columnId: 'ebitda', aggregate: ['sum']},
-      { kind: 'aggregate', columnId: 'ebitdaMargin', aggregate: 'avg' },
-      { kind: 'aggregate', columnId: 'grossMargin', aggregate: 'avg' },
-      { kind: 'aggregate', columnId: 'revenue', aggregate: 'sum' },
-      { kind: 'aggregate', columnId: 'netIncome', aggregate: 'sum' }
-    ],
-    default: { kind: 'aggregate', columnId: 'ebitda', aggregate: 'sum' }
-  }
-})
+      accessor: (record) => record.netIncome > 0,
+    }),
+  ])
+  .xAxis((x) => x.allowed('periodEnd'))
+  .chartType((t) => t.allowed('bar', 'line'))
+  .timeBucket((tb) => tb.allowed('year', 'quarter', 'month').default('quarter'))
+  .groupBy((g) => g.allowed('segment', 'profitable'))
+  .filters((f) => f.allowed('segment', 'profitable'))
+  .metric((m) =>
+    m
+      .aggregate('ebitda', 'sum')
+      .aggregate('ebitdaMargin', 'avg')
+      .aggregate('grossMargin', 'avg')
+      .aggregate('revenue', 'sum')
+      .aggregate('netIncome', 'sum')
+      .defaultAggregate('ebitda', 'sum')
+  )
+  .build()
 
 /**
  * Dedicated single-source example for the formatting API.

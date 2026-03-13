@@ -116,15 +116,15 @@ describe('runPipeline', () => {
       {team: 'B', region: 'South'},
     ]
 
-    const schema = defineChartSchema<TeamRecord>()({
-      columns: {
-        team: {
+    const schema = defineChartSchema<TeamRecord>()
+      .columns((c) => [
+        c.field('team', {
           label: 'Team',
           formatter: (value: string | null | undefined, item?: TeamRecord) =>
             `${item?.region ?? 'Unknown'}: ${value ?? 'Unknown'}`,
-        },
-      },
-    })
+        }),
+      ])
+      .build()
     const chartColumns = inferColumnsFromData(data, schema)
 
     const filters = extractAvailableFilters(data, chartColumns)

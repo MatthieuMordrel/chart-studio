@@ -10,23 +10,17 @@ type ExampleRecord = {
   internalId: string
 }
 
-const exampleSchema = defineChartSchema<ExampleRecord>()({
-  columns: {
-    createdAt: {type: 'date', label: 'Created'},
-    ownerName: {type: 'category', label: 'Owner'},
-    isOpen: {type: 'boolean'},
-    salary: {type: 'number', format: 'currency'},
-    internalId: false,
-  },
-  groupBy: {
-    allowed: ['isOpen'],
-  },
-  metric: {
-    allowed: [
-      {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
-    ],
-  },
-})
+const exampleSchema = defineChartSchema<ExampleRecord>()
+  .columns((c) => [
+    c.date('createdAt', {label: 'Created'}),
+    c.category('ownerName', {label: 'Owner'}),
+    c.boolean('isOpen'),
+    c.number('salary', {format: 'currency'}),
+    c.exclude('internalId'),
+  ])
+  .groupBy((g) => g.allowed('isOpen'))
+  .metric((m) => m.aggregate('salary', 'sum'))
+  .build()
 
 /**
  * Compile-time helper used to assert inferred types.
@@ -41,7 +35,7 @@ function TypedSingleSourceProbe() {
 
   expectType<ExampleRecord[]>([...chart.rawData])
   expectType<'createdAt' | 'ownerName' | 'isOpen' | null>(chart.xAxisId)
-  expectType<'ownerName' | 'isOpen' | null>(chart.groupById)
+  expectType<'isOpen' | null>(chart.groupById)
   expectType<'createdAt' | null>(chart.referenceDateId)
 
   chart.setXAxis('ownerName')
@@ -51,27 +45,20 @@ function TypedSingleSourceProbe() {
   chart.setReferenceDateId('createdAt')
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
 
-  // @ts-expect-error invalid column IDs should fail through the typed UI context
+  // @ts-expect-error invalid column ids should fail through the typed UI context
   chart.setXAxis('missingField')
-
-  // @ts-expect-error invalid metric column IDs should fail through the typed UI context
+  // @ts-expect-error invalid metric column ids should fail through the typed UI context
   chart.setMetric({kind: 'aggregate', columnId: 'missingField', aggregate: 'sum'})
-
   // @ts-expect-error explicit numeric schema entries should keep number columns out of groupBy
   chart.setGroupBy('salary')
-
   // @ts-expect-error groupBy restrictions should remain active through typed context
   chart.setGroupBy('ownerName')
-
   // @ts-expect-error explicit numeric schema entries should keep number columns out of the X-axis API
   chart.setXAxis('salary')
-
   // @ts-expect-error explicit date schema entries should keep date columns out of filters
   chart.toggleFilter('createdAt', '2026-01-01')
-
   // @ts-expect-error metric restrictions should remain active through typed context
   chart.setMetric({kind: 'count'})
-
   // @ts-expect-error excluded fields should stay unavailable through typed context
   chart.setXAxis('internalId')
 

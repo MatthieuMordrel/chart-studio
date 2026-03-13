@@ -1166,7 +1166,9 @@ type ChartConfigDefinitionBrand = {
 
 type ExtractSchemaColumns<TSchema> =
   TSchema extends {columns?: infer TColumns}
-    ? Extract<TColumns, Record<string, unknown>>
+    ? [Extract<TColumns, Record<string, unknown>>] extends [never]
+      ? undefined
+      : Extract<TColumns, Record<string, unknown>>
     : undefined
 
 type RawSchemaColumnsFromColumns<

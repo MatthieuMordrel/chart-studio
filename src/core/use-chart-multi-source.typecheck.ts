@@ -15,26 +15,26 @@ type UserRecord = {
   city: string | null
 }
 
-const salesSchema = defineChartSchema<SalesRecord>()({
-  columns: {
-    createdAt: {type: 'date', label: 'Created'},
-    region: {type: 'category'},
-    revenue: {type: 'number', format: 'currency'},
-    internalId: false,
-  },
-  groupBy: {allowed: ['region']},
-  metric: {allowed: [{kind: 'aggregate', columnId: 'revenue', aggregate: 'sum'}]},
-})
+const salesSchema = defineChartSchema<SalesRecord>()
+  .columns((c) => [
+    c.date('createdAt', {label: 'Created'}),
+    c.category('region'),
+    c.number('revenue', {format: 'currency'}),
+    c.exclude('internalId'),
+  ])
+  .groupBy((g) => g.allowed('region'))
+  .metric((m) => m.aggregate('revenue', 'sum'))
+  .build()
 
-const userSchema = defineChartSchema<UserRecord>()({
-  columns: {
-    signedUpAt: {type: 'date', label: 'Signed Up'},
-    plan: {type: 'category'},
-    isActive: {type: 'boolean'},
-    city: false,
-  },
-  groupBy: {allowed: ['plan', 'isActive']},
-})
+const userSchema = defineChartSchema<UserRecord>()
+  .columns((c) => [
+    c.date('signedUpAt', {label: 'Signed Up'}),
+    c.category('plan'),
+    c.boolean('isActive'),
+    c.exclude('city'),
+  ])
+  .groupBy((g) => g.allowed('plan', 'isActive'))
+  .build()
 
 /**
  * Compile-time helper used to assert inferred types.
@@ -68,7 +68,7 @@ function verifyMultiSourceChartTyping() {
   chart.setActiveSource('sales')
   chart.setActiveSource('users')
 
-  // @ts-expect-error unknown source IDs should fail
+  // @ts-expect-error unknown source ids should fail
   chart.setActiveSource('missing')
 
   if (chart.activeSourceId === 'sales') {

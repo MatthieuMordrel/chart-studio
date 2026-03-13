@@ -9,34 +9,26 @@ type ExampleRecord = {
   internalId: string
 }
 
-const exampleSchema = defineChartSchema<ExampleRecord>()({
-  columns: {
-    createdAt: {type: 'date', label: 'Created'},
-    ownerName: {type: 'category', label: 'Owner'},
-    isOpen: {type: 'boolean'},
-    salary: {type: 'number', format: 'currency'},
-    internalId: false,
-    marginBucket: {
-      kind: 'derived',
-      type: 'category',
+const exampleSchemaBuilder = defineChartSchema<ExampleRecord>()
+  .columns((c) => [
+    c.date('createdAt', {label: 'Created'}),
+    c.category('ownerName', {label: 'Owner'}),
+    c.boolean('isOpen'),
+    c.number('salary', {format: 'currency'}),
+    c.exclude('internalId'),
+    c.derived.category('marginBucket', {
       label: 'Margin Bucket',
-      accessor: (row: ExampleRecord) => (row.salary != null && row.salary > 100000 ? 'High' : 'Base'),
-    },
-    hasSalary: {
-      kind: 'derived',
-      type: 'boolean',
+      accessor: (row) => (row.salary != null && row.salary > 100000 ? 'High' : 'Base'),
+    }),
+    c.derived.boolean('hasSalary', {
       label: 'Has Salary',
-      accessor: (row: ExampleRecord) => row.salary != null,
-    },
-    createdDay: {
-      kind: 'derived',
-      type: 'date',
+      accessor: (row) => row.salary != null,
+    }),
+    c.derived.date('createdDay', {
       label: 'Created Day',
-      accessor: (row: ExampleRecord) => row.createdAt,
-    },
-    salaryValue: {
-      kind: 'derived',
-      type: 'number',
+      accessor: (row) => row.createdAt,
+    }),
+    c.derived.number('salaryValue', {
       label: 'Salary Value',
       format: {
         kind: 'number',
@@ -45,33 +37,107 @@ const exampleSchema = defineChartSchema<ExampleRecord>()({
           currency: 'EUR',
         },
       },
-      accessor: (row: ExampleRecord) => row.salary ?? 0,
-    },
-  },
-})
+      accessor: (row) => row.salary ?? 0,
+    }),
+  ])
 
-const restrictedSchema = defineChartSchema<ExampleRecord>()({
-  columns: exampleSchema.columns,
-  groupBy: {
-    allowed: ['ownerName', 'isOpen', 'marginBucket'],
-  },
-  metric: {
-    allowed: [
-      {kind: 'count'},
-      {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
-    ],
-  },
-})
+const exampleSchema = exampleSchemaBuilder.build()
+
+const restrictedSchema = exampleSchemaBuilder
+  .groupBy((g) => g.allowed('ownerName', 'isOpen', 'marginBucket'))
+  .metric((m) => m.count().aggregate('salary', 'sum', 'avg'))
+  .build()
 
 /**
  * Compile-time helper used to assert inferred types.
  */
 function expectType<T>(_value: T): void {}
 
-/**
- * This function never runs.
- * It only exists so TypeScript checks the inferred public API.
- */
+function verifyBuilderTyping() {
+  defineChartSchema<ExampleRecord>()
+    .columns((c) => [
+      c.field('ownerName', {label: 'Owner'}),
+      c.date('createdAt'),
+      c.number('salary'),
+      c.boolean('isOpen'),
+    ])
+    .xAxis((x) => x.allowed('createdAt', 'ownerName').default('createdAt'))
+    .groupBy((g) => g.allowed('ownerName', 'isOpen').default('ownerName'))
+    .filters((f) => f.allowed('ownerName', 'isOpen'))
+    .metric((m) => m.count().aggregate('salary', 'sum').defaultAggregate('salary', 'sum'))
+    .build()
+
+  defineChartSchema<ExampleRecord>().columns((c) => [
+    c.derived.number('netSalary', {
+      label: 'Net Salary',
+      accessor: (row) => {
+        expectType<ExampleRecord>(row)
+
+        return row.salary ?? 0
+      },
+    }),
+  ])
+
+  defineChartSchema<ExampleRecord>()
+    .columns((c) => [
+      c.exclude('internalId'),
+    ])
+    // @ts-expect-error excluded raw ids should disappear from later sections
+    .xAxis((x) => x.allowed('internalId'))
+
+  defineChartSchema<ExampleRecord>()
+    // @ts-expect-error duplicate column ids should fail
+    .columns((c) => [
+      c.date('createdAt'),
+      c.field('createdAt', {label: 'Created Again'}),
+    ])
+
+  defineChartSchema<ExampleRecord>()
+    .columns((c) => [
+      // @ts-expect-error number helper should only accept numeric raw fields
+      c.number('ownerName'),
+    ])
+
+  defineChartSchema<ExampleRecord>()
+    .columns((c) => [
+      // @ts-expect-error existing raw ids cannot be reused for derived columns
+      c.derived.category('ownerName', {
+        label: 'Owner Copy',
+        accessor: () => 'Owner',
+      }),
+    ])
+
+  defineChartSchema<ExampleRecord>()
+    .columns((c) => [
+      c.derived.number('derivedMetric', {
+        label: 'Derived Metric',
+        accessor: (row) => row.salary ?? 0,
+        // @ts-expect-error derived options should reject unknown nested keys
+        fallback: 1,
+      }),
+    ])
+
+  defineChartSchema<ExampleRecord>()
+    .columns((c) => [
+      // @ts-expect-error derived columns require a label
+      c.derived.category('missingLabel', {
+        accessor: () => 'Missing',
+      }),
+    ])
+
+  defineChartSchema<ExampleRecord>()
+    .columns((c) => [
+      c.date('createdAt'),
+    ])
+    .xAxis((x) =>
+      // @ts-expect-error hidden options cannot also be the default
+      x.allowed('createdAt').hidden('createdAt').default('createdAt')
+    )
+
+  // @ts-expect-error unknown top-level builder methods should fail
+  defineChartSchema<ExampleRecord>().grouping((g: {allowed: (...values: string[]) => unknown}) => g.allowed('ownerName'))
+}
+
 function verifyUseChartColumnIds() {
   const chart = useChart({
     data: [] as ExampleRecord[],
@@ -97,34 +163,25 @@ function verifyUseChartColumnIds() {
   chart.setReferenceDateId('createdDay')
   chart.setMetric({kind: 'aggregate', columnId: 'salaryValue', aggregate: 'sum'})
 
-  // @ts-expect-error invalid column IDs should fail
+  // @ts-expect-error invalid column ids should fail
   chart.setXAxis('missingField')
-
-  // @ts-expect-error invalid metric column IDs should fail
+  // @ts-expect-error invalid metric column ids should fail
   chart.setMetric({kind: 'aggregate', columnId: 'missingField', aggregate: 'sum'})
-
-  // @ts-expect-error invalid filter column IDs should fail
+  // @ts-expect-error invalid filter column ids should fail
   chart.toggleFilter('missingField', 'Alice')
-
-  // @ts-expect-error number columns should not be groupable when explicit schema says they are numeric
+  // @ts-expect-error explicit numeric schema entries keep number columns out of groupBy
   chart.setGroupBy('salary')
-
-  // @ts-expect-error derived number columns should also stay out of grouping APIs
+  // @ts-expect-error derived number columns stay out of groupBy
   chart.setGroupBy('salaryValue')
-
-  // @ts-expect-error explicit numeric schema entries should keep number columns out of the X-axis API
+  // @ts-expect-error explicit numeric schema entries keep number columns out of the X-axis API
   chart.setXAxis('salary')
-
-  // @ts-expect-error date columns should not be filterable when explicit schema says they are dates
+  // @ts-expect-error explicit date schema entries keep date columns out of filters
   chart.toggleFilter('createdAt', '2026-01-01')
-
-  // @ts-expect-error non-date columns should not be usable as reference dates when explicit schema says otherwise
+  // @ts-expect-error non-date columns cannot be reference dates
   chart.setReferenceDateId('ownerName')
-
-  // @ts-expect-error derived category columns should not be usable as reference dates
+  // @ts-expect-error derived category columns cannot be reference dates
   chart.setReferenceDateId('marginBucket')
-
-  // @ts-expect-error explicitly excluded fields should be removed from the chart API
+  // @ts-expect-error explicitly excluded fields should disappear from the chart API
   chart.setXAxis('internalId')
 }
 
@@ -141,195 +198,26 @@ function verifyToolRestrictionsTyping() {
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'avg'})
 
-  // @ts-expect-error schema.groupBy.allowed should narrow the setter to the declared subset
+  // @ts-expect-error groupBy restrictions should narrow the setter to the declared subset
   chart.setGroupBy('createdAt')
-
-}
-
-function verifySchemaTypechecks() {
-  useChart({
-    data: [] as ExampleRecord[],
-    schema: defineChartSchema<ExampleRecord>()({
-      columns: exampleSchema.columns,
-      groupBy: {
-        allowed: ['ownerName'],
-      },
-    }),
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: exampleSchema.columns,
-    chartType: {
-      allowed: ['bar', 'line'],
-      hidden: ['line'],
-      default: 'line',
-    },
-  })
-
-  const conflictingSchema = {
-    columns: exampleSchema.columns,
-    xAxis: {
-      hidden: ['createdAt'],
-      default: 'createdAt',
-    },
-  } as const
-
-  defineChartSchema<ExampleRecord>()(conflictingSchema)
-}
-
-/**
- * Intentional red tests documenting the current declaration-time schema gaps.
- *
- * These `@ts-expect-error` assertions currently fail because the builder still
- * accepts invalid schema shapes too broadly. The next agent should make these
- * tests go green by tightening `defineChartSchema(...)` and the related schema
- * types until every invalid case below is rejected at declaration time.
- */
-function verifyDeclarationTimeSchemaFailures() {
-  defineChartSchema<ExampleRecord>()({
-    columns: {
-      createdAt: {type: 'date'},
-      // @ts-expect-error unknown raw field keys should fail unless they are valid derived columns
-      fefe: {},
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: exampleSchema.columns,
-    groupBy: {
-      // @ts-expect-error unknown groupBy IDs should fail at declaration time
-      allowed: [
-        'ownerName',
-        'fefe',
-      ],
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: exampleSchema.columns,
-    xAxis: {
-      // @ts-expect-error unknown xAxis IDs should fail at declaration time
-      allowed: [
-        'createdAt',
-        'fefe',
-      ],
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: exampleSchema.columns,
-    filters: {
-      // @ts-expect-error unknown filter IDs should fail at declaration time
-      allowed: [
-        'ownerName',
-        'fefe',
-      ],
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: exampleSchema.columns,
-    metric: {
-      // @ts-expect-error unknown metric column IDs should fail at declaration time
-      allowed: [
-        {kind: 'count'},
-        {kind: 'aggregate', columnId: 'fefe', aggregate: 'sum'},
-      ],
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: exampleSchema.columns,
-    // @ts-expect-error unknown top-level schema keys should fail at declaration time
-    grouping: {
-      allowed: ['ownerName'],
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: exampleSchema.columns,
-    groupBy: {
-      allowed: ['ownerName'],
-      // @ts-expect-error unknown nested keys should fail at declaration time
-      fallback: 'ownerName',
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: {
-      createdAt: {type: 'date'},
-      ownerName: {
-        // @ts-expect-error existing raw keys should not accept derived column definitions
-        kind: 'derived',
-        type: 'category',
-        // @ts-expect-error raw field schemas should reject derived-only accessors
-        accessor: () => 'Owner',
-      },
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: {
-      createdAt: {type: 'date'},
-      derivedMetric: {
-        kind: 'derived',
-        type: 'number',
-        label: 'Derived Metric',
-        accessor: (row: ExampleRecord) => row.salary ?? 0,
-        // @ts-expect-error derived column definitions should reject unknown nested keys
-        fallback: 1,
-      },
-    },
-  })
-
-  defineChartSchema<ExampleRecord>()({
-    columns: {
-      createdAt: {type: 'date'},
-      // @ts-expect-error derived columns should require an explicit label
-      missingLabel: {
-        kind: 'derived',
-        type: 'category',
-        accessor: (): string => 'Missing',
-      },
-    },
-  })
+  // @ts-expect-error metric restrictions should keep undeclared aggregates out of the setter type
+  chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'min'})
 }
 
 function verifyGeneralizedSchemaTyping() {
-  const generalizedSchema = defineChartSchema<ExampleRecord>()({
-    columns: exampleSchema.columns,
-    xAxis: {
-      allowed: ['createdAt', 'ownerName', 'marginBucket'],
-      hidden: ['ownerName'],
-      default: 'createdAt',
-    },
-    groupBy: {
-      allowed: ['ownerName', 'isOpen', 'marginBucket'],
-      hidden: ['ownerName'],
-      default: 'isOpen',
-    },
-    filters: {
-      allowed: ['ownerName', 'isOpen', 'marginBucket'],
-      hidden: ['isOpen'],
-    },
-    metric: {
-      allowed: [
-        {kind: 'aggregate', columnId: 'salary', aggregate: ['sum', 'avg']},
-      ],
-      hidden: [{kind: 'aggregate', columnId: 'salary', aggregate: 'avg'}],
-      default: {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
-    },
-    chartType: {
-      allowed: ['line', 'area'],
-      hidden: ['line'],
-      default: 'area',
-    },
-    timeBucket: {
-      allowed: ['quarter', 'year'],
-      hidden: ['year'],
-      default: 'quarter',
-    },
-  })
+  const generalizedSchema = exampleSchemaBuilder
+    .xAxis((x) => x.allowed('createdAt', 'ownerName', 'marginBucket').hidden('ownerName').default('createdAt'))
+    .groupBy((g) => g.allowed('ownerName', 'isOpen', 'marginBucket').hidden('ownerName').default('isOpen'))
+    .filters((f) => f.allowed('ownerName', 'isOpen', 'marginBucket').hidden('isOpen'))
+    .metric((m) =>
+      m
+        .aggregate('salary', 'sum', 'avg')
+        .hideAggregate('salary', 'avg')
+        .defaultAggregate('salary', 'sum')
+    )
+    .chartType((t) => t.allowed('line', 'area').hidden('line').default('area'))
+    .timeBucket((tb) => tb.allowed('quarter', 'year').hidden('year').default('quarter'))
+    .build()
 
   const chart = useChart({
     data: [] as ExampleRecord[],
@@ -346,9 +234,9 @@ function verifyGeneralizedSchemaTyping() {
   chart.setTimeBucket('quarter')
 
   chart.setXAxis('ownerName')
-  // @ts-expect-error groupBy restrictions should keep undeclared IDs out of the setter type
+  // @ts-expect-error groupBy restrictions should keep undeclared ids out of the setter type
   chart.setGroupBy('createdAt')
-  // @ts-expect-error filter restrictions should keep undeclared IDs out of the filter setter type
+  // @ts-expect-error filter restrictions should keep undeclared ids out of the filter setter type
   chart.toggleFilter('createdAt', '2026-01-01')
   // @ts-expect-error metric restrictions should keep undeclared aggregates out of the setter type
   chart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'min'})
@@ -363,9 +251,6 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema() {
     data: [] as ExampleRecord[],
   })
 
-  // Without explicit schema.columns.type values, compile-time typing stays broad
-  // enough to reflect the runtime inference story rather than pretending the
-  // final runtime column roles are already known.
   chart.setXAxis('createdAt')
   chart.setXAxis('ownerName')
   chart.setXAxis('salary')
@@ -373,17 +258,12 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema() {
   chart.toggleFilter('createdAt', '2026-01-01')
   chart.setReferenceDateId('salary')
 
-  // Schema remains the authoritative narrowing layer when present.
   const restrictedChart = useChart({
     data: [] as ExampleRecord[],
-    schema: defineChartSchema<ExampleRecord>()({
-      groupBy: {
-        allowed: ['ownerName'],
-      },
-      metric: {
-        allowed: [{kind: 'count'}],
-      },
-    }),
+    schema: defineChartSchema<ExampleRecord>()
+      .groupBy((g) => g.allowed('ownerName'))
+      .metric((m) => m.count())
+      .build(),
   })
 
   restrictedChart.setGroupBy('ownerName')
@@ -395,9 +275,8 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema() {
   restrictedChart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
 }
 
+void verifyBuilderTyping
 void verifyUseChartColumnIds
 void verifyToolRestrictionsTyping
-void verifySchemaTypechecks
-void verifyDeclarationTimeSchemaFailures
 void verifyGeneralizedSchemaTyping
 void verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema
