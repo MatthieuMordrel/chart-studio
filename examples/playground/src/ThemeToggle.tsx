@@ -465,7 +465,7 @@ function buildCssPreview(themeName: string, mode: Mode, radius: number): string 
 export function ThemeToggle() {
   const [mode, setMode] = useState<Mode>(() => getStored(MODE_KEY, 'light'))
   const [radius, setRadius] = useState(() => getStoredNumber(RADIUS_KEY, 0.25))
-  const [themeName, setThemeName] = useState(() => getStored(THEME_KEY, 'default'))
+  const [themeName, setThemeName] = useState<string>(() => getStored(THEME_KEY, 'default'))
   const [open, setOpen] = useState(false)
   const [showCss, setShowCss] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)

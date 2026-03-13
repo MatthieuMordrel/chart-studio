@@ -1,10 +1,23 @@
+import path from 'node:path'
 import {fileURLToPath, URL} from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
+import type {Plugin} from 'vite'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('.', import.meta.url))
+const librarySrc = path.resolve(repoRoot, 'src')
+
+/** Explicitly watch the library source directory so HMR works for files outside the Vite root. */
+function watchLibrarySource(): Plugin {
+  return {
+    name: 'watch-library-source',
+    configureServer(server) {
+      server.watcher.add(librarySrc)
+    },
+  }
+}
 
 /**
  * Vite configuration for the local playground.
@@ -12,7 +25,7 @@ const playgroundRoot = fileURLToPath(new URL('.', import.meta.url))
  * show up immediately without rebuilding the library first.
  */
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), watchLibrarySource()],
   resolve: {
     dedupe: ['react', 'react-dom'],
     alias: [
@@ -57,9 +70,6 @@ export default defineConfig({
     fs: {
       allow: [repoRoot, playgroundRoot],
     },
-    watch: {
-      // Ensure Vite watches the library source outside the playground root.
-      ignored: ['!**/src/**'],
-    },
+    watch: {},
   },
 })

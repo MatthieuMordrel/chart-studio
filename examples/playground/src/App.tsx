@@ -66,14 +66,14 @@ function App() {
         <header className='flex flex-col gap-4'>
           <div className='flex flex-wrap items-center justify-between gap-3'>
             {/* Scenario tab navigation */}
-            <div className='inline-flex items-center gap-0.5 rounded-full border border-border bg-card p-1 shadow-sm'>
+            <div className='inline-flex items-center gap-0.5 rounded-lg border border-border/50 bg-background p-0.5 shadow-sm'>
               {SCENARIOS.map(s => (
                 <button
                   key={s.id}
                   type='button'
                   onClick={() => setScenarioId(s.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                    scenarioId === s.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                    scenarioId === s.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
                   }`}>
                   {s.label}
                 </button>

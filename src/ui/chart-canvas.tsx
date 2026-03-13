@@ -602,6 +602,7 @@ function BarChartRenderer(props: RendererProps) {
             dataKey={s.dataKey}
             name={s.label}
             fill={s.color}
+            fillOpacity={0.7}
             radius={isTop ? [barRadius, barRadius, 0, 0] : 0}
             stackId={isStacked ? 'stack' : undefined}
           >
@@ -729,7 +730,7 @@ function PercentAreaChartRenderer(props: RendererProps) {
           name={s.label}
           stroke={s.color}
           fill={s.color}
-          fillOpacity={0.8}
+          fillOpacity={0.3}
           stackId="percent"
         />
       ))}
@@ -750,6 +751,7 @@ function GroupedBarChartRenderer(props: RendererProps) {
           dataKey={s.dataKey}
           name={s.label}
           fill={s.color}
+          fillOpacity={0.7}
           radius={[barRadius, barRadius, 0, 0]}
         >
           {showDataLabels && (
@@ -817,6 +819,7 @@ function PercentBarChartRenderer(props: RendererProps) {
             dataKey={s.dataKey}
             name={s.label}
             fill={s.color}
+            fillOpacity={0.7}
             radius={isTop ? [barRadius, barRadius, 0, 0] : 0}
             stackId="percent"
           />
