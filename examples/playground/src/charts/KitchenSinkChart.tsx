@@ -108,7 +108,7 @@ export function KitchenSinkChart() {
               <ChartToolbar pinned={pinned} hidden={hidden} />
             </div>
             <div className='border-t border-border p-4'>
-              <ChartCanvas height={360} showDataLabels={true} />
+              <ChartCanvas height={360} showDataLabels={'auto'} />
             </div>
             <div className='border-t border-border/60 bg-card/40 px-4 py-3'>
               <pre className='overflow-x-auto font-mono text-xs leading-relaxed text-muted-foreground'>

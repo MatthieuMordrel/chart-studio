@@ -112,7 +112,7 @@ export function resolvePresetFilter(
   timeBucket: TimeBucket,
 ): DateRangeFilter | null {
   if (presetId === 'auto') {
-    return autoFilterForBucket(timeBucket)
+    return autoFilterForBucket(timeBucket) ?? null
   }
 
   const preset = DATE_RANGE_PRESETS.find((p) => p.id === presetId)

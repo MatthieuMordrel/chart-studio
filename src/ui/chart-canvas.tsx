@@ -32,6 +32,7 @@ import {
 import {useChartContext} from './chart-context.js'
 import {getSeriesColor} from '../core/colors.js'
 import type {ChartColumn} from '../core/types.js'
+import {resolveShowDataLabels, DATA_LABEL_DEFAULTS, type DataLabelStyle} from '../core/data-label-defaults.js'
 import {selectVisibleXAxisTicks} from './chart-axis-ticks.js'
 import {getPercentStackedDisplayValue} from './percent-stacked.js'
 
@@ -184,15 +185,21 @@ function getXAxisTickValue(point: Record<string, string | number | null>): strin
  *
  * @property height - Chart height in pixels (default: 300)
  * @property className - Additional CSS classes
- * @property showDataLabels - Opt into cartesian/pie value labels using the shared formatting rules.
+ * @property showDataLabels - Control data label visibility: `true`/`false` for explicit control,
+ *   or `'auto'` (default) to let {@link DATA_LABEL_DEFAULTS} decide per chart type and time bucket.
  */
 type ChartCanvasProps = {
   /** Chart height in pixels (default: 300) */
   height?: number
   /** Additional CSS classes */
   className?: string
-  /** Will show labels using the shared formatting rules. (default: false) */
-  showDataLabels?: boolean
+  /**
+   * Control data label visibility.
+   * - `true`  — always show
+   * - `false` — always hide
+   * - `'auto'` — resolved from {@link DATA_LABEL_DEFAULTS} per chart type and time bucket
+   */
+  showDataLabels?: boolean | 'auto'
 }
 
 /**
@@ -300,11 +307,15 @@ function useCssBarRadius(): number {
 /** Renders the appropriate recharts chart based on the chart instance state.
  * @param height - Chart height in pixels (default: 300)
  * @param className - Additional CSS classes
- * @param showDataLabels - Opt into cartesian/pie value labels using the shared formatting rules.
+ * @param showDataLabels - Control data label visibility: `true`/`false` for explicit control,
+ *   or `'auto'` (default) to let {@link DATA_LABEL_DEFAULTS} decide per chart type and time bucket.
  */
-export function ChartCanvas({height = 300, className, showDataLabels = false}: ChartCanvasProps) {
+export function ChartCanvas({height = 300, className, showDataLabels = 'auto'}: ChartCanvasProps) {
   const chart = useChartContext()
   const {chartType, transformedData, series, connectNulls} = chart
+  const timeBucket = chart.isTimeSeries ? chart.timeBucket : undefined
+  const resolvedShowDataLabels = resolveShowDataLabels(chartType, timeBucket, showDataLabels)
+  const dataLabelStyle = DATA_LABEL_DEFAULTS[chartType].style
   const {ref, width} = useContainerWidth()
   const xColumn = chart.columns.find((column) => column.id === chart.xAxisId) ?? null
   const aggregateMetric = chart.metric.kind === 'aggregate' ? chart.metric : null
@@ -348,8 +359,9 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             valueRange={valueRange}
             allowDecimalTicks={allowDecimalTicks}
             xColumn={xColumn}
-            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
-            showDataLabels={showDataLabels}
+            timeBucket={timeBucket}
+            showDataLabels={resolvedShowDataLabels}
+            dataLabelStyle={dataLabelStyle}
             connectNulls={connectNulls}
           />
         ) : chartType === 'line' ? (
@@ -362,8 +374,9 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             valueRange={valueRange}
             allowDecimalTicks={allowDecimalTicks}
             xColumn={xColumn}
-            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
-            showDataLabels={showDataLabels}
+            timeBucket={timeBucket}
+            showDataLabels={resolvedShowDataLabels}
+            dataLabelStyle={dataLabelStyle}
             connectNulls={connectNulls}
           />
         ) : chartType === 'percent-area' ? (
@@ -376,8 +389,9 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             valueRange={valueRange}
             allowDecimalTicks={allowDecimalTicks}
             xColumn={xColumn}
-            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
-            showDataLabels={showDataLabels}
+            timeBucket={timeBucket}
+            showDataLabels={resolvedShowDataLabels}
+            dataLabelStyle={dataLabelStyle}
             connectNulls={connectNulls}
           />
         ) : chartType === 'area' ? (
@@ -390,8 +404,9 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             valueRange={valueRange}
             allowDecimalTicks={allowDecimalTicks}
             xColumn={xColumn}
-            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
-            showDataLabels={showDataLabels}
+            timeBucket={timeBucket}
+            showDataLabels={resolvedShowDataLabels}
+            dataLabelStyle={dataLabelStyle}
             connectNulls={connectNulls}
           />
         ) : chartType === 'grouped-bar' ? (
@@ -404,8 +419,9 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             valueRange={valueRange}
             allowDecimalTicks={allowDecimalTicks}
             xColumn={xColumn}
-            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
-            showDataLabels={showDataLabels}
+            timeBucket={timeBucket}
+            showDataLabels={resolvedShowDataLabels}
+            dataLabelStyle={dataLabelStyle}
             connectNulls={connectNulls}
           />
         ) : chartType === 'percent-bar' ? (
@@ -418,8 +434,9 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             valueRange={valueRange}
             allowDecimalTicks={allowDecimalTicks}
             xColumn={xColumn}
-            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
-            showDataLabels={showDataLabels}
+            timeBucket={timeBucket}
+            showDataLabels={resolvedShowDataLabels}
+            dataLabelStyle={dataLabelStyle}
             connectNulls={connectNulls}
           />
         ) : (
@@ -432,8 +449,9 @@ export function ChartCanvas({height = 300, className, showDataLabels = false}: C
             valueRange={valueRange}
             allowDecimalTicks={allowDecimalTicks}
             xColumn={xColumn}
-            timeBucket={chart.isTimeSeries ? chart.timeBucket : undefined}
-            showDataLabels={showDataLabels}
+            timeBucket={timeBucket}
+            showDataLabels={resolvedShowDataLabels}
+            dataLabelStyle={dataLabelStyle}
             connectNulls={connectNulls}
           />
         ))}
@@ -467,6 +485,7 @@ type RendererProps = {
   xColumn: ChartColumn<any> | null
   timeBucket?: 'day' | 'week' | 'month' | 'quarter' | 'year'
   showDataLabels: boolean
+  dataLabelStyle: DataLabelStyle
   connectNulls: boolean
 }
 
@@ -640,7 +659,7 @@ function formatXAxisValue(
 }
 
 function BarChartRenderer(props: RendererProps) {
-  const {series, showDataLabels, valueColumn, valueRange} = props
+  const {series, showDataLabels, dataLabelStyle, valueColumn, valueRange} = props
   const barRadius = useCssBarRadius()
   const isStacked = series.length > 1
   const topSeriesKey = series[series.length - 1]?.dataKey
@@ -663,8 +682,8 @@ function BarChartRenderer(props: RendererProps) {
           >
             {showDataLabels && (
               <LabelList
-                position="top"
-                offset={8}
+                position={dataLabelStyle.position}
+                offset={dataLabelStyle.offset}
                 formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
               />
             )}
@@ -676,7 +695,7 @@ function BarChartRenderer(props: RendererProps) {
 }
 
 function LineChartRenderer(props: RendererProps) {
-  const {showDataLabels, valueColumn, valueRange, connectNulls} = props
+  const {showDataLabels, dataLabelStyle, valueColumn, valueRange, connectNulls} = props
   return (
     <CartesianChartShell
       {...props}
@@ -695,8 +714,8 @@ function LineChartRenderer(props: RendererProps) {
         >
           {showDataLabels && (
             <LabelList
-              position="top"
-              offset={8}
+              position={dataLabelStyle.position}
+              offset={dataLabelStyle.offset}
               formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
             />
           )}
@@ -707,7 +726,7 @@ function LineChartRenderer(props: RendererProps) {
 }
 
 function AreaChartRenderer(props: RendererProps) {
-  const {showDataLabels, valueColumn, valueRange, connectNulls} = props
+  const {showDataLabels, dataLabelStyle, valueColumn, valueRange, connectNulls} = props
   return (
     <CartesianChartShell
       {...props}
@@ -725,8 +744,8 @@ function AreaChartRenderer(props: RendererProps) {
         >
           {showDataLabels && (
             <LabelList
-              position="top"
-              offset={8}
+              position={dataLabelStyle.position}
+              offset={dataLabelStyle.offset}
               formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
             />
           )}
@@ -737,7 +756,7 @@ function AreaChartRenderer(props: RendererProps) {
 }
 
 function PercentAreaChartRenderer(props: RendererProps) {
-  const {series, data, xColumn, timeBucket, showDataLabels, connectNulls, width, height} = props
+  const {series, data, xColumn, timeBucket, showDataLabels, dataLabelStyle, connectNulls, width, height} = props
   const seriesKeys = series.map((s) => s.dataKey)
   const tooltipItemSorter = createStackedTooltipItemSorter(series)
 
@@ -803,8 +822,8 @@ function PercentAreaChartRenderer(props: RendererProps) {
         >
           {showDataLabels && (
             <LabelList
-              position="top"
-              offset={8}
+              position={dataLabelStyle.position}
+              offset={dataLabelStyle.offset}
               valueAccessor={(entry) => getPercentStackedDisplayValue(entry, s.dataKey, seriesKeys) ?? 0}
               formatter={(value: unknown) => formatDataLabel(value, PERCENT_STACKED_COLUMN, PERCENT_STACKED_RANGE)}
             />
@@ -816,7 +835,7 @@ function PercentAreaChartRenderer(props: RendererProps) {
 }
 
 function GroupedBarChartRenderer(props: RendererProps) {
-  const {showDataLabels, valueColumn, valueRange} = props
+  const {showDataLabels, dataLabelStyle, valueColumn, valueRange} = props
   const barRadius = useCssBarRadius()
   return (
     <CartesianChartShell
@@ -833,8 +852,8 @@ function GroupedBarChartRenderer(props: RendererProps) {
         >
           {showDataLabels && (
             <LabelList
-              position="top"
-              offset={8}
+              position={dataLabelStyle.position}
+              offset={dataLabelStyle.offset}
               formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
             />
           )}
@@ -845,7 +864,7 @@ function GroupedBarChartRenderer(props: RendererProps) {
 }
 
 function PercentBarChartRenderer(props: RendererProps) {
-  const {series, data, xColumn, timeBucket, showDataLabels, width, height} = props
+  const {series, data, xColumn, timeBucket, showDataLabels, dataLabelStyle, width, height} = props
   const barRadius = useCssBarRadius()
   const topSeriesKey = series[series.length - 1]?.dataKey
   const seriesKeys = series.map((s) => s.dataKey)
@@ -912,8 +931,8 @@ function PercentBarChartRenderer(props: RendererProps) {
           >
             {showDataLabels && (
               <LabelList
-                position="top"
-                offset={8}
+                position={dataLabelStyle.position}
+                offset={dataLabelStyle.offset}
                 valueAccessor={(entry) => getPercentStackedDisplayValue(entry, s.dataKey, seriesKeys) ?? 0}
                 formatter={(value: unknown) => formatDataLabel(value, PERCENT_STACKED_COLUMN, PERCENT_STACKED_RANGE)}
               />

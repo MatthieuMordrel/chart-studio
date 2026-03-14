@@ -1,16 +1,18 @@
 import { useState } from 'react'
+import { DashboardChart } from './charts/DashboardChart'
 import { HeadlessChart } from './charts/HeadlessChart'
 import { KitchenSinkChart } from './charts/KitchenSinkChart'
 import { MinimalChart } from './charts/MinimalChart'
 import { SingleSourceChart } from './charts/SingleSourceChart'
 import { CodePanel } from './CodePanel'
+import dashboardSource from './charts/DashboardChart.tsx?raw'
 import headlessSource from './charts/HeadlessChart.tsx?raw'
 import kitchenSinkSource from './charts/KitchenSinkChart.tsx?raw'
 import minimalSource from './charts/MinimalChart.tsx?raw'
 import singleSourceSource from './charts/SingleSourceChart.tsx?raw'
 import { ThemeToggle } from './ThemeToggle'
 
-type ScenarioId = 'kitchen-sink' | 'single-source' | 'minimal' | 'headless'
+type ScenarioId = 'kitchen-sink' | 'single-source' | 'minimal' | 'dashboard' | 'headless'
 
 const SCENARIOS = [
   {
@@ -35,6 +37,13 @@ const SCENARIOS = [
       'so chart type, time bucket, and group by stay visible while the rest remain in overflow.'
   },
   {
+    id: 'dashboard' as const,
+    label: 'Dashboard',
+    description:
+      'Four focused charts from a single dataset, each with its own schema restricting axes, chart types, ' +
+      'and metrics. Shows how defineChartSchema locks down controls to convey a specific data story.'
+  },
+  {
     id: 'headless' as const,
     label: 'Headless Core',
     description:
@@ -48,6 +57,7 @@ const SCENARIO_SOURCE: Record<ScenarioId, string> = {
   'kitchen-sink': kitchenSinkSource,
   'single-source': singleSourceSource,
   minimal: minimalSource,
+  dashboard: dashboardSource,
   headless: headlessSource
 }
 
@@ -89,6 +99,7 @@ function App() {
         {scenarioId === 'kitchen-sink' && <KitchenSinkChart />}
         {scenarioId === 'single-source' && <SingleSourceChart />}
         {scenarioId === 'minimal' && <MinimalChart />}
+        {scenarioId === 'dashboard' && <DashboardChart />}
         {scenarioId === 'headless' && <HeadlessChart />}
 
         <CodePanel source={SCENARIO_SOURCE[scenarioId]} />

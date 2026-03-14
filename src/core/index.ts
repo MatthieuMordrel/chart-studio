@@ -5,6 +5,8 @@
  */
 
 export {CHART_TYPE_CONFIG} from './chart-capabilities.js'
+export {DATA_LABEL_DEFAULTS, resolveShowDataLabels} from './data-label-defaults.js'
+export type {DataLabelDefaults, DataLabelStyle, DataLabelPosition} from './data-label-defaults.js'
 export {getSeriesColor, buildColorMap} from './colors.js'
 export {DATE_RANGE_PRESETS, autoFilterForBucket, resolvePresetFilter, getPresetLabel} from './date-range-presets.js'
 export type {DateRangePreset} from './date-range-presets.js'
