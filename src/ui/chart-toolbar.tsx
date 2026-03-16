@@ -1,6 +1,6 @@
 /**
  * Composable, configurable toolbar with pinned controls and an ellipsis
- * overflow menu — inspired by Notion's clean database view toolbar.
+ * overflow menu
  *
  * Default behavior: the date range stays pinned so the active time window is
  * always visible, while the remaining controls live inside the overflow menu.

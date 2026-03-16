@@ -307,8 +307,7 @@ function useCssBarRadius(): number {
 /** Renders the appropriate recharts chart based on the chart instance state.
  * @param height - Chart height in pixels (default: 300)
  * @param className - Additional CSS classes
- * @param showDataLabels - Control data label visibility: `true`/`false` for explicit control,
- *   or `'auto'` (default) to let {@link DATA_LABEL_DEFAULTS} decide per chart type and time bucket.
+ * @param showDataLabels - Control data label visibility: `true`/`false` for explicit control, or `'auto'` (default) to let {@link DATA_LABEL_DEFAULTS} decide per chart type and time bucket.
  */
 export function ChartCanvas({height = 300, className, showDataLabels = 'auto'}: ChartCanvasProps) {
   const chart = useChartContext()
