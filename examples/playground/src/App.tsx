@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { DatasetModelChart } from './charts/DatasetModelChart'
 import { DashboardChart } from './charts/DashboardChart'
 import { HeadlessChart } from './charts/HeadlessChart'
-import { InferredDashboardChart } from './charts/InferredDashboardChart'
 import { KitchenSinkChart } from './charts/KitchenSinkChart'
 import { MinimalChart } from './charts/MinimalChart'
 import { SingleSourceChart } from './charts/SingleSourceChart'
@@ -11,7 +10,6 @@ import { CodePanel } from './CodePanel'
 import datasetModelSource from './charts/DatasetModelChart.tsx?raw'
 import dashboardSource from './charts/DashboardChart.tsx?raw'
 import headlessSource from './charts/HeadlessChart.tsx?raw'
-import inferredDashboardSource from './charts/InferredDashboardChart.tsx?raw'
 import kitchenSinkSource from './charts/KitchenSinkChart.tsx?raw'
 import minimalSource from './charts/MinimalChart.tsx?raw'
 import singleSourceSource from './charts/SingleSourceChart.tsx?raw'
@@ -25,7 +23,6 @@ type ScenarioId =
   | 'minimal'
   | 'headless'
   | 'dataset-model'
-  | 'inferred-dashboard'
   | 'typed-inferred-dashboard'
 
 type ScenarioGroup = {
@@ -85,15 +82,7 @@ const SCENARIO_GROUPS: ReadonlyArray<ScenarioGroup> = [
     label: 'Dashboards',
     hook: 'useDashboard',
     scenarios: [
-      {
-        id: 'inferred-dashboard' as const,
-        label: 'Inferred Dashboard',
-        title: 'Inferred Dashboard API — owner.name Without Manual Plumbing',
-        description:
-          'Pass jobs, owners, and candidates directly into createDashboard(...), get owner lookups and one shared owner filter inferred, ' +
-          'and chart with owner.name without authoring defineDataModel(...), relationship(...), attribute(...), or a lookup materialized view by hand.'
-      },
-      {
+{
         id: 'typed-inferred-dashboard' as const,
         label: 'Typed + Inferred',
         title: 'School Dashboard — Typed Datasets, Inferred Relationships',
@@ -121,7 +110,6 @@ const SCENARIO_SOURCE: Record<ScenarioId, string> = {
   'single-source': singleSourceSource,
   'schema-restricted': dashboardSource,
   'dataset-model': datasetModelSource,
-  'inferred-dashboard': inferredDashboardSource,
   'typed-inferred-dashboard': typedInferredDashboardSource,
   minimal: minimalSource,
   headless: headlessSource
@@ -181,7 +169,6 @@ function App() {
         {scenarioId === 'minimal' && <MinimalChart />}
         {scenarioId === 'headless' && <HeadlessChart />}
         {scenarioId === 'dataset-model' && <DatasetModelChart />}
-        {scenarioId === 'inferred-dashboard' && <InferredDashboardChart />}
         {scenarioId === 'typed-inferred-dashboard' && <TypedInferredDashboardChart />}
 
         <CodePanel source={SCENARIO_SOURCE[scenarioId]} />
