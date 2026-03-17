@@ -238,6 +238,55 @@ export function extractAvailableFilters<T, TColumnId extends string>(
 }
 
 /**
+ * Recompute option counts using cross-filtering: for each column, apply filters
+ * from all *other* columns, then count. This keeps same-column options from
+ * zeroing each other out while still reflecting the impact of other filters.
+ *
+ * @param baseFilters - The available filters with labels and original ordering
+ * @param data - Data already filtered by date range (effectiveData)
+ * @param columns - All column definitions
+ * @param activeFilters - The user's current filter selections
+ * @returns A new array of AvailableFilter with updated counts
+ */
+export function computeFilteredCounts<T, TColumnId extends string>(
+  baseFilters: readonly AvailableFilter<TColumnId>[],
+  data: readonly T[],
+  columns: readonly ChartColumn<T, TColumnId>[],
+  activeFilters: FilterState<TColumnId>,
+): AvailableFilter<TColumnId>[] {
+  if (activeFilters.size === 0) return baseFilters as AvailableFilter<TColumnId>[]
+
+  return baseFilters.map((filter) => {
+    // Build a filter state excluding the current column
+    const otherFilters: FilterState<TColumnId> = new Map(
+      [...activeFilters].filter(([columnId]) => columnId !== filter.columnId),
+    )
+
+    // Apply only the other filters to get the cross-filtered dataset
+    const crossFiltered = applyFilters(data, columns, otherFilters)
+
+    // Find the column definition for counting
+    const column = columns.find((c) => c.id === filter.columnId)
+    if (!column) return filter
+
+    // Recount each option in the cross-filtered data
+    const countMap = new Map<string, number>()
+    for (const item of crossFiltered) {
+      const value = getStringValue(item, column)
+      countMap.set(value, (countMap.get(value) ?? 0) + 1)
+    }
+
+    return {
+      ...filter,
+      options: filter.options.map((option) => ({
+        ...option,
+        count: countMap.get(option.value) ?? 0,
+      })),
+    }
+  })
+}
+
+/**
  * Derive one human-facing filter option label from the typed column value while
  * keeping the underlying filter state keyed by the stable string value.
  */

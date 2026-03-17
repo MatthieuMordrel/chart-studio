@@ -5,7 +5,7 @@ import { computeDateRange, filterByDateRange } from './date-utils.js'
 import { resolvePresetFilter, type DateRangePresetId } from './date-range-presets.js'
 import { inferColumnsFromData } from './infer-columns.js'
 import { buildAvailableMetrics, isSameMetric, resolveMetric, restrictAvailableMetrics } from './metric-utils.js'
-import { applyFilters, extractAvailableFilters, runPipeline } from './pipeline.js'
+import { applyFilters, computeFilteredCounts, extractAvailableFilters, runPipeline } from './pipeline.js'
 import { resolveChartSchemaDefinition } from './schema-builder.js'
 import type {
   AvailableFilter,
@@ -304,7 +304,7 @@ export function useChart(
     return filterByDateRange(rawData, column, dateRangeFilter)
   }, [rawData, dateRangeFilter, dateColumns, referenceDateId])
 
-  const availableFilters = useMemo(
+  const baseAvailableFilters = useMemo(
     () => {
       const extractedFilters = extractAvailableFilters(effectiveData, activeColumns)
       const selectableFilters = extractedFilters.map(filter => ({
@@ -317,14 +317,20 @@ export function useChart(
     [effectiveData, activeColumns, activeSource.schema]
   )
   const availableFilterValues = useMemo(
-    () => createAvailableFilterValueMap(availableFilters),
-    [availableFilters]
+    () => createAvailableFilterValueMap(baseAvailableFilters),
+    [baseAvailableFilters]
   )
   const filterColumns = useMemo(
-    () => activeColumns.filter(column => availableFilters.some(filter => filter.columnId === column.id)),
-    [activeColumns, availableFilters]
+    () => activeColumns.filter(column => baseAvailableFilters.some(filter => filter.columnId === column.id)),
+    [activeColumns, baseAvailableFilters]
   )
   const resolvedFilters = useMemo(() => sanitizeFilters(filters, filterColumns), [filters, filterColumns])
+
+  // Cross-filtered counts: for each column, counts reflect filters on all *other* columns
+  const availableFilters = useMemo(
+    () => computeFilteredCounts(baseAvailableFilters, effectiveData, activeColumns, resolvedFilters),
+    [baseAvailableFilters, effectiveData, activeColumns, resolvedFilters]
+  )
 
   const pipelineResult = useMemo(() => {
     if (!resolvedXAxisId) return { data: [], series: [], groups: [] }
