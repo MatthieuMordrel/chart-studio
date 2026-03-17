@@ -129,6 +129,33 @@ export function ChartFiltersPanel({
           />
         ))}
       </div>
+
+      {/* Active filter badges — rendered at bottom so content above never shifts */}
+      {activeCount > 0 && (
+        <div className="mt-2 border-t border-border/40 pt-2">
+          <div className="flex flex-wrap gap-1">
+            {availableFilters.flatMap((filter) => {
+              const activeValues = filters.get(filter.columnId)
+              if (!activeValues?.size) return []
+              return [...activeValues].map((value) => {
+                const option = filter.options.find((o) => o.value === value)
+                return (
+                  <button
+                    key={`${filter.columnId}-${value}`}
+                    onClick={() => toggleFilter(filter.columnId, value)}
+                    className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
+                  >
+                    <span className="max-w-[10rem] truncate">
+                      {filter.label}: {option?.label ?? value}
+                    </span>
+                    <X className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                  </button>
+                )
+              })
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
