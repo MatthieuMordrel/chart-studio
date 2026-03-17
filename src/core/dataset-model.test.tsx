@@ -470,13 +470,12 @@ describe('data model builder', () => {
 
     const jobsByOwner = model.chart('jobsByOwner', (chart) =>
       chart
-        .from('jobs')
-        .xAxis((x) => x.allowed('createdAt', 'owner.name').default('owner.name'))
-        .filters((f) => f.allowed('owner.region'))
+        .xAxis((x) => x.allowed('jobs.createdAt', 'jobs.owner.name').default('jobs.owner.name'))
+        .filters((f) => f.allowed('jobs.owner.region'))
         .metric((m) =>
           m
-            .aggregate('salary', 'avg')
-            .defaultAggregate('salary', 'avg'))
+            .aggregate('jobs.salary', 'avg')
+            .defaultAggregate('jobs.salary', 'avg'))
         .chartType((t) => t.allowed('bar').default('bar')),
     )
 
@@ -528,6 +527,35 @@ describe('data model builder', () => {
       'ownerName',
       'ownerRegion',
     ])
+  })
+
+  it('rejects model charts that mix multiple qualified base datasets without an explicit .from(...)', () => {
+    const model = defineDataModel()
+      .dataset('jobs', defineDataset<JobRow>()
+        .key('id')
+        .columns((c) => [
+          c.date('createdAt'),
+          c.number('salary'),
+        ]))
+      .dataset('owners', defineDataset<OwnerRow>()
+        .key('id')
+        .columns((c) => [
+          c.category('name'),
+        ]))
+      .infer({
+        relationships: true,
+        attributes: true,
+      })
+
+    expect(() =>
+      model.chart('mixedBaseChart', (chart) =>
+        chart
+          .xAxis((x) => x.allowed('jobs.createdAt', 'owners.name').default('jobs.createdAt'))
+          .metric((m) => m.count()),
+      ),
+    ).toThrow(
+      'Model chart "mixedBaseChart" references multiple base datasets (jobs, owners). Add .from(datasetId) with relative fields, or keep all qualified fields anchored to one dataset.',
+    )
   })
 
   it('materializes lookup views explicitly and reuses declared related-table columns', () => {

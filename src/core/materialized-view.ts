@@ -591,17 +591,30 @@ function buildMaterializedColumns(
   steps: readonly MaterializationStep[],
 ): Record<string, unknown> | undefined {
   const baseDataset = model.datasets[baseDatasetId]!
-  const nextColumns: Record<string, unknown> = {
-    ...(baseDataset.columns ?? {}),
+  const baseColumns = baseDataset.columns ?? {}
+
+  // Separate raw and derived base columns, filtering out excluded (false) entries
+  const nextColumns: Record<string, unknown> = {}
+  const derivedColumns: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(baseColumns)) {
+    if (value === false) continue
+    if (value && typeof value === 'object' && 'kind' in value && value.kind === 'derived') {
+      derivedColumns[key] = value
+    } else {
+      nextColumns[key] = value
+    }
   }
 
+  // Add projected columns from joins
   steps.forEach((step) => {
     const targetDataset = model.datasets[step.targetDatasetId]!
 
     step.projectedColumns.forEach((columnId) => {
       const outputId = buildProjectedId(step.alias, columnId)
 
-      if (Object.prototype.hasOwnProperty.call(nextColumns, outputId)) {
+      if (Object.prototype.hasOwnProperty.call(nextColumns, outputId) ||
+          Object.prototype.hasOwnProperty.call(derivedColumns, outputId)) {
         throw new Error(
           `Materialized view projection "${outputId}" collides with an existing output field. Choose a different alias or projected column set.`,
         )
@@ -610,6 +623,9 @@ function buildMaterializedColumns(
       nextColumns[outputId] = buildProjectedColumnConfig(step.alias, targetDataset, columnId)
     })
   })
+
+  // Append derived columns after joined columns
+  Object.assign(nextColumns, derivedColumns)
 
   return Object.keys(nextColumns).length > 0 ? nextColumns : undefined
 }

@@ -18,6 +18,7 @@ import type {
 import {resolveRelationshipAlias} from './model-inference.js'
 import type {
   CompileModelChartDefinition,
+  InferredModelChartBuilder,
   ModelChartBuilder,
   ModelChartStartBuilder,
 } from './model-chart.types.js'
@@ -65,6 +66,42 @@ function getModelChartState<TBuilder>(
   builder: TBuilder,
 ): ModelChartRuntimeState {
   return (builder as Record<PropertyKey, unknown>)[MODEL_CHART_STATE] as ModelChartRuntimeState
+}
+
+function getQualifiedBaseDatasetId(
+  model: AnyDefinedDataModel,
+  fieldId: string,
+): string | undefined {
+  const [datasetId, ...rest] = fieldId.split('.')
+  if (!datasetId || rest.length === 0) {
+    return undefined
+  }
+
+  return datasetId in model.datasets ? datasetId : undefined
+}
+
+function inferBaseDatasetId(
+  model: AnyDefinedDataModel,
+  chartId: string,
+  fieldIds: readonly string[],
+): string | undefined {
+  const baseDatasetIds = [...new Set(
+    fieldIds
+      .map(fieldId => getQualifiedBaseDatasetId(model, fieldId))
+      .filter((datasetId): datasetId is string => !!datasetId),
+  )]
+
+  if (baseDatasetIds.length === 0) {
+    return undefined
+  }
+
+  if (baseDatasetIds.length > 1) {
+    throw new Error(
+      `Model chart "${chartId}" references multiple base datasets (${baseDatasetIds.join(', ')}). Add .from(datasetId) with relative fields, or keep all qualified fields anchored to one dataset.`,
+    )
+  }
+
+  return baseDatasetIds[0]
 }
 
 function indexLookupRelationships(
@@ -127,6 +164,25 @@ function resolveChartField(
       columnId,
     },
   }
+}
+
+function normalizeFieldId(
+  model: AnyDefinedDataModel,
+  baseDatasetId: string,
+  fieldId: string,
+): string {
+  const qualifiedBaseDatasetId = getQualifiedBaseDatasetId(model, fieldId)
+  if (!qualifiedBaseDatasetId) {
+    return fieldId
+  }
+
+  if (qualifiedBaseDatasetId !== baseDatasetId) {
+    throw new Error(
+      `Field "${fieldId}" is anchored to dataset "${qualifiedBaseDatasetId}", but this chart compiles from "${baseDatasetId}".`,
+    )
+  }
+
+  return fieldId.slice(baseDatasetId.length + 1)
 }
 
 function collectConfigFieldIds(
@@ -272,35 +328,11 @@ function buildLookupSource(
   }
 }
 
-function createModelChartBuilder<
-  TDatasets extends Record<string, any>,
-  TRelationships extends Record<string, ModelRelationshipDefinition>,
-  TBaseDatasetId extends Extract<keyof TDatasets, string>,
-  TXAxis extends XAxisConfig<any> | undefined = undefined,
-  TGroupBy extends GroupByConfig<any> | undefined = undefined,
-  TFilters extends FiltersConfig<any> | undefined = undefined,
-  TMetric extends MetricConfig<any> | undefined = undefined,
-  TChartType extends ChartTypeConfig | undefined = undefined,
-  TTimeBucket extends TimeBucketConfig | undefined = undefined,
-  TConnectNulls extends boolean | undefined = undefined,
->(
+function createChartBuilderMembers(
   state: ModelChartRuntimeState,
-): ModelChartBuilder<
-  TDatasets,
-  TRelationships,
-  TBaseDatasetId,
-  TXAxis,
-  TGroupBy,
-  TFilters,
-  TMetric,
-  TChartType,
-  TTimeBucket,
-  TConnectNulls
-> {
-  const createNext = (nextState: ModelChartRuntimeState) =>
-    createModelChartBuilder<any, any, any, any, any, any, any, any, any, any>(nextState)
-
-  const builder: Record<string, unknown> = {
+  createNext: (nextState: ModelChartRuntimeState) => unknown,
+): Record<string, unknown> {
+  return {
     xAxis(defineXAxis: (xAxis: SelectableControlBuilder<string, true>) => unknown) {
       const nextBuilder = defineXAxis(createSelectableControlBuilder({}, true))
       return createNext({
@@ -350,6 +382,36 @@ function createModelChartBuilder<
       })
     },
   }
+}
+
+function createModelChartBuilder<
+  TDatasets extends Record<string, any>,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+  TBaseDatasetId extends Extract<keyof TDatasets, string>,
+  TXAxis extends XAxisConfig<any> | undefined = undefined,
+  TGroupBy extends GroupByConfig<any> | undefined = undefined,
+  TFilters extends FiltersConfig<any> | undefined = undefined,
+  TMetric extends MetricConfig<any> | undefined = undefined,
+  TChartType extends ChartTypeConfig | undefined = undefined,
+  TTimeBucket extends TimeBucketConfig | undefined = undefined,
+  TConnectNulls extends boolean | undefined = undefined,
+>(
+  state: ModelChartRuntimeState,
+): ModelChartBuilder<
+  TDatasets,
+  TRelationships,
+  TBaseDatasetId,
+  TXAxis,
+  TGroupBy,
+  TFilters,
+  TMetric,
+  TChartType,
+  TTimeBucket,
+  TConnectNulls
+> {
+  const createNext = (nextState: ModelChartRuntimeState) =>
+    createModelChartBuilder<any, any, any, any, any, any, any, any, any, any>(nextState)
+  const builder = createChartBuilderMembers(state, createNext)
 
   Object.defineProperty(builder, MODEL_CHART_STATE, {
     value: state,
@@ -372,11 +434,65 @@ function createModelChartBuilder<
   >
 }
 
+function createInferredModelChartBuilder<
+  TDatasets extends Record<string, any>,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+  TBaseDatasetId extends Extract<keyof TDatasets, string> | undefined = undefined,
+  TXAxis extends XAxisConfig<any> | undefined = undefined,
+  TGroupBy extends GroupByConfig<any> | undefined = undefined,
+  TFilters extends FiltersConfig<any> | undefined = undefined,
+  TMetric extends MetricConfig<any> | undefined = undefined,
+  TChartType extends ChartTypeConfig | undefined = undefined,
+  TTimeBucket extends TimeBucketConfig | undefined = undefined,
+  TConnectNulls extends boolean | undefined = undefined,
+>(
+  state: ModelChartRuntimeState,
+): InferredModelChartBuilder<
+  TDatasets,
+  TRelationships,
+  TBaseDatasetId,
+  TXAxis,
+  TGroupBy,
+  TFilters,
+  TMetric,
+  TChartType,
+  TTimeBucket,
+  TConnectNulls
+> {
+  const createNext = (nextState: ModelChartRuntimeState) =>
+    createInferredModelChartBuilder<any, any, any, any, any, any, any, any, any, any>(nextState)
+
+  const builder = createChartBuilderMembers(state, createNext)
+
+  Object.defineProperty(builder, MODEL_CHART_STATE, {
+    value: state,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  })
+
+  return builder as unknown as InferredModelChartBuilder<
+    TDatasets,
+    TRelationships,
+    TBaseDatasetId,
+    TXAxis,
+    TGroupBy,
+    TFilters,
+    TMetric,
+    TChartType,
+    TTimeBucket,
+    TConnectNulls
+  >
+}
+
 function createModelChartStartBuilder<
   TDatasets extends Record<string, any>,
   TRelationships extends Record<string, ModelRelationshipDefinition>,
 >(): ModelChartStartBuilder<TDatasets, TRelationships> {
+  const inferredBuilder = createInferredModelChartBuilder<TDatasets, TRelationships>({})
+
   return {
+    ...inferredBuilder,
     from(dataset) {
       return createModelChartBuilder({
         baseDatasetId: dataset,
@@ -398,17 +514,28 @@ export function compileModelChartFromState<
     hiddenViewIdPrefix?: string
   } = {},
 ): CompileModelChartDefinition<TDatasets, TRelationships, TBuilder, TChartId> {
-  const baseDatasetId = state.baseDatasetId
+  const fieldIds = collectConfigFieldIds(state)
+  const baseDatasetId = state.baseDatasetId ?? inferBaseDatasetId(model, chartId, fieldIds)
   if (!baseDatasetId) {
-    throw new Error('Model charts must choose a base dataset with .from(datasetId).')
+    throw new Error(
+      'Model charts must choose a base dataset with .from(datasetId), or qualify all referenced fields from one dataset such as "tests.takenAt".',
+    )
   }
 
   const relationshipsByDataset = indexLookupRelationships(model)
-  const resolvedFields = collectConfigFieldIds(state).map(fieldId =>
-    resolveChartField(relationshipsByDataset, baseDatasetId, fieldId),
+  const resolvedFields = fieldIds.map(fieldId =>
+    resolveChartField(
+      relationshipsByDataset,
+      baseDatasetId,
+      normalizeFieldId(model, baseDatasetId, fieldId),
+    ),
   )
   const compileFieldId = (fieldId: string) =>
-    resolveChartField(relationshipsByDataset, baseDatasetId, fieldId).compiledId
+    resolveChartField(
+      relationshipsByDataset,
+      baseDatasetId,
+      normalizeFieldId(model, baseDatasetId, fieldId),
+    ).compiledId
   const source = buildLookupSource(
     model,
     chartId,
@@ -448,6 +575,40 @@ export function compileModelChart<
   TRelationships extends Record<string, ModelRelationshipDefinition>,
   const TChartId extends string,
   const TBuilder extends ModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>,
+>(
+  model: DefinedDataModel<TDatasets, TRelationships, any, any>,
+  chartId: TChartId,
+  defineChart: (
+    chart: ModelChartStartBuilder<TDatasets, TRelationships>,
+  ) => TBuilder,
+  options?: {
+    hiddenViewIdPrefix?: string
+  },
+): CompileModelChartDefinition<TDatasets, TRelationships, TBuilder, TChartId>
+
+export function compileModelChart<
+  TDatasets extends Record<string, any>,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+  const TChartId extends string,
+  const TBuilder extends InferredModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>,
+>(
+  model: DefinedDataModel<TDatasets, TRelationships, any, any>,
+  chartId: TChartId,
+  defineChart: (
+    chart: ModelChartStartBuilder<TDatasets, TRelationships>,
+  ) => TBuilder,
+  options?: {
+    hiddenViewIdPrefix?: string
+  },
+): CompileModelChartDefinition<TDatasets, TRelationships, TBuilder, TChartId>
+
+export function compileModelChart<
+  TDatasets extends Record<string, any>,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+  const TChartId extends string,
+  const TBuilder extends
+    | ModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>
+    | InferredModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>,
 >(
   model: DefinedDataModel<TDatasets, TRelationships, any, any>,
   chartId: TChartId,

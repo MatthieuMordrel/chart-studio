@@ -34,6 +34,8 @@ type Simplify<T> = {
   [TKey in keyof T]: T[TKey]
 } & {}
 
+declare const MODEL_CHART_BUILDER_KIND: unique symbol
+
 type IsUnion<T, TWhole = T> =
   T extends TWhole
     ? ([TWhole] extends [T] ? false : true)
@@ -208,10 +210,266 @@ export type ModelChartMetricFieldId<
       string
     >
 
+type QualifiedModelChartFieldId<
+  TBaseDatasetId extends string,
+  TFieldId extends string,
+> = `${TBaseDatasetId}.${TFieldId}`
+
+export type InferredModelChartXAxisFieldId<
+  TDatasets extends ModelDatasets,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+> = Extract<
+  {
+    [TBaseDatasetId in ModelDatasetId<TDatasets>]: QualifiedModelChartFieldId<
+      TBaseDatasetId,
+      ModelChartXAxisFieldId<TDatasets, TRelationships, TBaseDatasetId>
+    >
+  }[ModelDatasetId<TDatasets>],
+  string
+>
+
+export type InferredModelChartGroupByFieldId<
+  TDatasets extends ModelDatasets,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+> = Extract<
+  {
+    [TBaseDatasetId in ModelDatasetId<TDatasets>]: QualifiedModelChartFieldId<
+      TBaseDatasetId,
+      ModelChartGroupByFieldId<TDatasets, TRelationships, TBaseDatasetId>
+    >
+  }[ModelDatasetId<TDatasets>],
+  string
+>
+
+export type InferredModelChartFilterFieldId<
+  TDatasets extends ModelDatasets,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+> = Extract<
+  {
+    [TBaseDatasetId in ModelDatasetId<TDatasets>]: QualifiedModelChartFieldId<
+      TBaseDatasetId,
+      ModelChartFilterFieldId<TDatasets, TRelationships, TBaseDatasetId>
+    >
+  }[ModelDatasetId<TDatasets>],
+  string
+>
+
+export type InferredModelChartMetricFieldId<
+  TDatasets extends ModelDatasets,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+> = Extract<
+  {
+    [TBaseDatasetId in ModelDatasetId<TDatasets>]: QualifiedModelChartFieldId<
+      TBaseDatasetId,
+      ModelChartMetricFieldId<TDatasets, TRelationships, TBaseDatasetId>
+    >
+  }[ModelDatasetId<TDatasets>],
+  string
+>
+
+type BaseDatasetIdFromQualifiedFieldId<TFieldId extends string> =
+  TFieldId extends `${infer TBaseDatasetId}.${string}`
+    ? TBaseDatasetId
+    : never
+
+type UniqueQualifiedBaseDatasetId<TFieldIds extends string> = [TFieldIds] extends [never]
+  ? undefined
+  : IsUnion<BaseDatasetIdFromQualifiedFieldId<TFieldIds>> extends true
+    ? never
+    : BaseDatasetIdFromQualifiedFieldId<TFieldIds>
+
+type BaseDatasetIdFromSelectableBuilderConfig<TConfig> = UniqueQualifiedBaseDatasetId<
+  Extract<SelectableConfigFieldIds<TConfig>, `${string}.${string}`>
+>
+
+type BaseDatasetIdFromMetricBuilderConfig<TConfig> = UniqueQualifiedBaseDatasetId<
+  Extract<MetricConfigFieldIds<TConfig>, `${string}.${string}`>
+>
+
+type MergeInferredBaseDatasetId<
+  TExistingBaseDatasetId extends string | undefined,
+  TNextBaseDatasetId extends string | undefined,
+> = [TExistingBaseDatasetId] extends [undefined]
+  ? TNextBaseDatasetId
+  : [TNextBaseDatasetId] extends [undefined]
+    ? TExistingBaseDatasetId
+    : TExistingBaseDatasetId extends TNextBaseDatasetId
+      ? TExistingBaseDatasetId
+      : never
+
+export interface InferredModelChartBuilder<
+  TDatasets extends ModelDatasets,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+  TBaseDatasetId extends ModelDatasetId<TDatasets> | undefined = undefined,
+  TXAxis extends XAxisConfig<any> | undefined = undefined,
+  TGroupBy extends GroupByConfig<any> | undefined = undefined,
+  TFilters extends FiltersConfig<any> | undefined = undefined,
+  TMetric extends MetricConfig<any> | undefined = undefined,
+  TChartType extends ChartTypeConfig | undefined = undefined,
+  TTimeBucket extends TimeBucketConfig | undefined = undefined,
+  TConnectNulls extends boolean | undefined = undefined,
+> {
+  xAxis<const TBuilder extends SelectableControlBuilder<
+    InferredModelChartXAxisFieldId<TDatasets, TRelationships>,
+    true
+  >>(
+    defineXAxis: (
+      xAxis: SelectableControlBuilder<
+        InferredModelChartXAxisFieldId<TDatasets, TRelationships>,
+        true
+      >,
+    ) => TBuilder,
+  ): InferredModelChartBuilder<
+    TDatasets,
+    TRelationships,
+    MergeInferredBaseDatasetId<
+      TBaseDatasetId,
+      Extract<BaseDatasetIdFromSelectableBuilderConfig<SelectableControlBuilderConfig<TBuilder>>, ModelDatasetId<TDatasets> | undefined>
+    >,
+    SelectableControlBuilderConfig<TBuilder>,
+    TGroupBy,
+    TFilters,
+    TMetric,
+    TChartType,
+    TTimeBucket,
+    TConnectNulls
+  >
+
+  groupBy<const TBuilder extends SelectableControlBuilder<
+    InferredModelChartGroupByFieldId<TDatasets, TRelationships>,
+    true
+  >>(
+    defineGroupBy: (
+      groupBy: SelectableControlBuilder<
+        InferredModelChartGroupByFieldId<TDatasets, TRelationships>,
+        true
+      >,
+    ) => TBuilder,
+  ): InferredModelChartBuilder<
+    TDatasets,
+    TRelationships,
+    MergeInferredBaseDatasetId<
+      TBaseDatasetId,
+      Extract<BaseDatasetIdFromSelectableBuilderConfig<SelectableControlBuilderConfig<TBuilder>>, ModelDatasetId<TDatasets> | undefined>
+    >,
+    TXAxis,
+    SelectableControlBuilderConfig<TBuilder>,
+    TFilters,
+    TMetric,
+    TChartType,
+    TTimeBucket,
+    TConnectNulls
+  >
+
+  filters<const TBuilder extends SelectableControlBuilder<
+    InferredModelChartFilterFieldId<TDatasets, TRelationships>,
+    false
+  >>(
+    defineFilters: (
+      filters: SelectableControlBuilder<
+        InferredModelChartFilterFieldId<TDatasets, TRelationships>,
+        false
+      >,
+    ) => TBuilder,
+  ): InferredModelChartBuilder<
+    TDatasets,
+    TRelationships,
+    MergeInferredBaseDatasetId<
+      TBaseDatasetId,
+      Extract<BaseDatasetIdFromSelectableBuilderConfig<SelectableControlBuilderConfig<TBuilder>>, ModelDatasetId<TDatasets> | undefined>
+    >,
+    TXAxis,
+    TGroupBy,
+    SelectableControlBuilderConfig<TBuilder>,
+    TMetric,
+    TChartType,
+    TTimeBucket,
+    TConnectNulls
+  >
+
+  metric<const TBuilder extends MetricBuilder<
+    InferredModelChartMetricFieldId<TDatasets, TRelationships>,
+    any,
+    any,
+    any
+  >>(
+    defineMetric: (
+      metric: MetricBuilder<
+        InferredModelChartMetricFieldId<TDatasets, TRelationships>
+      >,
+    ) => TBuilder,
+  ): InferredModelChartBuilder<
+    TDatasets,
+    TRelationships,
+    MergeInferredBaseDatasetId<
+      TBaseDatasetId,
+      Extract<BaseDatasetIdFromMetricBuilderConfig<MetricBuilderConfig<TBuilder>>, ModelDatasetId<TDatasets> | undefined>
+    >,
+    TXAxis,
+    TGroupBy,
+    TFilters,
+    MetricBuilderConfig<TBuilder>,
+    TChartType,
+    TTimeBucket,
+    TConnectNulls
+  >
+
+  chartType<const TBuilder extends SelectableControlBuilder<ChartType, true>>(
+    defineChartType: (
+      chartType: SelectableControlBuilder<ChartType, true>,
+    ) => TBuilder,
+  ): InferredModelChartBuilder<
+    TDatasets,
+    TRelationships,
+    TBaseDatasetId,
+    TXAxis,
+    TGroupBy,
+    TFilters,
+    TMetric,
+    SelectableControlBuilderConfig<TBuilder>,
+    TTimeBucket,
+    TConnectNulls
+  >
+
+  timeBucket<const TBuilder extends SelectableControlBuilder<TimeBucket, true>>(
+    defineTimeBucket: (
+      timeBucket: SelectableControlBuilder<TimeBucket, true>,
+    ) => TBuilder,
+  ): InferredModelChartBuilder<
+    TDatasets,
+    TRelationships,
+    TBaseDatasetId,
+    TXAxis,
+    TGroupBy,
+    TFilters,
+    TMetric,
+    TChartType,
+    SelectableControlBuilderConfig<TBuilder>,
+    TConnectNulls
+  >
+
+  connectNulls<const TValue extends boolean>(
+    value: TValue,
+  ): InferredModelChartBuilder<
+    TDatasets,
+    TRelationships,
+    TBaseDatasetId,
+    TXAxis,
+    TGroupBy,
+    TFilters,
+    TMetric,
+    TChartType,
+    TTimeBucket,
+    TValue
+  >
+
+  readonly [MODEL_CHART_BUILDER_KIND]: 'inferred'
+}
+
 export interface ModelChartStartBuilder<
   TDatasets extends ModelDatasets,
   TRelationships extends Record<string, ModelRelationshipDefinition>,
-> {
+> extends InferredModelChartBuilder<TDatasets, TRelationships> {
   from<const TBaseDatasetId extends ModelDatasetId<TDatasets>>(
     dataset: TBaseDatasetId,
   ): ModelChartBuilder<TDatasets, TRelationships, TBaseDatasetId>
@@ -370,47 +628,75 @@ export interface ModelChartBuilder<
     TTimeBucket,
     TValue
   >
+
+  readonly [MODEL_CHART_BUILDER_KIND]: 'explicit'
 }
 
-type BuilderBaseDatasetId<TBuilder> =
+type ExplicitBuilderBaseDatasetId<TBuilder> =
   TBuilder extends ModelChartBuilder<any, any, infer TBaseDatasetId, any, any, any, any, any, any, any>
+    ? TBaseDatasetId
+    : never
+
+type InferredBuilderBaseDatasetId<TBuilder> =
+  TBuilder extends InferredModelChartBuilder<any, any, infer TBaseDatasetId, any, any, any, any, any, any, any>
     ? TBaseDatasetId
     : never
 
 type BuilderXAxisConfig<TBuilder> =
   TBuilder extends ModelChartBuilder<any, any, any, infer TXAxis, any, any, any, any, any, any>
     ? TXAxis
+    : TBuilder extends InferredModelChartBuilder<any, any, any, infer TXAxis, any, any, any, any, any, any>
+      ? TXAxis
     : never
 
 type BuilderGroupByConfig<TBuilder> =
   TBuilder extends ModelChartBuilder<any, any, any, any, infer TGroupBy, any, any, any, any, any>
     ? TGroupBy
+    : TBuilder extends InferredModelChartBuilder<any, any, any, any, infer TGroupBy, any, any, any, any, any>
+      ? TGroupBy
     : never
 
 type BuilderFiltersConfig<TBuilder> =
   TBuilder extends ModelChartBuilder<any, any, any, any, any, infer TFilters, any, any, any, any>
     ? TFilters
+    : TBuilder extends InferredModelChartBuilder<any, any, any, any, any, infer TFilters, any, any, any, any>
+      ? TFilters
     : never
 
 type BuilderMetricConfig<TBuilder> =
   TBuilder extends ModelChartBuilder<any, any, any, any, any, any, infer TMetric, any, any, any>
     ? TMetric
+    : TBuilder extends InferredModelChartBuilder<any, any, any, any, any, any, infer TMetric, any, any, any>
+      ? TMetric
     : never
 
 type BuilderChartTypeConfig<TBuilder> =
   TBuilder extends ModelChartBuilder<any, any, any, any, any, any, any, infer TChartType, any, any>
     ? TChartType
+    : TBuilder extends InferredModelChartBuilder<any, any, any, any, any, any, any, infer TChartType, any, any>
+      ? TChartType
     : never
 
 type BuilderTimeBucketConfig<TBuilder> =
   TBuilder extends ModelChartBuilder<any, any, any, any, any, any, any, any, infer TTimeBucket, any>
     ? TTimeBucket
+    : TBuilder extends InferredModelChartBuilder<any, any, any, any, any, any, any, any, infer TTimeBucket, any>
+      ? TTimeBucket
     : never
 
 type BuilderConnectNulls<TBuilder> =
   TBuilder extends ModelChartBuilder<any, any, any, any, any, any, any, any, any, infer TConnectNulls>
     ? TConnectNulls
+    : TBuilder extends InferredModelChartBuilder<any, any, any, any, any, any, any, any, any, infer TConnectNulls>
+      ? TConnectNulls
     : never
+
+type StripBaseDatasetPrefix<
+  TFieldId extends string,
+  TBaseDatasetId extends string,
+> = TFieldId extends `${TBaseDatasetId}.${infer TRest}`
+  ? TRest
+  : TFieldId
 
 type CompiledFieldId<TFieldId extends string> =
   TFieldId extends `${infer TAlias}.${infer TColumnId}`
@@ -509,6 +795,86 @@ type MapMetricArray<TValue> =
     ? readonly MapMetricValue<TItem>[]
     : never
 
+type NormalizeSelectableConfig<
+  TConfig,
+  TBaseDatasetId extends string,
+> = [TConfig] extends [undefined]
+  ? undefined
+  : Simplify<
+      (TConfig extends {allowed?: readonly (infer TAllowed)[]}
+        ? {allowed?: readonly StripBaseDatasetPrefix<Extract<TAllowed, string>, TBaseDatasetId>[]}
+        : {})
+      & (TConfig extends {hidden?: readonly (infer THidden)[]}
+        ? {hidden?: readonly StripBaseDatasetPrefix<Extract<THidden, string>, TBaseDatasetId>[]}
+        : {})
+      & (TConfig extends {default?: infer TDefault extends string}
+        ? {default?: StripBaseDatasetPrefix<TDefault, TBaseDatasetId>}
+        : {})
+    >
+
+type NormalizeMetricValue<
+  TValue,
+  TBaseDatasetId extends string,
+> = TValue extends {kind: 'aggregate'; columnId: infer TColumnId extends string}
+  ? Simplify<Omit<TValue, 'columnId'> & {columnId: StripBaseDatasetPrefix<TColumnId, TBaseDatasetId>}>
+  : TValue
+
+type NormalizeMetricArray<
+  TValue,
+  TBaseDatasetId extends string,
+> = TValue extends readonly (infer TItem)[]
+  ? readonly NormalizeMetricValue<TItem, TBaseDatasetId>[]
+  : never
+
+type NormalizeMetricConfig<
+  TConfig,
+  TBaseDatasetId extends string,
+> = [TConfig] extends [undefined]
+  ? undefined
+  : Simplify<
+      (TConfig extends {allowed?: readonly unknown[]}
+        ? {allowed?: NormalizeMetricArray<TConfig['allowed'], TBaseDatasetId>}
+        : {})
+      & (TConfig extends {hidden?: readonly unknown[]}
+        ? {hidden?: NormalizeMetricArray<TConfig['hidden'], TBaseDatasetId>}
+        : {})
+      & (TConfig extends {default?: infer TDefault}
+        ? {default?: NormalizeMetricValue<TDefault, TBaseDatasetId>}
+        : {})
+    >
+
+type ResolvedBuilderBaseDatasetId<TBuilder> = [ExplicitBuilderBaseDatasetId<TBuilder>] extends [never]
+  ? InferredBuilderBaseDatasetId<TBuilder>
+  : ExplicitBuilderBaseDatasetId<TBuilder>
+
+type NormalizedBuilderXAxisConfig<TBuilder> =
+  TBuilder extends InferredModelChartBuilder<any, any, any, any, any, any, any, any, any, any>
+    ? [ResolvedBuilderBaseDatasetId<TBuilder>] extends [infer TBaseDatasetId extends string]
+      ? NormalizeSelectableConfig<BuilderXAxisConfig<TBuilder>, TBaseDatasetId>
+      : BuilderXAxisConfig<TBuilder>
+    : BuilderXAxisConfig<TBuilder>
+
+type NormalizedBuilderGroupByConfig<TBuilder> =
+  TBuilder extends InferredModelChartBuilder<any, any, any, any, any, any, any, any, any, any>
+    ? [ResolvedBuilderBaseDatasetId<TBuilder>] extends [infer TBaseDatasetId extends string]
+      ? NormalizeSelectableConfig<BuilderGroupByConfig<TBuilder>, TBaseDatasetId>
+      : BuilderGroupByConfig<TBuilder>
+    : BuilderGroupByConfig<TBuilder>
+
+type NormalizedBuilderFiltersConfig<TBuilder> =
+  TBuilder extends InferredModelChartBuilder<any, any, any, any, any, any, any, any, any, any>
+    ? [ResolvedBuilderBaseDatasetId<TBuilder>] extends [infer TBaseDatasetId extends string]
+      ? NormalizeSelectableConfig<BuilderFiltersConfig<TBuilder>, TBaseDatasetId>
+      : BuilderFiltersConfig<TBuilder>
+    : BuilderFiltersConfig<TBuilder>
+
+type NormalizedBuilderMetricConfig<TBuilder> =
+  TBuilder extends InferredModelChartBuilder<any, any, any, any, any, any, any, any, any, any>
+    ? [ResolvedBuilderBaseDatasetId<TBuilder>] extends [infer TBaseDatasetId extends string]
+      ? NormalizeMetricConfig<BuilderMetricConfig<TBuilder>, TBaseDatasetId>
+      : BuilderMetricConfig<TBuilder>
+    : BuilderMetricConfig<TBuilder>
+
 type MapSelectableConfig<TConfig> = [TConfig] extends [undefined]
   ? undefined
   : Simplify<
@@ -550,11 +916,11 @@ export type CompileModelChartDefinition<
 > = CompileModelChartDefinitionFromState<
   TDatasets,
   TRelationships,
-  Extract<BuilderBaseDatasetId<TBuilder>, ModelDatasetId<TDatasets>>,
-  BuilderXAxisConfig<TBuilder>,
-  BuilderGroupByConfig<TBuilder>,
-  BuilderFiltersConfig<TBuilder>,
-  BuilderMetricConfig<TBuilder>,
+  Extract<ResolvedBuilderBaseDatasetId<TBuilder>, ModelDatasetId<TDatasets>>,
+  NormalizedBuilderXAxisConfig<TBuilder>,
+  NormalizedBuilderGroupByConfig<TBuilder>,
+  NormalizedBuilderFiltersConfig<TBuilder>,
+  NormalizedBuilderMetricConfig<TBuilder>,
   BuilderChartTypeConfig<TBuilder>,
   BuilderTimeBucketConfig<TBuilder>,
   BuilderConnectNulls<TBuilder>,

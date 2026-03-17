@@ -159,20 +159,18 @@ const schoolModel = defineDataModel()
 
 const avgScoreBySubject = schoolModel.chart('avgScoreBySubject', (chart) =>
   chart
-    .from('tests')
-    .xAxis((x) => x.allowed('subject').default('subject'))
+    .xAxis((x) => x.allowed('tests.subject').default('tests.subject'))
     .metric((m) =>
       m
-        .aggregate('score', 'avg')
-        .defaultAggregate('score', 'avg'))
+        .aggregate('tests.score', 'avg')
+        .defaultAggregate('tests.score', 'avg'))
     .chartType((t) => t.allowed('bar').default('bar')),
 )
 
 const testsByMonth = schoolModel.chart('testsByMonth', (chart) =>
   chart
-    .from('tests')
-    .xAxis((x) => x.allowed('takenAt').default('takenAt'))
-    .groupBy((g) => g.allowed('subject').default('subject'))
+    .xAxis((x) => x.allowed('tests.takenAt').default('tests.takenAt'))
+    .groupBy((g) => g.allowed('tests.subject').default('tests.subject'))
     .metric((m) => m.count().defaultCount())
     .timeBucket((t) => t.allowed('month').default('month'))
     .chartType((t) => t.allowed('grouped-bar').default('grouped-bar')),
@@ -180,20 +178,18 @@ const testsByMonth = schoolModel.chart('testsByMonth', (chart) =>
 
 const meetingsByStatus = schoolModel.chart('meetingsByStatus', (chart) =>
   chart
-    .from('parentMeetings')
-    .xAxis((x) => x.allowed('status').default('status'))
+    .xAxis((x) => x.allowed('parentMeetings.status').default('parentMeetings.status'))
     .metric((m) => m.count().defaultCount())
     .chartType((t) => t.allowed('donut').default('donut')),
 )
 
 const meetingsByTeacher = schoolModel.chart('meetingsByTeacher', (chart) =>
   chart
-    .from('parentMeetings')
-    .xAxis((x) => x.allowed('teacher.name').default('teacher.name'))
+    .xAxis((x) => x.allowed('parentMeetings.teacher.name').default('parentMeetings.teacher.name'))
     .metric((m) =>
       m
-        .aggregate('durationMinutes', 'sum')
-        .defaultAggregate('durationMinutes', 'sum'))
+        .aggregate('parentMeetings.durationMinutes', 'sum')
+        .defaultAggregate('parentMeetings.durationMinutes', 'sum'))
     .chartType((t) => t.allowed('bar').default('bar')),
 )
 

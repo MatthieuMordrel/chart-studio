@@ -12,6 +12,7 @@ import type {
 } from './materialized-view.types.js'
 import type {
   CompileModelChartDefinition,
+  InferredModelChartBuilder,
   ModelChartBuilder,
   ModelChartStartBuilder,
 } from './model-chart.types.js'
@@ -350,6 +351,15 @@ export type DefinedDataModel<
       chart: ModelChartStartBuilder<TDatasets, TRelationships>,
     ) => TBuilder,
   ): CompileModelChartDefinition<TDatasets, TRelationships, TBuilder, TChartId>
+  chart<
+    const TChartId extends string,
+    const TBuilder extends InferredModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>,
+  >(
+    id: TChartId,
+    defineChart: (
+      chart: ModelChartStartBuilder<TDatasets, TRelationships>,
+    ) => TBuilder,
+  ): CompileModelChartDefinition<TDatasets, TRelationships, TBuilder, TChartId>
   validateData(data: ModelDataInput<TDatasets>): void
   build(): DefinedDataModel<TDatasets, TRelationships, TAssociations, TAttributes>
   readonly __dataModelBrand: 'data-model-definition'
@@ -535,6 +545,15 @@ export interface DataModelBuilder<
   chart<
     const TChartId extends string,
     const TBuilder extends ModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>,
+  >(
+    id: TChartId,
+    defineChart: (
+      chart: ModelChartStartBuilder<TDatasets, TRelationships>,
+    ) => TBuilder,
+  ): CompileModelChartDefinition<TDatasets, TRelationships, TBuilder, TChartId>
+  chart<
+    const TChartId extends string,
+    const TBuilder extends InferredModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>,
   >(
     id: TChartId,
     defineChart: (

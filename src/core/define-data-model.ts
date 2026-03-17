@@ -356,7 +356,7 @@ function createDefinedDataModel<
           createMaterializationStartBuilder(id, definedModel),
         )
       },
-      chart(id, defineChart) {
+      chart(id: string, defineChart: any) {
         return compileModelChart(definedModel, id, defineChart)
       },
       validateData(data) {
@@ -578,7 +578,16 @@ function createDataModelBuilder<
       )
     },
     validateData(data: any) {
-      validateModelRuntimeData(state, data)
+      try {
+        validateModelRuntimeData(state, data)
+      } catch (error) {
+        const model = cachedModel ?? createDefinedDataModel(state)
+        cachedModel = model
+        rewriteInferredRelationshipError(
+          getModelRuntimeMetadata(model),
+          error,
+        )
+      }
     },
     build() {
       if (cachedModel) {

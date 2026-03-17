@@ -328,13 +328,12 @@ function verifyInferredModelChartTyping() {
 
   const jobsByOwner = inferredModel.chart('jobsByOwner', (chart) =>
     chart
-      .from('jobs')
-      .xAxis((x) => x.allowed('createdAt', 'owner.name').default('owner.name'))
-      .filters((f) => f.allowed('owner.region'))
+      .xAxis((x) => x.allowed('jobs.createdAt', 'jobs.owner.name').default('jobs.owner.name'))
+      .filters((f) => f.allowed('jobs.owner.region'))
       .metric((m) =>
         m
-          .aggregate('salary', 'avg')
-          .defaultAggregate('salary', 'avg')),
+          .aggregate('jobs.salary', 'avg')
+          .defaultAggregate('jobs.salary', 'avg')),
   )
 
   const chart = useChart({
@@ -348,27 +347,24 @@ function verifyInferredModelChartTyping() {
 
   inferredModel.chart('jobsByRegion', (chart) =>
     chart
-      .from('jobs')
-      .xAxis((x) => x.allowed('owner.region').default('owner.region'))
+      .xAxis((x) => x.allowed('jobs.owner.region').default('jobs.owner.region'))
       .metric((m) => m.count()),
   )
 
   inferredModel.chart('jobsByMissingOwnerField', (chart) =>
     chart
-      .from('jobs')
       .metric((m) => m.count())
       .xAxis((x) =>
         // @ts-expect-error unknown lookup fields should fail
-        x.allowed('owner.snapshot').default('owner.snapshot')),
+        x.allowed('jobs.owner.snapshot').default('jobs.owner.snapshot')),
   )
 
   inferredModel.chart('jobsBySkill', (chart) =>
     chart
-      .from('jobs')
       .metric((m) => m.count())
       .xAxis((x) =>
         // @ts-expect-error grain-changing association traversal must stay explicit
-        x.allowed('skill.name').default('skill.name')),
+        x.allowed('jobs.skill.name').default('jobs.skill.name')),
   )
 }
 
