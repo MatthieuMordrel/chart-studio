@@ -114,7 +114,46 @@ For the simple case, the public contract is:
 - `inputs` is an additive escape hatch for externally controlled data-scope state; it does not replace the simple `useChart({ data })` or `useChart({ data, schema })` path
 - pass the builder directly to `useChart(...)`, or call `.build()` if you need the plain schema object
 
-## Three Authoring Entry Points
+## Choose the Right Boundary
+
+There are two different scaling paths in `chart-studio`:
+
+### Independent dataset(s)
+
+Stay on the single-chart path when each chart reads one flat row shape, even if
+one screen renders several unrelated charts.
+
+Use:
+
+- `useChart({ data })` for zero-config charts
+- `defineChartSchema<Row>()` when one chart owns its own explicit contract
+- `defineDataset<Row>()` when several charts should reuse one row contract
+- `useChart({ sources: [...] })` only for source-switching inside one chart
+
+Stop here when:
+
+- charts do not need relationship-aware shared filters
+- datasets are already flattened for the charts that consume them
+- each chart can execute honestly against one dataset at a time
+
+### Related dashboard
+
+Move up to the model + dashboard path when several datasets are structurally
+related and you want shared filters, referential validation, or safe
+lookup-preserving cross-dataset fields.
+
+Recommended path for new dashboard work:
+
+1. `defineDataModel().dataset(...).infer(...)`
+2. `model.chart(...)` for lookup-preserving charts
+3. `model.materialize(...)` only when the chart grain changes
+4. `defineDashboard(model)`
+5. `useDashboard(...)`
+
+`createDashboard(...)` still exists as a compatibility wrapper, but new code
+should start with the model-first path above.
+
+## Authoring Layers
 
 ### 1. Chart-first shortcut
 
@@ -175,52 +214,88 @@ Rules for the dataset-first path:
 
 ### 3. Model-level linked data
 
-Use `defineDataModel()` when linked datasets, relationships, associations, and
-reusable shared-filter semantics need to be declared explicitly:
+Use `defineDataModel()` when datasets are related and you want the model to own
+safe inference, validation, and reusable dashboard semantics:
 
 ```tsx
-import { defineDataModel } from '@matthieumordrel/chart-studio'
+import {
+  defineDataModel,
+  defineDataset,
+} from '@matthieumordrel/chart-studio'
 
 const hiringModel = defineDataModel()
-  .dataset('jobs', jobs)
-  .dataset('owners', owners)
-  .dataset('skills', skills)
-  .relationship('jobOwner', {
-    from: { dataset: 'owners', key: 'id' },
-    to: { dataset: 'jobs', column: 'ownerId' }
+  .dataset('jobs', defineDataset<Job>()
+    .key('id')
+    .columns((c) => [
+      c.date('createdAt'),
+      c.category('status'),
+      c.number('salary', { format: 'currency' }),
+    ]))
+  .dataset('owners', defineDataset<Owner>()
+    .key('id')
+    .columns((c) => [
+      c.category('name', { label: 'Owner' }),
+      c.category('region'),
+    ]))
+  .infer({
+    relationships: true,
+    attributes: true,
   })
-  .association('jobSkills', {
-    from: { dataset: 'jobs', key: 'id' },
-    to: { dataset: 'skills', key: 'id' },
-    data: jobSkillEdges,
-    columns: {
-      from: 'jobId',
-      to: 'skillId'
-    }
-  })
-  .attribute('owner', {
-    kind: 'select',
-    source: { dataset: 'owners', key: 'id', label: 'name' },
-    targets: [
-      { dataset: 'jobs', column: 'ownerId', via: 'jobOwner' }
-    ]
-  })
+
+const jobsByOwner = hiringModel.chart('jobsByOwner', (chart) =>
+  chart
+    .xAxis((x) => x.allowed('jobs.createdAt', 'jobs.owner.name').default('jobs.owner.name'))
+    .filters((f) => f.allowed('jobs.status', 'jobs.owner.region'))
+    .metric((m) =>
+      m
+        .aggregate('jobs.salary', 'avg')
+        .defaultAggregate('jobs.salary', 'avg'))
+    .chartType((t) => t.allowed('bar', 'line').default('bar'))
+)
 
 hiringModel.validateData({
   jobs: jobsData,
   owners: ownersData,
-  skills: skillsData
 })
 ```
 
+What the model can infer today:
+
+- obvious one-hop lookup relationships from one dataset into another
+- reusable shared-filter attributes backed by those relationships
+- safe lookup-preserving model chart fields such as `jobs.owner.name`
+- the base dataset for a model chart when every qualified field is anchored to
+  the same dataset id
+
+How to prepare data for safe inference:
+
+- declare one real key per dataset with `.key(...)`; single-column lookup keys
+  work best
+- for the common case, use lookup datasets keyed by `id` and foreign keys named
+  `<singularDatasetId>Id` such as `ownerId`, `teacherId`, or `customerId`
+- if a lookup key is already named `somethingId`, that same field name can be
+  inferred as a foreign key candidate on related datasets
+- give lookup datasets a visible label-like column such as `name`, `title`, or
+  `label` when you want inferred shared filters to feel good by default
+- leaving a raw field out of `.columns(...)` is not exclusion; use
+  `exclude(...)` only when you want that field removed from the chart contract
+
 Important limits of the current model layer:
 
-- relationships are one public primitive: declared key -> foreign-key column
+- inference is conservative; ambiguous candidates are ignored until you declare
+  `.relationship(...)` or suppress a false positive with
+  `.infer({ exclude: ['datasetId.columnId'] })`
 - many-to-many stays explicit through `association(...)`
+- model-aware charts allow one lookup hop only; they do not infer row-expanding
+  traversal
+- if you use unqualified field ids, or fields anchored to multiple datasets,
+  add `.from('datasetId')`
 - `validateData(...)` hard-fails on duplicate declared keys, orphan foreign keys, and malformed association edges
 - charts still execute against one flat dataset at a time
-- cross-dataset chart grains now come from explicit `model.materialize(...)` views, not hidden joins
-- dashboard composition and shared filters now build on top of the model layer explicitly
+- lookup-preserving model charts compile into the same explicit runtime core;
+  expanded chart grains still require `model.materialize(...)`
+- explicit `.relationship(...)`, `.attribute(...)`, and `.association(...)`
+  remain available when inference is not enough
 - linked metrics do not exist yet
 
 ### 4. Materialized views
@@ -232,37 +307,33 @@ analytic grain:
 const jobsWithOwner = hiringModel.materialize('jobsWithOwner', (m) =>
   m
     .from('jobs')
-    .join('owner', { relationship: 'jobOwner' })
+    .join('owner', { relationship: 'jobs.ownerId -> owners.id' })
     .grain('job')
 )
 
-const jobSkills = hiringModel.materialize('jobSkills', (m) =>
-  m
-    .from('jobs')
-    .join('owner', { relationship: 'jobOwner' })
-    .throughAssociation('skill', { association: 'jobSkills' })
-    .grain('job-skill')
-)
-
-const rows = jobSkills.materialize({
+const rows = jobsWithOwner.materialize({
   jobs: jobsData,
   owners: ownersData,
-  skills: skillsData,
 })
 
 const chart = useChart({
   data: rows,
-  schema: jobSkills
-    .chart('jobsBySkill')
-    .xAxis((x) => x.allowed('skillName').default('skillName'))
+  schema: jobsWithOwner
+    .chart('jobsByOwner')
+    .xAxis((x) => x.allowed('ownerName').default('ownerName'))
     .groupBy((g) => g.allowed('ownerRegion').default('ownerRegion'))
-    .metric((m) => m.count().defaultCount()),
+    .metric((m) => m.aggregate('salary', 'sum').defaultAggregate('salary', 'sum')),
 })
 ```
+
+If you need a many-to-many chart grain such as `job-skill`, declare an explicit
+`association(...)` on the model and then expand through it with
+`.throughAssociation(...).grain(...)`.
 
 Rules for materialized views:
 
 - `materialize(...)` is explicit; the model does not become a hidden query engine
+- prefer `model.chart(...)` for safe lookup-preserving fields; reach for `materialize(...)` when the chart grain actually changes
 - `grain(...)` is required so the output row grain stays visible
 - `.join(...)` is for lookup-style joins that preserve the base grain
 - `.throughRelationship(...)` and `.throughAssociation(...)` are the explicit row-expanding paths
@@ -272,8 +343,8 @@ Rules for materialized views:
 
 ### 5. Dashboard composition
 
-Use `defineDashboard(model)` when several reusable dataset-backed charts belong
-to one dashboard:
+Use `defineDashboard(model)` when several reusable charts belong to one
+dashboard:
 
 ```tsx
 import {
@@ -284,8 +355,9 @@ import {
 } from '@matthieumordrel/chart-studio'
 
 const hiringDashboard = defineDashboard(hiringModel)
-  .chart('jobsByMonth', jobsByMonth)
-  .chart('candidatesByStage', candidatesByStage)
+  .chart('jobsByOwner', jobsByOwner)
+  .sharedFilter('owner')
+  .build()
 
 function HiringOverview() {
   const dashboard = useDashboard({
@@ -293,11 +365,10 @@ function HiringOverview() {
     data: {
       jobs: jobsData,
       owners: ownersData,
-      candidates: candidatesData,
     },
   })
 
-  const jobsChart = useDashboardChart(dashboard, 'jobsByMonth')
+  const jobsChart = useDashboardChart(dashboard, 'jobsByOwner')
 
   return (
     <DashboardProvider dashboard={dashboard}>
@@ -311,8 +382,10 @@ function HiringOverview() {
 
 Rules for dashboard composition:
 
-- dashboard charts must come from `defineDataset<Row>().chart(...)`
+- `defineDashboard(model)` is intentionally thin: chart registration, shared-filter selection, and optional dashboard-local shared filters
+- dashboard charts may come from `defineDataset<Row>().chart(...)`, `model.chart(...)`, or `model.materialize(...).chart(...)`
 - chart registration is explicit by id
+- `useDashboard(...)` is the runtime boundary; it resolves model-aware charts and explicit materialized views against real data
 - `useDashboardChart(...)` resolves the reusable chart by id and keeps React in charge of placement
 - `useDashboardDataset(...)` exposes the globally filtered rows for non-chart consumers like KPI cards or tables
 
@@ -325,7 +398,7 @@ work across several dashboards:
 
 ```tsx
 const dashboard = defineDashboard(hiringModel)
-  .chart('jobsByMonth', jobsByMonth)
+  .chart('jobsByOwner', jobsByOwner)
   .sharedFilter('owner')
 ```
 
@@ -334,7 +407,7 @@ dashboard:
 
 ```tsx
 const dashboard = defineDashboard(hiringModel)
-  .chart('jobsByMonth', jobsByMonth)
+  .chart('jobsByOwner', jobsByOwner)
   .sharedFilter('status', {
     kind: 'select',
     source: { dataset: 'jobs', column: 'status' },
@@ -343,13 +416,14 @@ const dashboard = defineDashboard(hiringModel)
     kind: 'date-range',
     targets: [
       { dataset: 'jobs', column: 'createdAt' },
-      { dataset: 'candidates', column: 'appliedAt' },
     ],
   })
 ```
 
 Rules for shared dashboard filters:
 
+- `sharedFilter('owner')` can reuse either an inferred model attribute or an explicit one
+- the model may infer useful attributes, but the dashboard still decides which ones become visible shared filters
 - shared filters are explicit; nothing is guessed from chart configs
 - shared filters narrow dataset slices before chart-local `useChart(...)` filters run
 - local and global filters compose by intersection
@@ -579,14 +653,18 @@ Only for the UI layer. The headless core does not require it.
 
 Yes, but there are two different meanings:
 
-- `useChart({ sources: [...] })` is for source-switching within one chart
-- `defineDataModel()` is for linked dataset metadata, validation, and reusable filter semantics outside the chart runtime
-- `model.materialize(...)` is for one explicit flat cross-dataset chart grain
-- `defineDashboard()` plus `useDashboard()` is for composing several reusable charts and optional shared dashboard filters
+- independent datasets: use separate `useChart(...)` calls, or `useChart({ sources: [...] })` when one chart should switch between flat sources
+- related datasets: use `defineDataModel().dataset(...).infer(...)`, then `model.chart(...)` for safe lookup-preserving charts
+- explicit expanded grains: use `model.materialize(...)`
+- screen-level composition and shared state: use `defineDashboard(model)` plus `useDashboard(...)`
 
 The current chart runtime still executes one flat dataset at a time. Multi-source
 source-switching is separate from linked data models, explicit materialized
 views, and dashboard composition.
+
+If you are starting fresh with a dashboard, prefer the model-first path. `createDashboard(...)`
+is still available, but it now compiles through the same model/materialization/dashboard
+internals and is no longer the recommended primary API.
 
 ```tsx
 import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
