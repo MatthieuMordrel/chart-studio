@@ -973,13 +973,13 @@ function MetadataSection({validation}: {validation: string}) {
 /** Compose the full dataset/model/dashboard/materialized-view example into one screen. */
 function DatasetModelDashboard({validation}: {validation: string}) {
   return (
-    <div className='space-y-4'>
-      <DashboardSummarySection />
+    <div className='grid gap-4 xl:grid-cols-[320px_1fr]'>
+      <div className='xl:sticky xl:top-6 xl:self-start'>
+        <SharedFiltersPanel />
+      </div>
 
-      <div className='grid gap-4 xl:grid-cols-[280px_1fr]'>
-        <div className='xl:sticky xl:top-6 xl:self-start'>
-          <SharedFiltersPanel />
-        </div>
+      <div className='space-y-4'>
+        <DashboardSummarySection />
 
         <div className='grid gap-3 lg:grid-cols-2'>
           <PlanningVolumeCard />
@@ -988,9 +988,9 @@ function DatasetModelDashboard({validation}: {validation: string}) {
           <MaterializedManagerLoadCard />
           <MaterializedCapabilityDemandCard />
         </div>
-      </div>
 
-      <MetadataSection validation={validation} />
+        <MetadataSection validation={validation} />
+      </div>
     </div>
   )
 }
