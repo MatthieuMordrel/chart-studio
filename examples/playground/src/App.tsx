@@ -6,6 +6,7 @@ import { InferredDashboardChart } from './charts/InferredDashboardChart'
 import { KitchenSinkChart } from './charts/KitchenSinkChart'
 import { MinimalChart } from './charts/MinimalChart'
 import { SingleSourceChart } from './charts/SingleSourceChart'
+import { TypedInferredDashboardChart } from './charts/TypedInferredDashboardChart'
 import { CodePanel } from './CodePanel'
 import datasetModelSource from './charts/DatasetModelChart.tsx?raw'
 import dashboardSource from './charts/DashboardChart.tsx?raw'
@@ -14,6 +15,7 @@ import inferredDashboardSource from './charts/InferredDashboardChart.tsx?raw'
 import kitchenSinkSource from './charts/KitchenSinkChart.tsx?raw'
 import minimalSource from './charts/MinimalChart.tsx?raw'
 import singleSourceSource from './charts/SingleSourceChart.tsx?raw'
+import typedInferredDashboardSource from './charts/TypedInferredDashboardChart.tsx?raw'
 import { ThemeToggle } from './ThemeToggle'
 
 type ScenarioId =
@@ -24,6 +26,7 @@ type ScenarioId =
   | 'headless'
   | 'dataset-model'
   | 'inferred-dashboard'
+  | 'typed-inferred-dashboard'
 
 type ScenarioGroup = {
   label: string
@@ -91,6 +94,14 @@ const SCENARIO_GROUPS: ReadonlyArray<ScenarioGroup> = [
           'and chart with owner.name without authoring defineDataModel(...), relationship(...), attribute(...), or a lookup materialized view by hand.'
       },
       {
+        id: 'typed-inferred-dashboard' as const,
+        label: 'Typed + Inferred',
+        title: 'School Dashboard — Typed Datasets, Inferred Relationships',
+        description:
+          'The recommended path: typed datasets for labels, formatting, and derived columns — relationships inferred automatically. ' +
+          'One shared teacher filter controls four charts across students and parent meetings without any manual model plumbing.'
+      },
+      {
         id: 'dataset-model' as const,
         label: 'Explicit Dashboard',
         title: 'Hiring Requisitions — Explicit Dashboard API',
@@ -111,6 +122,7 @@ const SCENARIO_SOURCE: Record<ScenarioId, string> = {
   'schema-restricted': dashboardSource,
   'dataset-model': datasetModelSource,
   'inferred-dashboard': inferredDashboardSource,
+  'typed-inferred-dashboard': typedInferredDashboardSource,
   minimal: minimalSource,
   headless: headlessSource
 }
@@ -170,6 +182,7 @@ function App() {
         {scenarioId === 'headless' && <HeadlessChart />}
         {scenarioId === 'dataset-model' && <DatasetModelChart />}
         {scenarioId === 'inferred-dashboard' && <InferredDashboardChart />}
+        {scenarioId === 'typed-inferred-dashboard' && <TypedInferredDashboardChart />}
 
         <CodePanel source={SCENARIO_SOURCE[scenarioId]} />
       </div>

@@ -84,12 +84,12 @@ function DashboardPanel({
   children: ReactNode
 }) {
   return (
-    <div className='overflow-hidden rounded-2xl border border-border bg-background shadow-sm'>
-      <div className='border-b border-border px-5 py-4'>
+    <div className='overflow-hidden rounded-xl border border-border bg-background'>
+      <div className='border-b border-border px-4 py-3'>
         <h3 className='text-sm font-semibold text-foreground'>{title}</h3>
-        <p className='mt-1 text-xs text-muted-foreground'>{subtitle}</p>
+        <p className='text-xs text-muted-foreground'>{subtitle}</p>
       </div>
-      <div className='p-5'>{children}</div>
+      <div className='p-4'>{children}</div>
     </div>
   )
 }
@@ -110,71 +110,49 @@ export function InferredDashboardChart() {
   const ownerFilter = useDashboardSharedFilter(dashboard, 'owner')
 
   return (
-    <div className='space-y-5'>
-      <div className='rounded-2xl border border-primary/15 bg-primary/5 p-5'>
-        <div className='flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between'>
-          <div className='space-y-2'>
-            <div className='inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-primary'>
-              Inferred Dashboard API
-            </div>
-            <div className='space-y-1'>
-              <h2 className='text-lg font-semibold text-foreground'>One call, three datasets, no explicit model boilerplate</h2>
-              <p className='max-w-3xl text-sm text-muted-foreground'>
-                This dashboard infers <code className='rounded bg-background px-1 py-0.5 text-[11px]'>jobs.ownerId -&gt; owners.id</code>, exposes one
-                shared owner filter, and compiles <code className='rounded bg-background px-1 py-0.5 text-[11px]'>owner.name</code> into a hidden lookup
-                materialized view behind the existing dashboard runtime.
-              </p>
-            </div>
-          </div>
+    <div className='space-y-4'>
+      {ownerFilter.kind === 'select' && (
+        <div className='flex flex-wrap items-center gap-2'>
+          <span className='text-xs font-medium text-muted-foreground'>Owner</span>
+          <button
+            type='button'
+            onClick={() => ownerFilter.clear()}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+              ownerFilter.values.size === 0
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-background text-foreground hover:border-primary/40'
+            }`}>
+            All
+          </button>
 
-          <div className='flex flex-wrap gap-2 text-xs'>
-            <div className='rounded-full border border-border bg-background px-3 py-1.5 text-foreground'>
-              {filteredJobs.length} filtered jobs
-            </div>
-            <div className='rounded-full border border-border bg-background px-3 py-1.5 text-foreground'>
-              {filteredCandidates.length} filtered candidates
-            </div>
-          </div>
+          {ownerFilter.options.map((option) => {
+            const isActive = ownerFilter.values.has(option.value)
+
+            return (
+              <button
+                key={option.value}
+                type='button'
+                onClick={() => ownerFilter.toggleValue(option.value)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-background text-foreground hover:border-primary/40'
+                }`}>
+                {option.label} <span className='opacity-70'>({option.count})</span>
+              </button>
+            )
+          })}
+
+          <span className='ml-auto text-xs text-muted-foreground'>
+            {filteredJobs.length} jobs · {filteredCandidates.length} candidates
+          </span>
         </div>
+      )}
 
-        {ownerFilter.kind === 'select' && (
-          <div className='mt-4 flex flex-wrap gap-2'>
-            <button
-              type='button'
-              onClick={() => ownerFilter.clear()}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                ownerFilter.values.size === 0
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-background text-foreground hover:border-primary/40'
-              }`}>
-              All owners
-            </button>
-
-            {ownerFilter.options.map((option) => {
-              const isActive = ownerFilter.values.has(option.value)
-
-              return (
-                <button
-                  key={option.value}
-                  type='button'
-                  onClick={() => ownerFilter.toggleValue(option.value)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    isActive
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-foreground hover:border-primary/40'
-                  }`}>
-                  {option.label} <span className='opacity-70'>({option.count})</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className='grid gap-4 lg:grid-cols-[1.35fr_1fr]'>
+      <div className='grid gap-4 lg:grid-cols-2'>
         <DashboardPanel
           title='Average Salary by Owner'
-          subtitle='The x-axis comes from owners.name even though salary lives on jobs.'>
+          subtitle='X-axis from owners.name, metric from jobs.salary'>
           <Chart chart={jobsByOwner}>
             <ChartCanvas height={280} />
           </Chart>
@@ -182,7 +160,7 @@ export function InferredDashboardChart() {
 
         <DashboardPanel
           title='Candidate Stage Mix'
-          subtitle='The same inferred owner filter also scopes the separate candidates dataset.'>
+          subtitle='Scoped by the shared owner filter across datasets'>
           <Chart chart={candidatesByStage}>
             <ChartCanvas height={280} showDataLabels />
           </Chart>

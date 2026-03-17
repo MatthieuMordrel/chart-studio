@@ -1,5 +1,9 @@
 # Inferred Dashboard API Implementation Plan
 
+> Status: this document captures an earlier implementation direction centered on
+> `createDashboard(...)`. The current preferred authoring direction is described
+> in [dashboard-authoring-direction.md](/home/matth/projects/maintained/chart-studio/documentation/dashboard-authoring-direction.md).
+
 ## Goal
 
 Introduce one inferred dashboard API that restores a very happy path:
