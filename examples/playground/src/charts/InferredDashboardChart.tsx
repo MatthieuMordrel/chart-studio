@@ -57,26 +57,6 @@ const inferredHiringDashboard = createDashboard({
     owners,
     candidates,
   },
-  datasets: {
-    jobs: {
-      columns: {
-        createdAt: {type: 'date', label: 'Opened'},
-        salary: {type: 'number', format: 'currency', label: 'Salary'},
-        ownerId: false,
-      },
-    },
-    candidates: {
-      columns: {
-        appliedAt: {type: 'date', label: 'Applied'},
-        ownerId: false,
-      },
-    },
-    owners: {
-      columns: {
-        name: {label: 'Owner'},
-      },
-    },
-  },
   charts: {
     avgSalaryByOwner: {
       data: 'jobs',
@@ -91,7 +71,7 @@ const inferredHiringDashboard = createDashboard({
       chartType: 'donut',
     },
   },
-  sharedFilters: ['owner'] as const,
+  sharedFilters: ['owner'],
 })
 
 function DashboardPanel({

@@ -320,6 +320,45 @@ function getProjectedOwnedColumns(
   )
 }
 
+/**
+ * React hook that creates a live {@link DashboardRuntime} from a dashboard definition and data.
+ *
+ * The runtime manages all dashboard state including shared filter selections and
+ * date range selections. It provides type-safe accessors for charts, datasets, and
+ * shared filters.
+ *
+ * Wrap the returned runtime in a {@link DashboardProvider} to enable context-based
+ * hooks like `useDashboardChart(chartId)` without passing the runtime explicitly.
+ *
+ * @param options - The dashboard hook options.
+ * @param options.definition - A dashboard definition produced by `defineDashboard(...).build()`
+ *   or {@link createDashboard}. The definition is resolved and memoized internally.
+ * @param options.data - The data input for all datasets declared in the dashboard's model.
+ *   Keys must match the dataset ids, and values are arrays of typed row objects.
+ *   When data changes, the runtime recomputes filtered datasets and shared filter options.
+ *
+ * @returns A {@link DashboardRuntime} object with the following members:
+ *   - `definition` — the resolved dashboard definition.
+ *   - `chartIds` — array of all registered chart ids.
+ *   - `sharedFilterIds` — array of all registered shared filter ids.
+ *   - `chart(id)` — returns a resolved chart (data, schema, ownership) for a given chart id.
+ *   - `dataset(id)` — returns the filtered rows for a given dataset id.
+ *   - `sharedFilter(id)` — returns the runtime state and controls for a shared filter.
+ *
+ * @example
+ * ```tsx
+ * const dashboard = useDashboard({
+ *   definition: myDashboardDefinition,
+ *   data: { orders: ordersData, customers: customersData },
+ * })
+ *
+ * return (
+ *   <DashboardProvider dashboard={dashboard}>
+ *     <MyChart />
+ *   </DashboardProvider>
+ * )
+ * ```
+ */
 export function useDashboard<
   TDashboard extends DashboardDefinition<any, any, any>,
 >(
@@ -835,6 +874,25 @@ export function useDashboard<
   ])
 }
 
+/**
+ * Provides a {@link DashboardRuntime} to descendant components via React context.
+ *
+ * When a `DashboardProvider` is present, context-based hook overloads like
+ * `useDashboardChart(chartId)`, `useDashboardDataset(datasetId)`, and
+ * `useDashboardSharedFilter(filterId)` can be called with just an id string
+ * instead of passing the dashboard runtime explicitly.
+ *
+ * @param props.dashboard - The dashboard runtime obtained from {@link useDashboard}.
+ * @param props.children - The React subtree that can access the dashboard context.
+ *
+ * @example
+ * ```tsx
+ * <DashboardProvider dashboard={dashboard}>
+ *   <OrdersChart />
+ *   <SharedFilterPanel />
+ * </DashboardProvider>
+ * ```
+ */
 export function DashboardProvider({
   dashboard,
   children,
@@ -849,6 +907,13 @@ export function DashboardProvider({
   )
 }
 
+/**
+ * Returns the nearest {@link DashboardRuntime} from a parent {@link DashboardProvider}.
+ *
+ * @throws If called outside of a `DashboardProvider`.
+ *
+ * @returns The dashboard runtime from context.
+ */
 export function useDashboardContext(): BroadDashboardRuntime {
   const dashboard = useContext(DashboardContext)
   if (!dashboard) {
@@ -858,6 +923,36 @@ export function useDashboardContext(): BroadDashboardRuntime {
   return dashboard
 }
 
+/**
+ * React hook that retrieves and instantiates a chart from a dashboard.
+ *
+ * This hook resolves the chart's filtered data from the dashboard runtime,
+ * creates a live `ChartInstance` via `useChart`, and applies dashboard ownership
+ * restrictions — hiding filter and date columns that are controlled by shared filters
+ * and preventing local manipulation of those owned columns.
+ *
+ * Supports two calling conventions:
+ *
+ * **Explicit dashboard** — pass both the runtime and chart id for full type safety:
+ * ```ts
+ * const chart = useDashboardChart(dashboard, 'ordersByMonth')
+ * ```
+ *
+ * **Context-based** — pass only the chart id when inside a {@link DashboardProvider}:
+ * ```ts
+ * const chart = useDashboardChart('ordersByMonth')
+ * ```
+ *
+ * @param dashboard - The dashboard runtime (omit when using context).
+ * @param chartId - The id of the chart to retrieve, as registered in the dashboard definition.
+ *
+ * @returns A `ChartInstance` with dashboard ownership applied. Owned filter and date
+ *   columns are removed from `availableFilters` and `availableDateColumns`, and
+ *   attempts to toggle or clear them will throw.
+ *
+ * @throws If called without a dashboard runtime and outside of a `DashboardProvider`.
+ * @throws If the chart id does not exist in the dashboard definition.
+ */
 export function useDashboardChart<
   TDashboard extends DashboardDefinition<any, any, any>,
   TChartId extends DashboardChartIdFromDefinition<TDashboard>,
@@ -865,6 +960,12 @@ export function useDashboardChart<
   dashboard: DashboardRuntime<TDashboard>,
   chartId: TChartId,
 ): DashboardChartInstanceFromDefinition<TDashboard, TChartId>
+/**
+ * Context-based overload — retrieves a chart by id from the nearest {@link DashboardProvider}.
+ *
+ * @param chartId - The chart id to retrieve.
+ * @returns A `ChartInstance` with dashboard ownership applied.
+ */
 export function useDashboardChart(
   chartId: string,
 ): ChartInstance<any, string>
@@ -893,6 +994,32 @@ export function useDashboardChart(
   )
 }
 
+/**
+ * React hook that retrieves the filtered rows for a dataset from a dashboard.
+ *
+ * The returned rows reflect all active shared filter selections — rows that do not
+ * match the current shared filter state are excluded.
+ *
+ * Supports two calling conventions:
+ *
+ * **Explicit dashboard** — pass both the runtime and dataset id for full type safety:
+ * ```ts
+ * const rows = useDashboardDataset(dashboard, 'orders')
+ * ```
+ *
+ * **Context-based** — pass only the dataset id when inside a {@link DashboardProvider}:
+ * ```ts
+ * const rows = useDashboardDataset('orders')
+ * ```
+ *
+ * @param dashboard - The dashboard runtime (omit when using context).
+ * @param datasetId - The id of the dataset to retrieve.
+ *
+ * @returns A readonly array of typed row objects, filtered by all active shared filters.
+ *
+ * @throws If called without a dashboard runtime and outside of a `DashboardProvider`.
+ * @throws If the dataset id does not exist in the dashboard's data model.
+ */
 export function useDashboardDataset<
   TDashboard extends DashboardDefinition<any, any, any>,
   TDatasetId extends DashboardDatasetIdFromDefinition<TDashboard>,
@@ -900,6 +1027,12 @@ export function useDashboardDataset<
   dashboard: DashboardRuntime<TDashboard>,
   datasetId: TDatasetId,
 ): DashboardDatasetRowsFromDefinition<TDashboard, TDatasetId>
+/**
+ * Context-based overload — retrieves filtered dataset rows by id from the nearest {@link DashboardProvider}.
+ *
+ * @param datasetId - The dataset id to retrieve.
+ * @returns A readonly array of row objects, filtered by all active shared filters.
+ */
 export function useDashboardDataset(
   datasetId: string,
 ): readonly any[]
@@ -920,6 +1053,47 @@ export function useDashboardDataset(
   ) as readonly any[]
 }
 
+/**
+ * React hook that retrieves the runtime state and controls for a dashboard shared filter.
+ *
+ * The returned object varies based on the filter kind:
+ *
+ * - **`'select'` filters** (`DashboardSharedSelectFilterRuntime`) provide:
+ *   - `values` — the currently selected values (`ReadonlySet<string>`).
+ *   - `options` — available filter options with labels and counts.
+ *   - `toggleValue(value)` — toggles a single value on/off.
+ *   - `setValues(values)` — replaces the entire selection.
+ *   - `clear()` — clears all selections.
+ *
+ * - **`'date-range'` filters** (`DashboardSharedDateRangeFilterRuntime`) provide:
+ *   - `selection` — the current date range selection (preset or custom).
+ *   - `dateRangeFilter` — the resolved `DateRangeFilter` or `null` for all-time.
+ *   - `setSelection(selection)` — sets the full selection object.
+ *   - `setDateRangePreset(preset)` — switches to a named preset.
+ *   - `setDateRangeFilter(filter)` — sets a custom date range filter.
+ *   - `clear()` — resets to the default (all-time).
+ *
+ * Supports two calling conventions:
+ *
+ * **Explicit dashboard** — pass both the runtime and filter id for full type safety:
+ * ```ts
+ * const filter = useDashboardSharedFilter(dashboard, 'customer')
+ * ```
+ *
+ * **Context-based** — pass only the filter id when inside a {@link DashboardProvider}:
+ * ```ts
+ * const filter = useDashboardSharedFilter('customer')
+ * ```
+ *
+ * @param dashboard - The dashboard runtime (omit when using context).
+ * @param filterId - The id of the shared filter to retrieve.
+ *
+ * @returns A `DashboardSharedFilterRuntime` — either a select or date-range variant
+ *   depending on how the filter was defined.
+ *
+ * @throws If called without a dashboard runtime and outside of a `DashboardProvider`.
+ * @throws If the filter id does not exist in the dashboard definition.
+ */
 export function useDashboardSharedFilter<
   TDashboard extends DashboardDefinition<any, any, any>,
   TFilterId extends DashboardSharedFilterIdFromDefinition<TDashboard>,
@@ -927,6 +1101,12 @@ export function useDashboardSharedFilter<
   dashboard: DashboardRuntime<TDashboard>,
   filterId: TFilterId,
 ): DashboardSharedFilterRuntimeFromDefinition<TDashboard, TFilterId>
+/**
+ * Context-based overload — retrieves a shared filter by id from the nearest {@link DashboardProvider}.
+ *
+ * @param filterId - The shared filter id to retrieve.
+ * @returns A `DashboardSharedFilterRuntime` (select or date-range variant).
+ */
 export function useDashboardSharedFilter(
   filterId: string,
 ): DashboardSharedFilterRuntime

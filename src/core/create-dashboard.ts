@@ -107,10 +107,28 @@ type FieldPairId<
   TColumnId extends string,
 > = `${TDatasetId}.${TColumnId}`
 
+/**
+ * Column schema overrides for a single dataset within a `createDashboard` call.
+ *
+ * @typeParam TRow - The row type of the dataset.
+ *
+ * @property columns - Optional column schema hints that override the inferred column types.
+ *   Keys are field names from the row, and values describe the column type, format, and label.
+ *   When omitted, columns are inferred automatically from the data.
+ */
 export type CreateDashboardDatasetConfig<TRow extends Record<string, unknown>> = {
   readonly columns?: RawColumnSchemaMap<TRow>
 }
 
+/**
+ * Per-dataset column schema overrides, keyed by dataset id.
+ *
+ * Use this to override the inferred column types for specific datasets
+ * when the automatic inference is insufficient (e.g. forcing a numeric
+ * field to be treated as a category).
+ *
+ * @typeParam TData - The full data input map (`Record<datasetId, rows[]>`).
+ */
 export type CreateDashboardDatasetsConfig<
   TData extends DashboardDataInputMap,
 > = Partial<{
@@ -119,6 +137,15 @@ export type CreateDashboardDatasetsConfig<
   >
 }>
 
+/**
+ * Primary key overrides for each dataset.
+ *
+ * By default, `createDashboard` uses `"id"` as the key field when a dataset's
+ * rows contain an `id` property. Use this type to specify an alternative key
+ * field for datasets that use a different primary key.
+ *
+ * @typeParam TData - The full data input map (`Record<datasetId, rows[]>`).
+ */
 export type CreateDashboardKeys<
   TData extends DashboardDataInputMap,
 > = Partial<{
@@ -127,6 +154,21 @@ export type CreateDashboardKeys<
   >
 }>
 
+/**
+ * Defines an explicit relationship (foreign key join) between two datasets.
+ *
+ * @property from - The source (parent) side of the relationship.
+ * @property from.dataset - The dataset id that owns the primary key.
+ * @property from.key - The primary key field on the source dataset.
+ * @property to - The target (child) side of the relationship.
+ * @property to.dataset - The dataset id that holds the foreign key.
+ * @property to.column - The foreign key column on the target dataset.
+ *
+ * @typeParam TData - The full data input map.
+ * @typeParam TKeys - The key overrides map.
+ * @typeParam TFromDatasetId - The source dataset id.
+ * @typeParam TToDatasetId - The target dataset id.
+ */
 export type CreateDashboardRelationshipConfig<
   TData extends DashboardDataInputMap,
   TKeys,
@@ -157,11 +199,24 @@ type AnyCreateDashboardRelationshipConfig<
   }[DatasetIdOfData<TData>]
 }[DatasetIdOfData<TData>]
 
+/**
+ * A map of explicit relationship definitions, keyed by a user-chosen relationship id.
+ *
+ * These override or supplement the relationships that `createDashboard` infers
+ * automatically from foreign-key naming conventions (e.g. `userId` → `users.id`).
+ */
 export type CreateDashboardRelationshipsConfig<
   TData extends DashboardDataInputMap,
   TKeys,
 > = Record<string, AnyCreateDashboardRelationshipConfig<TData, TKeys>>
 
+/**
+ * A `"datasetId.columnId"` pair identifying a field that should be excluded
+ * from automatic relationship inference.
+ *
+ * Use this to suppress false-positive foreign-key matches, e.g. when a column
+ * like `parentId` happens to match naming conventions but is not a real join.
+ */
 export type CreateDashboardExcludeId<
   TData extends DashboardDataInputMap,
 > = {
@@ -411,6 +466,17 @@ type CreateDashboardMetricFieldId<
   | DirectMetricFieldId<TData, TDatasetConfigs, TDatasetId>
   | LookupMetricFieldId<TData, TDatasetConfigs, TKeys, TRelationships, TExclude, TDatasetId>
 
+/**
+ * Specifies how a chart's metric (y-axis value) is computed.
+ *
+ * - `'count'` — counts the number of rows per bucket.
+ * - `{ column, fn, includeZeros? }` — applies an aggregate function to a numeric column.
+ *
+ * @property column - The numeric column id to aggregate.
+ * @property fn - The aggregate function (`'sum'`, `'avg'`, `'min'`, `'max'`, etc.).
+ * @property includeZeros - When `true`, rows with a zero value are included in the aggregation.
+ *   Defaults to `false`.
+ */
 export type CreateDashboardMetricSpec<TColumnId extends string> =
   | 'count'
   | {
@@ -419,6 +485,23 @@ export type CreateDashboardMetricSpec<TColumnId extends string> =
       readonly includeZeros?: boolean
     }
 
+/**
+ * Configuration for a single chart within a `createDashboard` call.
+ *
+ * Fields support both direct column references (e.g. `"createdAt"`) and
+ * lookup paths through inferred or explicit relationships (e.g. `"owner.name"`).
+ *
+ * @property data - The dataset id this chart draws its rows from.
+ * @property xAxis - The column (or lookup path) used for the x-axis. Must resolve to a
+ *   `date`, `category`, or `boolean` column.
+ * @property groupBy - Optional column (or lookup path) to group/segment data by.
+ *   Must resolve to a `category` or `boolean` column.
+ * @property metric - How the y-axis value is computed. Either `'count'` or an
+ *   `{ column, fn }` aggregate spec targeting a numeric column.
+ * @property chartType - Optional chart visualization type override (e.g. `'bar'`, `'line'`, `'area'`).
+ * @property timeBucket - Optional time bucketing granularity when the x-axis is a date column
+ *   (e.g. `'day'`, `'week'`, `'month'`).
+ */
 export type CreateDashboardChartConfig<
   TData extends DashboardDataInputMap,
   TDatasetConfigs,
@@ -480,6 +563,15 @@ type DirectSharedFilterId<
   [TDatasetId in DatasetIdOfData<TData>]: DirectFilterFieldId<TData, TDatasetConfigs, TDatasetId>
 }[DatasetIdOfData<TData>]
 
+/**
+ * Union of valid shared filter identifiers for a `createDashboard` call.
+ *
+ * A shared filter id can be:
+ * - A relationship alias (e.g. `"owner"`) — creates a model-attribute-based
+ *   select filter that propagates across all datasets joined through that relationship.
+ * - A direct column id present on one or more datasets (e.g. `"status"`) — creates
+ *   a column-based select filter applied to every dataset that has a matching filterable column.
+ */
 export type CreateDashboardSharedFilterId<
   TData extends DashboardDataInputMap,
   TDatasetConfigs,
@@ -490,6 +582,25 @@ export type CreateDashboardSharedFilterId<
   | LookupSharedFilterId<TData, TKeys, TRelationships, TExclude>
   | DirectSharedFilterId<TData, TDatasetConfigs>
 
+/**
+ * Full options object accepted by {@link createDashboard}.
+ *
+ * @property data - A map of dataset ids to their row arrays. Each key becomes a dataset
+ *   in the dashboard's data model, and columns are inferred from the row shape.
+ * @property charts - A map of chart ids to their configuration. Each entry produces one
+ *   chart registration on the resulting dashboard definition.
+ * @property datasets - Optional per-dataset column schema overrides. Use this to refine
+ *   inferred column types (e.g. marking a string field as a date).
+ * @property keys - Optional per-dataset primary key overrides. Defaults to `"id"` when
+ *   the rows contain an `id` field.
+ * @property relationships - Optional explicit relationship definitions that override or
+ *   supplement automatic foreign-key inference.
+ * @property exclude - Optional list of `"datasetId.columnId"` pairs to exclude from
+ *   automatic relationship inference. Useful for suppressing false-positive matches.
+ * @property sharedFilters - Optional list of shared filter ids. Each id is either a
+ *   relationship alias (producing a model-attribute select filter) or a direct column id
+ *   (producing a column-based select filter across matching datasets).
+ */
 export type CreateDashboardOptions<
   TData extends DashboardDataInputMap,
   TDatasetConfigs extends CreateDashboardDatasetsConfig<TData> | undefined,
@@ -572,6 +683,13 @@ type InferredDashboardSharedFilters<
   ? Record<TFilterId, InferredDashboardSharedFilterDefinition<TModel>>
   : {}
 
+/**
+ * The fully-resolved dashboard definition returned by {@link createDashboard}.
+ *
+ * This is a {@link DefinedDashboard} whose model, charts, and shared filters are
+ * inferred from the provided data, chart configs, and relationship structure.
+ * Pass this result to {@link useDashboard} to obtain a live runtime.
+ */
 export type CreateDashboardResult<
   TData extends DashboardDataInputMap,
   TDatasetConfigs extends CreateDashboardDatasetsConfig<TData> | undefined,
@@ -975,6 +1093,51 @@ function wrapInferredModel(
   return wrappedModel
 }
 
+/**
+ * Creates a fully-configured dashboard definition from raw data arrays.
+ *
+ * `createDashboard` is the high-level, inference-driven API for building dashboards.
+ * It automatically:
+ * - Infers column types (date, number, category, boolean) from the provided row data.
+ * - Discovers foreign-key relationships between datasets using naming conventions
+ *   (e.g. a `userId` column on one dataset is matched to the `id` key on a `users` dataset).
+ * - Builds a data model with datasets, relationships, and optional model attributes.
+ * - Compiles chart definitions with x-axis, group-by, and metric configurations,
+ *   including support for cross-dataset lookup paths (e.g. `"owner.name"`).
+ * - Registers shared filters that propagate selections across all charts in the dashboard.
+ *
+ * The returned {@link CreateDashboardResult} is a standard `DefinedDashboard` that can
+ * be passed to {@link useDashboard} to obtain a live `DashboardRuntime`.
+ *
+ * @param options - The dashboard configuration. See {@link CreateDashboardOptions} for details.
+ * @returns A fully-resolved dashboard definition ready for use with `useDashboard`.
+ *
+ * @throws If a lookup field path cannot be resolved against any known relationship.
+ * @throws If an ambiguous relationship is inferred and cannot be resolved automatically.
+ *   Use `exclude` or explicit `relationships` to disambiguate.
+ * @throws If a column is used in an incompatible role (e.g. a `number` column as `groupBy`).
+ *
+ * @example
+ * ```ts
+ * const dashboard = createDashboard({
+ *   data: { orders, customers },
+ *   charts: {
+ *     ordersByMonth: {
+ *       data: 'orders',
+ *       xAxis: 'createdAt',
+ *       metric: 'count',
+ *       timeBucket: 'month',
+ *     },
+ *     revenueByCustomer: {
+ *       data: 'orders',
+ *       xAxis: 'customer.name',
+ *       metric: { column: 'amount', fn: 'sum' },
+ *     },
+ *   },
+ *   sharedFilters: ['customer'],
+ * })
+ * ```
+ */
 export function createDashboard<
   const TData extends DashboardDataInputMap,
   const TDatasetConfigs extends CreateDashboardDatasetsConfig<TData> | undefined = undefined,
