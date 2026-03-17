@@ -16,6 +16,7 @@ import {useChart} from './use-chart.js'
 import type {
   DashboardChartIdFromDefinition,
   DashboardChartInstanceFromDefinition,
+  DashboardChartDataSource,
   DashboardDataInputFromDefinition,
   DashboardDatasetIdFromDefinition,
   DashboardDatasetRowsFromDefinition,
@@ -66,6 +67,10 @@ function serializeKeyValue(value: unknown): string {
   }
 
   return `${typeof value}:${String(value)}`
+}
+
+function buildProjectedId(alias: string, columnId: string): string {
+  return `${alias}${columnId.charAt(0).toUpperCase()}${columnId.slice(1)}`
 }
 
 function getSingleDatasetKeyId(datasetId: string, dataset: {key?: readonly string[]}): string {
@@ -299,6 +304,22 @@ function applyDashboardOwnership(
   }
 }
 
+function getProjectedOwnedColumns(
+  source: DashboardChartDataSource<string>,
+  datasetId: string,
+  columnId: string,
+): string[] {
+  if (source.kind !== 'materialized-view') {
+    return []
+  }
+
+  return source.view.materialization.steps.flatMap((step) =>
+    step.targetDataset === datasetId && step.projectedColumns.includes(columnId)
+      ? [buildProjectedId(step.alias, columnId)]
+      : [],
+  )
+}
+
 export function useDashboard<
   TDashboard extends DashboardDefinition<any, any, any>,
 >(
@@ -474,10 +495,15 @@ export function useDashboard<
             const ownedColumns = filterDefinition.targets
               .filter((target: {dataset: string}) => target.dataset === registration.datasetId)
               .map((target: {column: string}) => target.column)
+            const projectedOwnedColumns = filterDefinition.targets.flatMap(
+              (target: {dataset: string; column: string}) =>
+                getProjectedOwnedColumns(registration.dataSource, target.dataset, target.column),
+            )
+            const allOwnedColumns = [...ownedColumns, ...projectedOwnedColumns]
 
-            if (ownedColumns.length > 0) {
+            if (allOwnedColumns.length > 0) {
               sharedFilterIds.push(filterId)
-              ownedColumns.forEach((columnId: string) => {
+              allOwnedColumns.forEach((columnId: string) => {
                 dateColumnIds.add(columnId)
               })
             }
@@ -490,15 +516,47 @@ export function useDashboard<
             sharedFilterIds.push(filterId)
           }
 
+          if (filterDefinition.source.kind === 'attribute') {
+            getProjectedOwnedColumns(
+              registration.dataSource,
+              filterDefinition.source.dataset,
+              filterDefinition.source.key,
+            ).forEach((columnId) => {
+              filterColumnIds.add(columnId)
+            })
+            getProjectedOwnedColumns(
+              registration.dataSource,
+              filterDefinition.source.dataset,
+              filterDefinition.source.label,
+            ).forEach((columnId) => {
+              filterColumnIds.add(columnId)
+            })
+          } else {
+            getProjectedOwnedColumns(
+              registration.dataSource,
+              filterDefinition.source.dataset,
+              filterDefinition.source.column,
+            ).forEach((columnId) => {
+              filterColumnIds.add(columnId)
+            })
+          }
+
           const ownedColumns = filterDefinition.targets
             .filter((target: {dataset: string; column?: string}) =>
               target.dataset === registration.datasetId && 'column' in target,
             )
             .map((target: {column: string}) => target.column)
+          const projectedOwnedColumns = filterDefinition.targets.flatMap(
+            (target: {dataset: string; column?: string}) =>
+              'column' in target && typeof target.column === 'string'
+                ? getProjectedOwnedColumns(registration.dataSource, target.dataset, target.column)
+                : [],
+          )
+          const allOwnedColumns = [...ownedColumns, ...projectedOwnedColumns]
 
-          if (ownedColumns.length > 0) {
+          if (allOwnedColumns.length > 0) {
             sharedFilterIds.push(filterId)
-            ownedColumns.forEach((columnId: string) => {
+            allOwnedColumns.forEach((columnId: string) => {
               filterColumnIds.add(columnId)
             })
           }
@@ -728,10 +786,15 @@ export function useDashboard<
           throw new Error(`Unknown dashboard chart id: "${chartId}"`)
         }
 
+        const chartData = registration.dataSource.kind === 'materialized-view'
+          ? registration.dataSource.view.materialize(filteredDatasets as any)
+          : (filteredDatasets[registration.datasetId] ?? [])
+
         return {
           id: chartId,
           datasetId: registration.datasetId,
-          data: filteredDatasets[registration.datasetId] ?? [],
+          source: registration.dataSource,
+          data: chartData,
           schema: registration.schema,
           ownership: chartOwnershipById[chartId] ?? {
             sharedFilterIds: [],

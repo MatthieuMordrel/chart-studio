@@ -1586,6 +1586,11 @@ export type ChartInstance<
    * Explicit `config.groupBy.allowed` further narrows this list and the setter type.
    */
   availableGroupBys: Array<{id: TGroupById; label: string}>
+  /**
+   * Whether groupBy can be set to `null` (no grouping).
+   * False when the schema forces a default that always resolves to a column.
+   */
+  isGroupByOptional: boolean
 
   // -- Metric --
   /** Current metric (what the Y-axis measures). */

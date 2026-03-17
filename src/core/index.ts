@@ -13,6 +13,7 @@ export type {DateRangePreset} from './date-range-presets.js'
 export {defineDataModel} from './define-data-model.js'
 export {defineDashboard, resolveDashboardDefinition} from './define-dashboard.js'
 export {defineDataset, validateDatasetData} from './define-dataset.js'
+export {createDashboard} from './create-dashboard.js'
 export {defineChartSchema} from './define-chart-schema.js'
 export {inferColumnsFromData} from './infer-columns.js'
 export {buildAvailableMetrics, getMetricLabel} from './metric-utils.js'
@@ -23,6 +24,19 @@ export {useChart} from './use-chart.js'
 export type {UseChartOptions} from './use-chart-options.js'
 export type {ChartAxisType, ChartTypeCapabilities} from './chart-capabilities.js'
 
+export type {
+  CreateDashboardChartConfig,
+  CreateDashboardDatasetConfig,
+  CreateDashboardDatasetsConfig,
+  CreateDashboardExcludeId,
+  CreateDashboardKeys,
+  CreateDashboardMetricSpec,
+  CreateDashboardOptions,
+  CreateDashboardRelationshipConfig,
+  CreateDashboardRelationshipsConfig,
+  CreateDashboardResult,
+  CreateDashboardSharedFilterId,
+} from './create-dashboard.js'
 export type {
   DataModelDefinition,
   DataModelBuilder,

@@ -2,6 +2,7 @@ import {DATASET_CHART_METADATA} from './dataset-chart-metadata.js'
 import type {DatasetChartMetadata} from './dataset-chart-metadata.js'
 import type {
   DashboardBuilder,
+  DashboardChartDataSource,
   DashboardCharts,
   DashboardDefinition,
   DashboardInputModel,
@@ -70,6 +71,54 @@ function findModelDatasetId(
   return Object.entries(model.datasets).find(([, candidate]) => candidate === dataset)?.[0]
 }
 
+function isMaterializedView(
+  source: unknown,
+): source is {
+  readonly materialization: {
+    readonly baseDataset: string
+  }
+  build(): unknown
+} {
+  return (
+    !!source
+    && typeof source === 'object'
+    && '__materializedViewBrand' in source
+    && 'materialization' in source
+    && 'build' in source
+    && typeof source.build === 'function'
+  )
+}
+
+function resolveChartDataSource(
+  model: DefinedDataModel,
+  datasetOrView: unknown,
+): DashboardChartDataSource<string> | undefined {
+  const datasetId = findModelDatasetId(model, datasetOrView)
+  if (datasetId) {
+    return {
+      kind: 'dataset',
+      datasetId,
+    }
+  }
+
+  if (!isMaterializedView(datasetOrView)) {
+    return undefined
+  }
+
+  const view = datasetOrView as any
+  const baseDatasetId = view.materialization.baseDataset
+
+  if (!(baseDatasetId in model.datasets)) {
+    return undefined
+  }
+
+  return {
+    kind: 'materialized-view',
+    datasetId: baseDatasetId,
+    view,
+  }
+}
+
 function createDefinedDashboard<
   TModel extends DefinedDataModel,
   TCharts extends DashboardCharts,
@@ -127,10 +176,10 @@ function createDashboardBuilder<
         )
       }
 
-      const datasetId = findModelDatasetId(state.model, metadata.dataset)
-      if (!datasetId) {
+      const dataSource = resolveChartDataSource(state.model, metadata.dataset)
+      if (!dataSource) {
         throw new Error(
-          `Dashboard chart "${id}" references a dataset that is not registered in this data model.`,
+          `Dashboard chart "${id}" references a dataset or materialized view that is not registered in this data model.`,
         )
       }
 
@@ -140,8 +189,9 @@ function createDashboardBuilder<
           ...state.charts,
           [id]: {
             id,
-            datasetId,
+            datasetId: dataSource.datasetId,
             schema: chart,
+            dataSource,
           },
         },
       })

@@ -40,6 +40,7 @@ type AnyChartInstance = {
   groupById: string | null
   setGroupBy: (...args: any[]) => unknown
   availableGroupBys: ChartContextChart['availableGroupBys']
+  isGroupByOptional: boolean
   metric: Metric<any>
   setMetric: (...args: any[]) => unknown
   availableMetrics: ChartContextChart['availableMetrics']
@@ -120,6 +121,7 @@ function createChartContextChart(chart: AnyChartInstance): ChartContextChart {
       ;(chart.setGroupBy as (columnId: string | null) => void)(columnId)
     },
     availableGroupBys: chart.availableGroupBys,
+    isGroupByOptional: chart.isGroupByOptional,
     metric: chart.metric,
     setMetric: (metric) => {
       if (metric.kind === 'aggregate' && !isKnownColumnId<string>(columnIds, metric.columnId)) {

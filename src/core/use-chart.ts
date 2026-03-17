@@ -298,6 +298,10 @@ export function useChart(
     () => resolveConfiguredIdSelection(groupById, availableGroupBys, activeSource.schema?.groupBy?.default as any, null, false),
     [groupById, availableGroupBys, activeSource.schema]
   )
+  const isGroupByOptional = useMemo(
+    () => resolveConfiguredIdSelection(null, availableGroupBys, activeSource.schema?.groupBy?.default as any, null, false) === null,
+    [availableGroupBys, activeSource.schema]
+  )
   const availableMetrics = useMemo(
     () => restrictAvailableMetrics(buildAvailableMetrics(activeColumns), activeSource.schema?.metric as any),
     [activeColumns, activeSource.schema]
@@ -598,6 +602,7 @@ export function useChart(
     groupById: resolvedGroupById,
     setGroupBy,
     availableGroupBys,
+    isGroupByOptional,
     metric: resolvedMetric,
     setMetric,
     availableMetrics,

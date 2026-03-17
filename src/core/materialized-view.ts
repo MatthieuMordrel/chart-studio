@@ -315,6 +315,9 @@ function buildProjectedColumnConfig(
     if ('format' in sourceColumn && sourceColumn.format !== undefined) {
       nextColumn['format'] = sourceColumn.format
     }
+    if ('formatter' in sourceColumn && sourceColumn.formatter !== undefined) {
+      nextColumn['formatter'] = sourceColumn.formatter
+    }
     if ('trueLabel' in sourceColumn && sourceColumn.trueLabel !== undefined) {
       nextColumn['trueLabel'] = sourceColumn.trueLabel
     }
@@ -335,6 +338,9 @@ function buildProjectedColumnConfig(
   }
   if ('format' in rawColumn && rawColumn['format'] !== undefined) {
     nextColumn['format'] = rawColumn['format']
+  }
+  if ('formatter' in rawColumn && rawColumn['formatter'] !== undefined) {
+    nextColumn['formatter'] = rawColumn['formatter']
   }
   if ('trueLabel' in rawColumn && rawColumn['trueLabel'] !== undefined) {
     nextColumn['trueLabel'] = rawColumn['trueLabel']

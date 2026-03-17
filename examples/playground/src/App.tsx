@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { DatasetModelChart } from './charts/DatasetModelChart'
 import { DashboardChart } from './charts/DashboardChart'
 import { HeadlessChart } from './charts/HeadlessChart'
+import { InferredDashboardChart } from './charts/InferredDashboardChart'
 import { KitchenSinkChart } from './charts/KitchenSinkChart'
 import { MinimalChart } from './charts/MinimalChart'
 import { SingleSourceChart } from './charts/SingleSourceChart'
@@ -9,6 +10,7 @@ import { CodePanel } from './CodePanel'
 import datasetModelSource from './charts/DatasetModelChart.tsx?raw'
 import dashboardSource from './charts/DashboardChart.tsx?raw'
 import headlessSource from './charts/HeadlessChart.tsx?raw'
+import inferredDashboardSource from './charts/InferredDashboardChart.tsx?raw'
 import kitchenSinkSource from './charts/KitchenSinkChart.tsx?raw'
 import minimalSource from './charts/MinimalChart.tsx?raw'
 import singleSourceSource from './charts/SingleSourceChart.tsx?raw'
@@ -18,6 +20,7 @@ type ScenarioId =
   | 'kitchen-sink'
   | 'single-source'
   | 'dataset-model'
+  | 'inferred-dashboard'
   | 'minimal'
   | 'dashboard'
   | 'headless'
@@ -46,6 +49,14 @@ const SCENARIOS = [
     description:
       'A realistic hiring planning dashboard built on the new APIs: reusable dataset-owned columns, ' +
       'multiple charts from one requisition dataset, and an explicit linked model for owners, skills, associations, and validation.'
+  },
+  {
+    id: 'inferred-dashboard' as const,
+    label: 'Inferred Dashboard',
+    title: 'Inferred Dashboard API — owner.name Without Manual Plumbing',
+    description:
+      'Pass jobs, owners, and candidates directly into createDashboard(...), get owner lookups and one shared owner filter inferred, ' +
+      'and chart with owner.name without authoring defineDataModel(...), relationship(...), attribute(...), or a lookup materialized view by hand.'
   },
   {
     id: 'minimal' as const,
@@ -78,6 +89,7 @@ const SCENARIO_SOURCE: Record<ScenarioId, string> = {
   'kitchen-sink': kitchenSinkSource,
   'single-source': singleSourceSource,
   'dataset-model': datasetModelSource,
+  'inferred-dashboard': inferredDashboardSource,
   minimal: minimalSource,
   dashboard: dashboardSource,
   headless: headlessSource
@@ -124,6 +136,7 @@ function App() {
         {scenarioId === 'kitchen-sink' && <KitchenSinkChart />}
         {scenarioId === 'single-source' && <SingleSourceChart />}
         {scenarioId === 'dataset-model' && <DatasetModelChart />}
+        {scenarioId === 'inferred-dashboard' && <InferredDashboardChart />}
         {scenarioId === 'minimal' && <MinimalChart />}
         {scenarioId === 'dashboard' && <DashboardChart />}
         {scenarioId === 'headless' && <HeadlessChart />}

@@ -7,6 +7,7 @@ import type {
   ModelDatasets,
   ResolvedDataModelFromDefinition,
 } from './data-model.types.js'
+import type {MaterializedViewDefinition} from './materialized-view.types.js'
 import type {
   DatasetChartDefinition,
   DatasetRow,
@@ -54,9 +55,32 @@ export type DashboardChartRegistration<
   readonly id: string
   readonly datasetId: TDatasetId
   readonly schema: TChart
+  readonly dataSource: DashboardChartDataSource<TDatasetId>
 }
 
 export type DashboardCharts = Record<string, DashboardChartRegistration>
+
+export type DashboardDatasetChartDataSource<
+  TDatasetId extends string = string,
+> = {
+  readonly kind: 'dataset'
+  readonly datasetId: TDatasetId
+}
+
+export type DashboardMaterializedViewChartDataSource<
+  TDatasetId extends string = string,
+  TView extends MaterializedViewDefinition<any, any, any, any> = MaterializedViewDefinition<any, any, any, any>,
+> = {
+  readonly kind: 'materialized-view'
+  readonly datasetId: TDatasetId
+  readonly view: TView
+}
+
+export type DashboardChartDataSource<
+  TDatasetId extends string = string,
+> =
+  | DashboardDatasetChartDataSource<TDatasetId>
+  | DashboardMaterializedViewChartDataSource<TDatasetId>
 
 export type DashboardLocalSharedSelectFilterConfig<
   TDatasets extends ModelDatasets,
@@ -295,6 +319,7 @@ export type DashboardResolvedChart<
   ? {
       readonly id: TChartId
       readonly datasetId: ResolvedDashboardFromDefinition<TDashboard>['charts'][TChartId]['datasetId']
+      readonly source: ResolvedDashboardFromDefinition<TDashboard>['charts'][TChartId]['dataSource']
       readonly data: readonly TRow[]
       readonly schema: DashboardChartDefinitionFromDefinition<TDashboard, TChartId>
       readonly ownership: DashboardResolvedChartOwnership
