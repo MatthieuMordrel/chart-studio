@@ -6,12 +6,14 @@ import type {
 } from '../mock-data'
 import {seededRandom} from './utils'
 
+/** Regions and offices for hiring requisitions. */
 const REGIONS = {
   AMER: ['New York', 'Toronto', 'Austin', 'Remote US'],
   EMEA: ['London', 'Berlin', 'Amsterdam', 'Remote EU'],
   APAC: ['Singapore', 'Sydney', 'Tokyo', 'Remote APAC'],
 } as const
 
+/** Owners for hiring requisitions. */
 const OWNERS: readonly HiringOwnerRecord[] = [
   {id: 'owner-1', name: 'Avery Stone', region: 'AMER', portfolio: 'Platform'},
   {id: 'owner-2', name: 'Morgan Lee', region: 'AMER', portfolio: 'Revenue'},
@@ -27,6 +29,7 @@ const OWNERS: readonly HiringOwnerRecord[] = [
   {id: 'owner-12', name: 'Priya Raman', region: 'APAC', portfolio: 'Design'},
 ] as const
 
+/** Skills for hiring requisitions. */
 const SKILLS: readonly HiringSkillRecord[] = [
   {id: 'skill-1', name: 'TypeScript', domain: 'Frontend'},
   {id: 'skill-2', name: 'React', domain: 'Frontend'},
@@ -54,6 +57,7 @@ const SKILLS: readonly HiringSkillRecord[] = [
   {id: 'skill-24', name: 'Customer Success', domain: 'Revenue'},
 ] as const
 
+/** Role families for hiring requisitions. */
 const ROLE_FAMILIES = [
   {
     family: 'Engineering',
@@ -99,6 +103,7 @@ const ROLE_FAMILIES = [
   },
 ] as const
 
+/** Levels for hiring requisitions. */
 const LEVELS = [
   {level: 'IC4', multiplier: 0.88, closeFactor: 0.9},
   {level: 'IC5', multiplier: 1, closeFactor: 1},
@@ -107,9 +112,13 @@ const LEVELS = [
   {level: 'Director', multiplier: 1.45, closeFactor: 1.3},
 ] as const
 
+/** Hiring motions for hiring requisitions. */
 const HIRING_MOTIONS = ['Backfill', 'Growth', 'Expansion'] as const
+
+/** Employment types for hiring requisitions. */
 const EMPLOYMENT_TYPES = ['Full Time', 'Contract'] as const
 
+/** Generate an ISO date relative to today. */
 function isoDateRelative(daysFromToday: number): string {
   const date = new Date()
   date.setDate(date.getDate() + daysFromToday)
@@ -117,14 +126,36 @@ function isoDateRelative(daysFromToday: number): string {
   return date.toISOString()
 }
 
+/** Sample a random item from an array. */
 function sampleFromArray<T>(items: readonly T[], seed: number): T {
   return items[Math.floor(seededRandom(seed) * items.length)]!
 }
 
+/** Clamp a value between a minimum and maximum. */
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
+/** Generate a hiring network data. 
+ * 
+ * @param count - The number of requisitions to generate.
+ * @returns The hiring network data.
+ * 
+ * @example
+ * ```ts  
+ * const data = generateHiringNetworkData(100)
+ * console.log(data)
+ * ```
+ * Output:
+ * ```json
+ * {
+ *   "requisitions": [...],
+ *   "owners": [...],
+ *   "skills": [...],
+ *   "jobSkills": [...],
+ * }
+ * ```
+*/
 export function generateHiringNetworkData(count = 260): {
   requisitions: HiringRequisitionRecord[]
   owners: HiringOwnerRecord[]

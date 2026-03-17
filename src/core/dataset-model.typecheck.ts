@@ -44,6 +44,10 @@ const owners = defineDataset<OwnerRecord>()
     c.field('id'),
     c.category('name'),
     c.category('region'),
+    c.derived.category('displayName', {
+      label: 'Owner Snapshot',
+      accessor: (row) => `${row.name} (${row.region})`,
+    }),
   ])
 
 const skills = defineDataset<SkillRecord>()
@@ -192,6 +196,115 @@ function verifyModelTyping() {
         },
       ] as const,
     })
+
+  const jobsWithOwner = model.materialize('jobsWithOwner', (m) =>
+    m
+      .from('jobs')
+      .join('owner', {relationship: 'jobOwner'})
+      .grain('job'),
+  )
+
+  const jobsWithSkills = model.materialize('jobsWithSkills', (m) =>
+    m
+      .from('jobs')
+      .join('owner', {relationship: 'jobOwner'})
+      .throughAssociation('skill', {association: 'jobSkills'})
+      .grain('job-skill'),
+  )
+
+  const ownerRows = jobsWithOwner.materialize({
+    jobs: [] as JobRecord[],
+    owners: [] as OwnerRecord[],
+    skills: [] as SkillRecord[],
+  })
+  const skillRows = jobsWithSkills.materialize({
+    jobs: [] as JobRecord[],
+    owners: [] as OwnerRecord[],
+    skills: [] as SkillRecord[],
+  })
+  const ownerChart = useChart({
+    data: ownerRows,
+    schema: jobsWithOwner
+      .chart('jobsByOwner')
+      .xAxis((x) => x.allowed('ownerName', 'ownerDisplayName').default('ownerName'))
+      .groupBy((g) => g.allowed('salaryBand').default('salaryBand'))
+      .filters((f) => f.allowed('ownerRegion', 'salaryBand'))
+      .metric((m) => m.aggregate('salary', 'sum')),
+  })
+  const skillChart = useChart({
+    data: skillRows,
+    schema: jobsWithSkills
+      .chart('jobsBySkill')
+      .xAxis((x) => x.allowed('skillName').default('skillName'))
+      .groupBy((g) => g.allowed('ownerRegion').default('ownerRegion'))
+      .metric((m) => m.count()),
+  })
+
+  expectType<string | null>(ownerRows[0]!.ownerName)
+  expectType<string | null>(ownerRows[0]!.ownerRegion)
+  expectType<string>(skillRows[0]!.skillId)
+  expectType<string>(skillRows[0]!.skillName)
+  expectType<'ownerName' | 'ownerDisplayName' | null>(ownerChart.xAxisId)
+  expectType<'salaryBand' | null>(ownerChart.groupById)
+  expectType<'ownerRegion' | null>(skillChart.groupById)
+
+  ownerChart.setXAxis('ownerName')
+  ownerChart.setXAxis('ownerDisplayName')
+  ownerChart.toggleFilter('ownerRegion', 'EU')
+  skillChart.setXAxis('skillName')
+  skillChart.setGroupBy('ownerRegion')
+
+  model.materialize('jobsWithOwnerDisplayOnly', (m) =>
+    m
+      .from('jobs')
+      .join('owner', {
+        relationship: 'jobOwner',
+        columns: ['displayName'],
+      })
+      .grain('job'),
+  )
+
+  model.materialize('ownersWithJobs', (m) =>
+    m
+      .from('owners')
+      // @ts-expect-error lookup joins must start from the foreign-key side of the relationship
+      .join('job', {relationship: 'jobOwner'})
+      .grain('owner-job'),
+  )
+
+  model.materialize('jobsWithSkillsAndDerivedSkills', (m) =>
+    m
+      .from('jobs')
+      .throughAssociation('skill', {association: 'jobSkills'})
+      // @ts-expect-error row-expanding traversals must stay explicit and currently allow only one expansion
+      .throughAssociation('skillAgain', {association: 'jobSkillsDerived'})
+      .grain('job-skill-skill'),
+  )
+
+  model.materialize('jobsWithMissingOwner', (m) =>
+    m
+      .from('jobs')
+      // @ts-expect-error unknown relationship ids should fail for materialized joins
+      .join('owner', {relationship: 'missingOwner'})
+      .grain('job'),
+  )
+
+  model.materialize('jobsWithMissingSkills', (m) =>
+    m
+      .from('jobs')
+      // @ts-expect-error unknown association ids should fail for materialized expansions
+      .throughAssociation('skill', {association: 'missingSkills'})
+      .grain('job-skill'),
+  )
+
+  model.materialize('jobsWithDuplicateAliases', (m) =>
+    m
+      .from('jobs')
+      .join('owner', {relationship: 'jobOwner'})
+      // @ts-expect-error duplicate projection aliases should fail
+      .join('owner', {relationship: 'jobOwner'})
+      .grain('job'),
+  )
 }
 
 void verifyDatasetTyping

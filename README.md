@@ -219,10 +219,58 @@ Important limits of the current model layer:
 - many-to-many stays explicit through `association(...)`
 - `validateData(...)` hard-fails on duplicate declared keys, orphan foreign keys, and malformed association edges
 - charts still execute against one flat dataset at a time
+- cross-dataset chart grains now come from explicit `model.materialize(...)` views, not hidden joins
 - dashboard composition and shared filters now build on top of the model layer explicitly
-- automatic denormalization and linked metrics do not exist yet
+- linked metrics do not exist yet
 
-### 4. Dashboard composition
+### 4. Materialized views
+
+Use `model.materialize(...)` when one chart truly needs a flat cross-dataset
+analytic grain:
+
+```tsx
+const jobsWithOwner = hiringModel.materialize('jobsWithOwner', (m) =>
+  m
+    .from('jobs')
+    .join('owner', { relationship: 'jobOwner' })
+    .grain('job')
+)
+
+const jobSkills = hiringModel.materialize('jobSkills', (m) =>
+  m
+    .from('jobs')
+    .join('owner', { relationship: 'jobOwner' })
+    .throughAssociation('skill', { association: 'jobSkills' })
+    .grain('job-skill')
+)
+
+const rows = jobSkills.materialize({
+  jobs: jobsData,
+  owners: ownersData,
+  skills: skillsData,
+})
+
+const chart = useChart({
+  data: rows,
+  schema: jobSkills
+    .chart('jobsBySkill')
+    .xAxis((x) => x.allowed('skillName').default('skillName'))
+    .groupBy((g) => g.allowed('ownerRegion').default('ownerRegion'))
+    .metric((m) => m.count().defaultCount()),
+})
+```
+
+Rules for materialized views:
+
+- `materialize(...)` is explicit; the model does not become a hidden query engine
+- `grain(...)` is required so the output row grain stays visible
+- `.join(...)` is for lookup-style joins that preserve the base grain
+- `.throughRelationship(...)` and `.throughAssociation(...)` are the explicit row-expanding paths
+- many-to-many flattening stays visible because `association(...)` and `throughAssociation(...)` are both opt-in
+- related-table columns reuse the linked dataset definitions, so you do not need repeated per-dataset derived columns like `ownerName`, `ownerRegion`, or `skillName`
+- the materialized view is chartable like a normal dataset and exposes `materialize(data)` for explicit reuse and caching
+
+### 5. Dashboard composition
 
 Use `defineDashboard(model)` when several reusable dataset-backed charts belong
 to one dashboard:
@@ -268,7 +316,7 @@ Rules for dashboard composition:
 - `useDashboardChart(...)` resolves the reusable chart by id and keeps React in charge of placement
 - `useDashboardDataset(...)` exposes the globally filtered rows for non-chart consumers like KPI cards or tables
 
-### 5. Shared dashboard filters
+### 6. Shared dashboard filters
 
 Shared dashboard filters layer on top of dashboard composition.
 
@@ -533,11 +581,12 @@ Yes, but there are two different meanings:
 
 - `useChart({ sources: [...] })` is for source-switching within one chart
 - `defineDataModel()` is for linked dataset metadata, validation, and reusable filter semantics outside the chart runtime
+- `model.materialize(...)` is for one explicit flat cross-dataset chart grain
 - `defineDashboard()` plus `useDashboard()` is for composing several reusable charts and optional shared dashboard filters
 
 The current chart runtime still executes one flat dataset at a time. Multi-source
-source-switching is separate from linked data models and from future dashboard
-composition.
+source-switching is separate from linked data models, explicit materialized
+views, and dashboard composition.
 
 ```tsx
 import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'

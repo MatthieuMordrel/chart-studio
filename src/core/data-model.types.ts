@@ -6,6 +6,10 @@ import type {
   SingleDatasetKeyId,
 } from './dataset-builder.types.js'
 import type {
+  MaterializedViewDefinition,
+  ModelMaterializationStartBuilder,
+} from './materialized-view.types.js'
+import type {
   InferableFieldKey,
   ResolvedGroupByColumnIdFromSchema,
 } from './types.js'
@@ -291,6 +295,27 @@ export type DefinedDataModel<
   readonly relationships: TRelationships
   readonly associations: TAssociations
   readonly attributes: TAttributes
+  /**
+   * Define one explicit materialized view from the linked model.
+   *
+   * Use this when a chart needs a flat cross-dataset row shape such as
+   * `'job'`, `'job-skill'`, or `'requisition-owner'`.
+   */
+  materialize<
+    const TId extends string,
+    const TMaterializedView extends MaterializedViewDefinition<any, any, any, any>,
+  >(
+    id: TId,
+    defineView: (
+      materialize: ModelMaterializationStartBuilder<
+        TDatasets,
+        TRelationships,
+        TAssociations,
+        TAttributes,
+        TId
+      >,
+    ) => TMaterializedView,
+  ): TMaterializedView
   validateData(data: ModelDataInput<TDatasets>): void
   build(): DefinedDataModel<TDatasets, TRelationships, TAssociations, TAttributes>
   readonly __dataModelBrand: 'data-model-definition'
@@ -425,6 +450,26 @@ export interface DataModelBuilder<
     TAssociations,
     TAttributes & Record<TId, ModelAttributeDefinition<TSourceDatasetId, TTargets>>
   >
+
+  /**
+   * Define one reusable materialized view without collapsing model, chart, and
+   * dashboard concerns into one abstraction.
+   */
+  materialize<
+    const TId extends string,
+    const TMaterializedView extends MaterializedViewDefinition<any, any, any, any>,
+  >(
+    id: TId,
+    defineView: (
+      materialize: ModelMaterializationStartBuilder<
+        TDatasets,
+        TRelationships,
+        TAssociations,
+        TAttributes,
+        TId
+      >,
+    ) => TMaterializedView,
+  ): TMaterializedView
 
   validateData(data: ModelDataInput<TDatasets>): void
 

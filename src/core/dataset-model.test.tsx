@@ -49,6 +49,10 @@ const owners = defineDataset<OwnerRow>()
     c.field('id'),
     c.category('name', {label: 'Owner'}),
     c.category('region'),
+    c.derived.category('displayName', {
+      label: 'Owner Snapshot',
+      accessor: (row) => `${row.name} (${row.region})`,
+    }),
   ])
 
 const skills = defineDataset<SkillRow>()
@@ -321,5 +325,266 @@ describe('data model builder', () => {
         skills: validSkills,
       }),
     ).toThrow('Association "jobSkills" has an orphan derived key "skill-missing"')
+  })
+
+  it('materializes lookup views explicitly and reuses declared related-table columns', () => {
+    const model = defineDataModel()
+      .dataset('jobs', jobs)
+      .dataset('owners', owners)
+      .relationship('jobOwner', {
+        from: {dataset: 'owners', key: 'id'},
+        to: {dataset: 'jobs', column: 'ownerId'},
+      })
+
+    const jobsWithOwner = model.materialize('jobsWithOwner', (m) =>
+      m
+        .from('jobs')
+        .join('owner', {relationship: 'jobOwner'})
+        .grain('job'),
+    )
+
+    const materializedRows = jobsWithOwner.materialize({
+      jobs: validJobs,
+      owners: validOwners,
+    })
+    const repeatedRows = jobsWithOwner.materialize({
+      jobs: validJobs,
+      owners: validOwners,
+    })
+
+    expect(materializedRows).toEqual([
+      expect.objectContaining({
+        id: 'job-1',
+        ownerName: 'Alice',
+        ownerRegion: 'EU',
+        ownerDisplayName: 'Alice (EU)',
+      }),
+      expect.objectContaining({
+        id: 'job-2',
+        ownerName: 'Bob',
+        ownerRegion: 'US',
+        ownerDisplayName: 'Bob (US)',
+      }),
+    ])
+    expect(repeatedRows).not.toBe(materializedRows)
+
+    const builtView = jobsWithOwner.build()
+    expect(builtView.key).toEqual(['id'])
+    expect(builtView.materialization).toEqual({
+      id: 'jobsWithOwner',
+      baseDataset: 'jobs',
+      grain: 'job',
+      steps: [
+        {
+          kind: 'join',
+          alias: 'owner',
+          relationship: 'jobOwner',
+          targetDataset: 'owners',
+          projectedColumns: ['name', 'region', 'displayName'],
+        },
+      ],
+    })
+    expect(builtView.columns).toMatchObject({
+      ownerName: {label: 'Owner', type: 'category'},
+      ownerRegion: {label: 'Owner Region', type: 'category'},
+      ownerDisplayName: {label: 'Owner Snapshot', type: 'category'},
+    })
+
+    const schema = jobsWithOwner
+      .chart('jobsByOwner')
+      .xAxis((x) => x.allowed('ownerName').default('ownerName'))
+      .groupBy((g) => g.allowed('salaryBand').default('salaryBand'))
+      .metric((m) => m.aggregate('salary', 'sum'))
+
+    const {result} = renderHook(() =>
+      useChart({
+        data: materializedRows,
+        schema,
+      }),
+    )
+
+    expect(result.current.columns.map((column) => column.id)).toEqual([
+      'id',
+      'ownerId',
+      'createdAt',
+      'salary',
+      'ownerName',
+      'ownerRegion',
+      'ownerDisplayName',
+      'salaryBand',
+    ])
+    expect(result.current.xAxisId).toBe('ownerName')
+  })
+
+  it('materializes filtered lookup slices without validating unrelated associations', () => {
+    const model = defineDataModel()
+      .dataset('jobs', jobs)
+      .dataset('owners', owners)
+      .dataset('skills', skills)
+      .relationship('jobOwner', {
+        from: {dataset: 'owners', key: 'id'},
+        to: {dataset: 'jobs', column: 'ownerId'},
+      })
+      .association('jobSkills', {
+        from: {dataset: 'jobs', key: 'id'},
+        to: {dataset: 'skills', key: 'id'},
+        data: validJobSkills,
+        columns: {
+          from: 'jobId',
+          to: 'skillId',
+        },
+      })
+
+    const jobsWithOwner = model.materialize('jobsWithOwner', (m) =>
+      m
+        .from('jobs')
+        .join('owner', {relationship: 'jobOwner'})
+        .grain('job'),
+    )
+
+    expect(() =>
+      jobsWithOwner.materialize({
+        jobs: [validJobs[0]!],
+        owners: validOwners,
+        skills: validSkills,
+      }),
+    ).not.toThrow()
+  })
+
+  it('materializes association views explicitly for many-to-many chart grains', () => {
+    const model = defineDataModel()
+      .dataset('jobs', jobs)
+      .dataset('owners', owners)
+      .dataset('skills', skills)
+      .relationship('jobOwner', {
+        from: {dataset: 'owners', key: 'id'},
+        to: {dataset: 'jobs', column: 'ownerId'},
+      })
+      .association('jobSkills', {
+        from: {dataset: 'jobs', key: 'id'},
+        to: {dataset: 'skills', key: 'id'},
+        data: validJobSkills,
+        columns: {
+          from: 'jobId',
+          to: 'skillId',
+        },
+      })
+
+    const jobsWithSkills = model.materialize('jobsWithSkills', (m) =>
+      m
+        .from('jobs')
+        .join('owner', {relationship: 'jobOwner'})
+        .throughAssociation('skill', {association: 'jobSkills'})
+        .grain('job-skill'),
+    )
+
+    const materializedInput = {
+      jobs: validJobs,
+      owners: validOwners,
+      skills: validSkills,
+    } as const
+    const materializedRows = jobsWithSkills.materialize(materializedInput)
+    const cachedRows = jobsWithSkills.materialize(materializedInput)
+
+    expect(materializedRows).toEqual([
+      expect.objectContaining({
+        id: 'job-1',
+        ownerName: 'Alice',
+        skillId: 'skill-1',
+        skillName: 'SQL',
+      }),
+      expect.objectContaining({
+        id: 'job-2',
+        ownerName: 'Bob',
+        skillId: 'skill-1',
+        skillName: 'SQL',
+      }),
+      expect.objectContaining({
+        id: 'job-2',
+        ownerName: 'Bob',
+        skillId: 'skill-2',
+        skillName: 'TypeScript',
+      }),
+    ])
+    expect(cachedRows).toBe(materializedRows)
+
+    const builtView = jobsWithSkills.build()
+    expect(builtView.key).toEqual(['id', 'skillId'])
+    expect(builtView.materialization).toEqual({
+      id: 'jobsWithSkills',
+      baseDataset: 'jobs',
+      grain: 'job-skill',
+      steps: [
+        {
+          kind: 'join',
+          alias: 'owner',
+          relationship: 'jobOwner',
+          targetDataset: 'owners',
+          projectedColumns: ['name', 'region', 'displayName'],
+        },
+        {
+          kind: 'through-association',
+          alias: 'skill',
+          association: 'jobSkills',
+          targetDataset: 'skills',
+          projectedColumns: ['id', 'name'],
+        },
+      ],
+    })
+
+    expect(() =>
+      model.materialize('jobsWithCollidingOwnerId', (m) =>
+        m
+          .from('jobs')
+          .join('owner', {
+            relationship: 'jobOwner',
+            columns: ['id', 'name'],
+          })
+          .grain('job'),
+      ),
+    ).toThrow('ownerId')
+  })
+
+  it('materializes association views from a filtered base slice without treating hidden edges as orphans', () => {
+    const model = defineDataModel()
+      .dataset('jobs', jobs)
+      .dataset('owners', owners)
+      .dataset('skills', skills)
+      .relationship('jobOwner', {
+        from: {dataset: 'owners', key: 'id'},
+        to: {dataset: 'jobs', column: 'ownerId'},
+      })
+      .association('jobSkills', {
+        from: {dataset: 'jobs', key: 'id'},
+        to: {dataset: 'skills', key: 'id'},
+        data: validJobSkills,
+        columns: {
+          from: 'jobId',
+          to: 'skillId',
+        },
+      })
+
+    const jobsWithSkills = model.materialize('jobsWithSkills', (m) =>
+      m
+        .from('jobs')
+        .join('owner', {relationship: 'jobOwner'})
+        .throughAssociation('skill', {association: 'jobSkills'})
+        .grain('job-skill'),
+    )
+
+    const rows = jobsWithSkills.materialize({
+      jobs: [validJobs[0]!],
+      owners: validOwners,
+      skills: validSkills,
+    })
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        id: 'job-1',
+        ownerName: 'Alice',
+        skillId: 'skill-1',
+        skillName: 'SQL',
+      }),
+    ])
   })
 })

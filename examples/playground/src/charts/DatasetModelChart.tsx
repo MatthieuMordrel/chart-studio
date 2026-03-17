@@ -8,16 +8,13 @@ import {
   useDashboardChart,
   useDashboardDataset,
   useDashboardSharedFilter,
+  useChart,
   type DashboardSharedDateRangeFilterRuntime,
   type DashboardSharedSelectFilterRuntime,
 } from '@matthieumordrel/chart-studio'
 import {Chart, ChartCanvas, ChartToolbar} from '@matthieumordrel/chart-studio/ui'
 import {
-  hiringNetworkData,
-  type HiringJobSkillRecord,
-  type HiringOwnerRecord,
-  type HiringRequisitionRecord,
-  type HiringSkillRecord,
+  hiringNetworkData as projectPlanningSeedData,
 } from '../mock-data'
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -28,20 +25,218 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 const integerFormatter = new Intl.NumberFormat('en-US')
 
+/**
+ * Playground domain note.
+ *
+ * The underlying seed data still comes from the hiring generator, but this file
+ * intentionally remaps it into a project-planning domain because "project plan
+ * -> manager -> capability" is easier to understand while preserving the same
+ * relational shape and the same Phase 7 needs.
+ */
 const {
-  requisitions: requisitionRows,
-  owners: ownerRows,
-  skills: skillRows,
-  jobSkills: jobSkillRows,
-} = hiringNetworkData
+  requisitions: seedProjectPlanRows,
+  owners: seedManagerRows,
+  skills: seedCapabilityRows,
+  jobSkills: seedProjectCapabilityRows,
+} = projectPlanningSeedData
 
-const ownerById = new Map(
-  ownerRows.map((owner) => [owner.id, owner] satisfies readonly [string, HiringOwnerRecord]),
-)
-const skillById = new Map(
-  skillRows.map((skill) => [skill.id, skill] satisfies readonly [string, HiringSkillRecord]),
-)
+/** Map seed role families into clearer project initiative buckets for the demo. */
+const initiativeTypeByRoleFamily = {
+  Engineering: 'Platform',
+  Data: 'Analytics',
+  Security: 'Security',
+  Design: 'Experience',
+  Revenue: 'Growth',
+  Operations: 'Operations',
+} as const
 
+/** Translate the source leveling system into a neutral delivery tier scale. */
+const deliveryTierByLevel = {
+  IC4: 'Tier 1',
+  IC5: 'Tier 2',
+  Staff: 'Tier 3',
+  Manager: 'Tier 4',
+  Director: 'Tier 5',
+} as const
+
+/** Reframe hiring motion as the reason a delivery plan exists. */
+const deliveryMotionBySourceMotion = {
+  Backfill: 'Stabilize',
+  Growth: 'Grow',
+  Expansion: 'Expand',
+} as const
+
+/** Reframe employment type as how the work will be executed. */
+const executionModeBySourceType = {
+  'Full Time': 'Internal',
+  Contract: 'Partner',
+} as const
+
+/** Reframe hiring lifecycle statuses into project-planning lifecycle statuses. */
+const projectStatusBySourceStatus = {
+  Open: 'Planned',
+  Filled: 'Completed',
+  Paused: 'On Hold',
+  Cancelled: 'Cancelled',
+} as const
+
+/** Map owner portfolios into clearer manager program areas for the demo. */
+const programAreaByPortfolio = {
+  Platform: 'Platform',
+  Revenue: 'Commercial',
+  Data: 'Analytics',
+  Security: 'Security',
+  Product: 'Product',
+  Operations: 'Operations',
+  Growth: 'Growth',
+  Design: 'Experience',
+} as const
+
+/** Map skill domains into capability areas that read naturally for delivery teams. */
+const capabilityDomainBySourceDomain = {
+  Frontend: 'Experience',
+  Backend: 'Service Delivery',
+  Infrastructure: 'Platform',
+  Data: 'Analytics',
+  Growth: 'Growth',
+  Revenue: 'Commercial',
+  Product: 'Product',
+  Design: 'Experience Design',
+  Security: 'Security',
+  Operations: 'Operations',
+} as const
+
+type InitiativeType = (typeof initiativeTypeByRoleFamily)[keyof typeof initiativeTypeByRoleFamily]
+type DeliveryTier = (typeof deliveryTierByLevel)[keyof typeof deliveryTierByLevel]
+type DeliveryMotion = (typeof deliveryMotionBySourceMotion)[keyof typeof deliveryMotionBySourceMotion]
+type ExecutionMode = (typeof executionModeBySourceType)[keyof typeof executionModeBySourceType]
+type ProjectStatus = (typeof projectStatusBySourceStatus)[keyof typeof projectStatusBySourceStatus]
+type ProgramArea = (typeof programAreaByPortfolio)[keyof typeof programAreaByPortfolio]
+type CapabilityDomain = (typeof capabilityDomainBySourceDomain)[keyof typeof capabilityDomainBySourceDomain]
+
+/**
+ * One approved project delivery plan.
+ *
+ * Grain:
+ * one row = one project plan.
+ *
+ * Each plan belongs to exactly one manager, but can require multiple
+ * capabilities through the explicit `projectCapabilities` bridge rows.
+ */
+type ProjectPlanRecord = {
+  id: string
+  managerId: string
+  initiativeType: InitiativeType
+  department: string
+  region: 'AMER' | 'EMEA' | 'APAC'
+  hub: string
+  deliveryTier: DeliveryTier
+  deliveryMotion: DeliveryMotion
+  executionMode: ExecutionMode
+  status: ProjectStatus
+  plannedAt: string
+  targetLaunchAt: string
+  completedAt: string | null
+  budgetMidpoint: number
+  staffingCount: number
+  requestCount: number
+  reviewCount: number
+  approvalsRequested: number
+  approvalsGranted: number
+}
+
+/**
+ * Manager lookup row referenced by `projectPlans.managerId`.
+ *
+ * Keeping manager data on its own table lets the materialized view example
+ * project manager fields without redefining `managerName`, `managerRegion`, and
+ * `managerProgramArea` as derived columns on every project dataset.
+ */
+type ProjectManagerRecord = {
+  id: string
+  name: string
+  region: 'AMER' | 'EMEA' | 'APAC'
+  programArea: ProgramArea
+}
+
+/**
+ * Capability lookup row used by many project plans.
+ *
+ * This stays normalized on purpose so the many-to-many materialized view has a
+ * meaningful role in the example.
+ */
+type CapabilityRecord = {
+  id: string
+  name: string
+  domain: CapabilityDomain
+}
+
+/** Explicit bridge row linking one project plan to one required capability. */
+type ProjectCapabilityEdgeRecord = {
+  projectId: string
+  capabilityId: string
+}
+
+/** Project planning rows remapped from the shared seed data into clearer business language. */
+const projectPlanRows: ProjectPlanRecord[] = seedProjectPlanRows.map((row) => ({
+  id: row.id,
+  managerId: row.ownerId,
+  initiativeType: initiativeTypeByRoleFamily[row.roleFamily],
+  department: row.team,
+  region: row.region,
+  hub: row.office,
+  deliveryTier: deliveryTierByLevel[row.level],
+  deliveryMotion: deliveryMotionBySourceMotion[row.hiringMotion],
+  executionMode: executionModeBySourceType[row.employmentType],
+  status: projectStatusBySourceStatus[row.status],
+  plannedAt: row.openedAt,
+  targetLaunchAt: row.targetStartAt,
+  completedAt: row.closedAt,
+  budgetMidpoint: row.salaryMidpoint,
+  staffingCount: row.headcount,
+  requestCount: row.applicants,
+  reviewCount: row.onsiteCount,
+  approvalsRequested: row.offersExtended,
+  approvalsGranted: row.offersAccepted,
+}))
+
+/** Manager lookup rows remapped from the shared seed data. */
+const managerRows: ProjectManagerRecord[] = seedManagerRows.map((row) => ({
+  id: row.id,
+  name: row.name,
+  region: row.region,
+  programArea: programAreaByPortfolio[row.portfolio],
+}))
+
+/** Capability lookup rows remapped from the shared seed data. */
+const capabilityRows: CapabilityRecord[] = seedCapabilityRows.map((row) => ({
+  id: row.id,
+  name: row.name,
+  domain: capabilityDomainBySourceDomain[row.domain],
+}))
+
+/** Explicit many-to-many bridge rows linking project plans to capabilities. */
+const projectCapabilityRows: ProjectCapabilityEdgeRecord[] = seedProjectCapabilityRows.map((row) => ({
+  projectId: row.jobId,
+  capabilityId: row.skillId,
+}))
+
+/**
+ * Full normalized project-planning dataset passed to the model and dashboard runtime.
+ *
+ * Domain meaning:
+ * - `projectPlans` are approved initiatives, one row per project plan
+ * - `managers` are the accountable leaders referenced by `projectPlans.managerId`
+ * - `capabilities` are reusable capabilities attached to project plans through
+ *   the explicit `projectCapabilities` bridge data
+ */
+const planningModelData = {
+  projectPlans: projectPlanRows,
+  managers: managerRows,
+  capabilities: capabilityRows,
+} as const
+
+/** Compute elapsed whole days between two ISO timestamps for duration-style derived fields. */
 function differenceInDays(fromIso: string, toIso: string): number {
   const from = new Date(fromIso).getTime()
   const to = new Date(toIso).getTime()
@@ -49,6 +244,7 @@ function differenceInDays(fromIso: string, toIso: string): number {
   return Math.max(0, Math.round((to - from) / (1000 * 60 * 60 * 24)))
 }
 
+/** Adapt one `Date | null` value for the native `<input type="date">` controls in the demo. */
 function toDateInputValue(date: Date | null): string {
   if (!date) {
     return ''
@@ -60,169 +256,250 @@ function toDateInputValue(date: Date | null): string {
   return `${year}-${month}-${day}`
 }
 
+/** Parse one native date input value back into the dashboard date-range runtime shape. */
 function fromDateInputValue(value: string): Date | null {
   return value ? new Date(`${value}T00:00:00`) : null
 }
 
-const requisitions = defineDataset<HiringRequisitionRecord>()
+/**
+ * Base project-planning dataset.
+ *
+ * Grain:
+ * one row = one approved project plan.
+ *
+ * This stays the normalized source of truth for the dashboard charts. Phase 7
+ * does not denormalize it by default.
+ */
+const projectPlans = defineDataset<ProjectPlanRecord>()
   .key('id')
   .columns((c) => [
     c.field('id'),
-    c.field('ownerId'),
-    c.category('roleFamily', {label: 'Function'}),
-    c.category('team'),
+    c.field('managerId'),
+    c.category('initiativeType', {label: 'Initiative'}),
+    c.category('department'),
     c.category('region'),
-    c.category('office'),
-    c.category('level'),
-    c.category('hiringMotion', {label: 'Hiring Motion'}),
-    c.category('employmentType', {label: 'Employment Type'}),
+    c.category('hub'),
+    c.category('deliveryTier', {label: 'Delivery Tier'}),
+    c.category('deliveryMotion', {label: 'Delivery Motion'}),
+    c.category('executionMode', {label: 'Execution Mode'}),
     c.category('status'),
-    c.date('openedAt', {label: 'Opened'}),
-    c.date('targetStartAt', {label: 'Target Start'}),
-    c.date('closedAt', {label: 'Closed'}),
-    c.number('salaryMidpoint', {label: 'Salary Midpoint', format: 'currency'}),
-    c.number('headcount', {label: 'Headcount'}),
-    c.number('applicants', {label: 'Applicants'}),
-    c.number('onsiteCount', {label: 'Onsites'}),
-    c.number('offersExtended', {label: 'Offers Extended'}),
-    c.number('offersAccepted', {label: 'Offers Accepted'}),
-    c.derived.category('ownerName', {
-      label: 'Hiring Owner',
-      accessor: (row) => ownerById.get(row.ownerId)?.name ?? 'Unassigned',
-    }),
-    c.derived.category('ownerPortfolio', {
-      label: 'Owner Portfolio',
-      accessor: (row) => ownerById.get(row.ownerId)?.portfolio ?? 'Unknown',
-    }),
+    c.date('plannedAt', {label: 'Planned'}),
+    c.date('targetLaunchAt', {label: 'Target Launch'}),
+    c.date('completedAt', {label: 'Completed'}),
+    c.number('budgetMidpoint', {label: 'Budget Midpoint', format: 'currency'}),
+    c.number('staffingCount', {label: 'Staffing'}),
+    c.number('requestCount', {label: 'Requests'}),
+    c.number('reviewCount', {label: 'Reviews'}),
+    c.number('approvalsRequested', {label: 'Approvals Requested'}),
+    c.number('approvalsGranted', {label: 'Approvals Granted'}),
     c.derived.category('statusBucket', {
       label: 'Status Bucket',
-      accessor: (row) => (
-        row.status === 'Open' || row.status === 'Paused' ? 'Active Plan' : 'Closed'
-      ),
+      accessor: (row) => (row.status === 'Planned' || row.status === 'On Hold' ? 'Active Plan' : 'Closed'),
     }),
-    c.derived.number('daysToClose', {
-      label: 'Days To Close',
+    c.derived.number('daysToComplete', {
+      label: 'Days To Complete',
       format: {kind: 'duration', unit: 'days'},
-      accessor: (row) => (row.closedAt ? differenceInDays(row.openedAt, row.closedAt) : null),
+      accessor: (row) => (row.completedAt ? differenceInDays(row.plannedAt, row.completedAt) : null),
     }),
-    c.derived.number('annualizedBudget', {
-      label: 'Annualized Budget',
+    c.derived.number('totalBudget', {
+      label: 'Total Budget',
       format: 'currency',
-      accessor: (row) => row.salaryMidpoint * row.headcount,
+      accessor: (row) => row.budgetMidpoint * row.staffingCount,
     }),
-    c.derived.number('offerConversion', {
-      label: 'Offer Conversion',
+    c.derived.number('approvalRate', {
+      label: 'Approval Rate',
       format: 'percent',
       accessor: (row) => (
-        row.offersExtended > 0 ? row.offersAccepted / row.offersExtended : null
+        row.approvalsRequested > 0 ? row.approvalsGranted / row.approvalsRequested : null
       ),
     }),
   ])
 
-const owners = defineDataset<HiringOwnerRecord>()
+/**
+ * Manager lookup dataset.
+ *
+ * Each row is one manager referenced by `projectPlans.managerId`. These fields
+ * are intentionally kept on their own table so the materialized-view example
+ * can project them without repeating derived columns on the project plan
+ * dataset.
+ */
+const managers = defineDataset<ProjectManagerRecord>()
   .key('id')
   .columns((c) => [
     c.field('id'),
-    c.category('name', {label: 'Owner'}),
+    c.category('name', {label: 'Manager'}),
     c.category('region'),
-    c.category('portfolio'),
+    c.category('programArea', {label: 'Program Area'}),
   ])
 
-const skills = defineDataset<HiringSkillRecord>()
+/**
+ * Capability lookup dataset.
+ *
+ * Each row is one reusable capability that can be linked to many project plans
+ * through the explicit many-to-many `projectCapabilities` association.
+ */
+const capabilities = defineDataset<CapabilityRecord>()
   .key('id')
   .columns((c) => [
     c.field('id'),
-    c.category('name', {label: 'Skill'}),
-    c.category('domain'),
+    c.category('name', {label: 'Capability'}),
+    c.category('domain', {label: 'Capability Area'}),
   ])
 
-const hiringVolumeSchema = requisitions
-  .chart('hiringVolume')
-  .xAxis((x) => x.allowed('openedAt').default('openedAt'))
-  .groupBy((g) => g.allowed('roleFamily').default('roleFamily'))
-  .filters((f) => f.allowed('region', 'hiringMotion', 'employmentType', 'statusBucket', 'ownerPortfolio'))
+/** Normalized dashboard chart: plan creation volume over time by initiative. */
+const planningVolumeSchema = projectPlans
+  .chart('planningVolume')
+  .xAxis((x) => x.allowed('plannedAt').default('plannedAt'))
+  .groupBy((g) => g.allowed('initiativeType').default('initiativeType'))
+  .filters((f) => f.allowed('region', 'deliveryMotion', 'executionMode', 'statusBucket'))
   .metric((m) => m.count().defaultCount())
   .chartType((t) => t.allowed('area', 'line', 'bar').default('area'))
   .timeBucket((tb) => tb.allowed('month', 'quarter').default('month'))
 
-const ownerLoadSchema = requisitions
-  .chart('ownerLoad')
-  .xAxis((x) => x.allowed('ownerName').default('ownerName'))
+/** Normalized dashboard chart: budget mix stays fully within the project-plan grain. */
+const budgetMixSchema = projectPlans
+  .chart('budgetMix')
+  .xAxis((x) => x.allowed('deliveryTier').default('deliveryTier'))
+  .groupBy((g) => g.allowed('region').default('region'))
+  .filters((f) => f.allowed('initiativeType', 'executionMode', 'hub'))
+  .metric((m) => m.aggregate('budgetMidpoint', 'avg').defaultAggregate('budgetMidpoint', 'avg'))
+  .chartType((t) => t.allowed('grouped-bar', 'bar').default('grouped-bar'))
+
+/** Normalized dashboard chart: time-to-complete analysis still reads one project row at a time. */
+const timeToCompleteSchema = projectPlans
+  .chart('timeToComplete')
+  .xAxis((x) => x.allowed('initiativeType').default('initiativeType'))
+  .groupBy((g) => g.allowed('region').default('region'))
+  .filters((f) => f.allowed('deliveryMotion', 'executionMode', 'status'))
+  .metric((m) => m.aggregate('daysToComplete', 'avg').defaultAggregate('daysToComplete', 'avg'))
+  .chartType((t) => t.allowed('grouped-bar', 'bar').default('grouped-bar'))
+
+/**
+ * Linked delivery-planning model.
+ *
+ * Relationship semantics:
+ * - `projectManager`: `managers.id -> projectPlans.managerId`
+ *
+ * Association semantics:
+ * - `projectCapabilities`: explicit bridge rows linking project plans to capabilities
+ *
+ * Shared-filter semantics:
+ * - `manager` and `capability` let the dashboard coordinate normalized datasets
+ *   without turning the chart runtime into a hidden join engine
+ */
+const deliveryModel = defineDataModel()
+  .dataset('projectPlans', projectPlans)
+  .dataset('managers', managers)
+  .dataset('capabilities', capabilities)
+  .relationship('projectManager', {
+    from: {dataset: 'managers', key: 'id'},
+    to: {dataset: 'projectPlans', column: 'managerId'},
+  })
+  .association('projectCapabilities', {
+    from: {dataset: 'projectPlans', key: 'id'},
+    to: {dataset: 'capabilities', key: 'id'},
+    data: projectCapabilityRows,
+    columns: {
+      from: 'projectId',
+      to: 'capabilityId',
+    },
+  })
+  .attribute('manager', {
+    kind: 'select',
+    source: {dataset: 'managers', key: 'id', label: 'name'},
+    targets: [
+      {dataset: 'projectPlans', column: 'managerId', via: 'projectManager'},
+    ] as const,
+  })
+  .attribute('capability', {
+    kind: 'select',
+    source: {dataset: 'capabilities', key: 'id', label: 'name'},
+    targets: [
+      {dataset: 'projectPlans', through: 'projectCapabilities', mode: 'exists'},
+    ] as const,
+  })
+  .build()
+
+/**
+ * Dashboard composition stays additive and normalized.
+ *
+ * These charts still run directly on the project-plan dataset, with shared
+ * filters narrowing the visible slice before each chart's local filters run.
+ */
+const deliveryPlanningDashboard = defineDashboard(deliveryModel)
+  .chart('planningVolume', planningVolumeSchema)
+  .chart('budgetMix', budgetMixSchema)
+  .chart('timeToComplete', timeToCompleteSchema)
+  .sharedFilter('manager')
+  .sharedFilter('capability')
+  .sharedFilter('status', {
+    kind: 'select',
+    source: {dataset: 'projectPlans', column: 'status'},
+  })
+  .sharedFilter('planningDate', {
+    kind: 'date-range',
+    targets: [
+      {dataset: 'projectPlans', column: 'plannedAt'},
+    ] as const,
+  })
+  .build()
+
+/**
+ * Phase 7 lookup-style materialized view.
+ *
+ * Grain:
+ * one row = one project plan.
+ *
+ * This view preserves the project-plan grain while projecting related manager
+ * fields like `managerName`, `managerRegion`, and `managerProgramArea`.
+ */
+const projectPlansWithManager = deliveryModel.materialize('projectPlansWithManager', (m) =>
+  m
+    .from('projectPlans')
+    .join('manager', {relationship: 'projectManager'})
+    .grain('project-plan'),
+)
+
+/**
+ * Phase 7 many-to-many materialized view.
+ *
+ * Grain:
+ * one row = one project-plan-capability pair.
+ *
+ * This is the explicit row-expanding path: a project plan may now appear
+ * several times, once for each linked capability. That multiplication is
+ * visible in both the view name and the declared grain label.
+ */
+const projectCapabilityView = deliveryModel.materialize('projectCapabilityView', (m) =>
+  m
+    .from('projectPlans')
+    .join('manager', {relationship: 'projectManager'})
+    .throughAssociation('capability', {association: 'projectCapabilities'})
+    .grain('project-plan-capability'),
+)
+
+/** Cross-dataset chart authored against the explicit `projectPlansWithManager` view. */
+const managerLoadSchema = projectPlansWithManager
+  .chart('managerLoad')
+  .xAxis((x) => x.allowed('managerName').default('managerName'))
   .groupBy((g) => g.allowed('statusBucket').default('statusBucket'))
-  .filters((f) => f.allowed('region', 'roleFamily', 'hiringMotion'))
+  .filters((f) => f.allowed('managerRegion', 'managerProgramArea', 'initiativeType', 'deliveryMotion'))
   .metric((m) => m.count().defaultCount())
   .chartType((t) => t.allowed('grouped-bar', 'bar').default('grouped-bar'))
 
-const compensationSchema = requisitions
-  .chart('compensationMix')
-  .xAxis((x) => x.allowed('level').default('level'))
-  .groupBy((g) => g.allowed('region').default('region'))
-  .filters((f) => f.allowed('roleFamily', 'employmentType', 'office'))
-  .metric((m) => m.aggregate('salaryMidpoint', 'avg').defaultAggregate('salaryMidpoint', 'avg'))
+/** Cross-dataset chart authored against the explicit `projectCapabilityView` many-to-many grain. */
+const capabilityDemandSchema = projectCapabilityView
+  .chart('capabilityDemand')
+  .xAxis((x) => x.allowed('capabilityName').default('capabilityName'))
+  .groupBy((g) => g.allowed('managerRegion').default('managerRegion'))
+  .filters((f) => f.allowed('capabilityDomain', 'initiativeType', 'statusBucket'))
+  .metric((m) => m.count().defaultCount())
   .chartType((t) => t.allowed('grouped-bar', 'bar').default('grouped-bar'))
 
-const timeToFillSchema = requisitions
-  .chart('timeToFill')
-  .xAxis((x) => x.allowed('roleFamily').default('roleFamily'))
-  .groupBy((g) => g.allowed('region').default('region'))
-  .filters((f) => f.allowed('hiringMotion', 'employmentType', 'status'))
-  .metric((m) => m.aggregate('daysToClose', 'avg').defaultAggregate('daysToClose', 'avg'))
-  .chartType((t) => t.allowed('grouped-bar', 'bar').default('grouped-bar'))
+/** Resolved dataset metadata used in the diagnostics section of the playground card. */
+const projectPlansDataset = projectPlans.build()
 
-const hiringModel = defineDataModel()
-  .dataset('requisitions', requisitions)
-  .dataset('owners', owners)
-  .dataset('skills', skills)
-  .relationship('requisitionOwner', {
-    from: {dataset: 'owners', key: 'id'},
-    to: {dataset: 'requisitions', column: 'ownerId'},
-  })
-  .association('requisitionSkills', {
-    from: {dataset: 'requisitions', key: 'id'},
-    to: {dataset: 'skills', key: 'id'},
-    data: jobSkillRows,
-    columns: {
-      from: 'jobId',
-      to: 'skillId',
-    },
-  })
-  .attribute('owner', {
-    kind: 'select',
-    source: {dataset: 'owners', key: 'id', label: 'name'},
-    targets: [
-      {dataset: 'requisitions', column: 'ownerId', via: 'requisitionOwner'},
-    ] as const,
-  })
-  .attribute('skill', {
-    kind: 'select',
-    source: {dataset: 'skills', key: 'id', label: 'name'},
-    targets: [
-      {dataset: 'requisitions', through: 'requisitionSkills', mode: 'exists'},
-    ] as const,
-  })
-  .build()
-
-const hiringDashboard = defineDashboard(hiringModel)
-  .chart('hiringVolume', hiringVolumeSchema)
-  .chart('ownerLoad', ownerLoadSchema)
-  .chart('compensationMix', compensationSchema)
-  .chart('timeToFill', timeToFillSchema)
-  .sharedFilter('owner')
-  .sharedFilter('skill')
-  .sharedFilter('status', {
-    kind: 'select',
-    source: {dataset: 'requisitions', column: 'status'},
-  })
-  .sharedFilter('activityDate', {
-    kind: 'date-range',
-    targets: [
-      {dataset: 'requisitions', column: 'openedAt'},
-    ] as const,
-  })
-  .build()
-
-const requisitionsDataset = requisitions.build()
-
+/** Small KPI card used across the dashboard summary section. */
 function SummaryMetric({
   label,
   value,
@@ -241,6 +518,7 @@ function SummaryMetric({
   )
 }
 
+/** Shared card shell so dataset, model, dashboard, and materialized-view sections read consistently. */
 function DashboardCard({
   title,
   subtitle,
@@ -261,6 +539,7 @@ function DashboardCard({
   )
 }
 
+/** Lightweight metadata row used in the explanatory diagnostics panels. */
 function MetadataLine({label, value}: {label: string; value: string}) {
   return (
     <div className='flex items-center justify-between gap-4 text-xs'>
@@ -270,35 +549,44 @@ function MetadataLine({label, value}: {label: string; value: string}) {
   )
 }
 
-function topSkillDemand(
-  rows: readonly HiringRequisitionRecord[],
-  edges: readonly HiringJobSkillRecord[],
+/**
+ * Aggregate the most-requested capabilities from the already-materialized
+ * project-plan-capability grain.
+ *
+ * This is intentionally not another chart. It demonstrates that explicit
+ * materialized views are also useful for non-chart consumers when that grain is
+ * the honest shape of the analysis.
+ */
+function topCapabilityDemand(
+  rows: ReadonlyArray<{
+    capabilityId: string
+    capabilityName: string
+    capabilityDomain: string | null
+  }>,
 ): Array<{name: string; domain: string; count: number}> {
-  const visibleRequisitionIds = new Set(rows.map((row) => row.id))
-  const counts = new Map<string, number>()
+  const counts = new Map<string, {name: string; domain: string; count: number}>()
 
-  edges.forEach((edge) => {
-    if (!visibleRequisitionIds.has(edge.jobId)) {
+  rows.forEach((row) => {
+    const existing = counts.get(row.capabilityId)
+
+    if (existing) {
+      existing.count += 1
       return
     }
 
-    counts.set(edge.skillId, (counts.get(edge.skillId) ?? 0) + 1)
+    counts.set(row.capabilityId, {
+      name: row.capabilityName,
+      domain: row.capabilityDomain ?? 'Unknown',
+      count: 1,
+    })
   })
 
-  return [...counts.entries()]
-    .map(([skillId, count]) => {
-      const skill = skillById.get(skillId)
-
-      return {
-        name: skill?.name ?? skillId,
-        domain: skill?.domain ?? 'Unknown',
-        count,
-      }
-    })
+  return [...counts.values()]
     .sort((left, right) => right.count - left.count)
     .slice(0, 6)
 }
 
+/** Render one reusable select-style shared filter card. */
 function SharedSelectFilterCard({
   description,
   filter,
@@ -347,6 +635,7 @@ function SharedSelectFilterCard({
   )
 }
 
+/** Render one shared date-range filter card driven by the dashboard runtime. */
 function SharedDateRangeCard({
   filter,
 }: {
@@ -434,17 +723,18 @@ function SharedDateRangeCard({
   )
 }
 
+/** Panel explaining how model attributes and dashboard-local filters compose in the example. */
 function SharedFiltersPanel() {
-  const ownerFilter = useDashboardSharedFilter('owner')
-  const skillFilter = useDashboardSharedFilter('skill')
+  const managerFilter = useDashboardSharedFilter('manager')
+  const capabilityFilter = useDashboardSharedFilter('capability')
   const statusFilter = useDashboardSharedFilter('status')
-  const activityDateFilter = useDashboardSharedFilter('activityDate')
+  const planningDateFilter = useDashboardSharedFilter('planningDate')
 
   if (
-    ownerFilter.kind !== 'select'
-    || skillFilter.kind !== 'select'
+    managerFilter.kind !== 'select'
+    || capabilityFilter.kind !== 'select'
     || statusFilter.kind !== 'select'
-    || activityDateFilter.kind !== 'date-range'
+    || planningDateFilter.kind !== 'date-range'
   ) {
     throw new Error('Unexpected shared filter shape in DatasetModelChart.')
   }
@@ -455,100 +745,102 @@ function SharedFiltersPanel() {
       subtitle='Phase 6 explicitly coordinates model attributes, one-off dashboard filters, and a shared date range.'>
       <div className='space-y-3'>
         <SharedSelectFilterCard
-          filter={ownerFilter}
-          description='Model attribute reused from owners.id -> requisitions.ownerId.'
+          filter={managerFilter}
+          description='Model attribute reused from managers.id -> projectPlans.managerId.'
         />
         <SharedSelectFilterCard
-          filter={skillFilter}
-          description='Model association filter using requisitions.id <-> skills.id edges.'
+          filter={capabilityFilter}
+          description='Model association filter using projectPlans.id <-> capabilities.id edges.'
         />
         <SharedSelectFilterCard
           filter={statusFilter}
-          description='Dashboard-local one-off filter scoped directly to requisitions.status.'
+          description='Dashboard-local one-off filter scoped directly to projectPlans.status.'
         />
-        <SharedDateRangeCard filter={activityDateFilter} />
+        <SharedDateRangeCard filter={planningDateFilter} />
       </div>
     </DashboardCard>
   )
 }
 
+/** KPI section that proves normalized dashboard consumers still work without any materialization. */
 function DashboardSummarySection() {
-  const filteredRequisitions = useDashboardDataset('requisitions')
+  const filteredProjectPlans = useDashboardDataset('projectPlans')
 
   const dashboardSummary = useMemo(() => {
-    const active = filteredRequisitions.filter(
-      (row) => row.status === 'Open' || row.status === 'Paused',
+    const active = filteredProjectPlans.filter(
+      (row) => row.status === 'Planned' || row.status === 'On Hold',
     )
-    const filled = filteredRequisitions.filter((row) => row.status === 'Filled')
-    const recentlyFilled = filled.filter((row) => {
-      if (!row.closedAt) {
+    const completed = filteredProjectPlans.filter((row) => row.status === 'Completed')
+    const recentlyCompleted = completed.filter((row) => {
+      if (!row.completedAt) {
         return false
       }
 
-      return differenceInDays(row.closedAt, new Date().toISOString()) <= 90
+      return differenceInDays(row.completedAt, new Date().toISOString()) <= 90
     })
-    const avgDaysToClose = filled.reduce(
-      (sum, row) => sum + differenceInDays(row.openedAt, row.closedAt!),
+    const avgDaysToComplete = completed.reduce(
+      (sum, row) => sum + differenceInDays(row.plannedAt, row.completedAt!),
       0,
-    ) / Math.max(1, filled.length)
-    const totalOpenBudget = active.reduce(
-      (sum, row) => sum + row.salaryMidpoint * row.headcount,
+    ) / Math.max(1, completed.length)
+    const totalActiveBudget = active.reduce(
+      (sum, row) => sum + row.budgetMidpoint * row.staffingCount,
       0,
     )
-    const activeOwners = new Set(active.map((row) => row.ownerId)).size
+    const activeManagers = new Set(active.map((row) => row.managerId)).size
 
     return {
-      activeRequisitions: active.length,
-      recentlyFilled: recentlyFilled.length,
-      avgDaysToClose,
-      totalOpenBudget,
-      activeOwners,
+      activePlans: active.length,
+      recentlyCompleted: recentlyCompleted.length,
+      avgDaysToComplete,
+      totalActiveBudget,
+      activeManagers,
     }
-  }, [filteredRequisitions])
+  }, [filteredProjectPlans])
 
   return (
     <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-3'>
       <SummaryMetric
-        label='Active Reqs'
-        value={integerFormatter.format(dashboardSummary.activeRequisitions)}
-        detail='Globally filtered open and paused roles still in the active plan.'
+        label='Active Plans'
+        value={integerFormatter.format(dashboardSummary.activePlans)}
+        detail='Globally filtered planned and on-hold initiatives still in the active portfolio.'
       />
       <SummaryMetric
-        label='Filled In 90 Days'
-        value={integerFormatter.format(dashboardSummary.recentlyFilled)}
-        detail='Recently closed roles after the shared dashboard slice is applied.'
+        label='Completed In 90 Days'
+        value={integerFormatter.format(dashboardSummary.recentlyCompleted)}
+        detail='Recently completed initiatives after the shared dashboard slice is applied.'
       />
       <SummaryMetric
-        label='Avg Time To Fill'
-        value={`${integerFormatter.format(Math.round(dashboardSummary.avgDaysToClose))} days`}
-        detail='Average days from open to close for the filtered cohort.'
+        label='Avg Time To Complete'
+        value={`${integerFormatter.format(Math.round(dashboardSummary.avgDaysToComplete))} days`}
+        detail='Average days from planning to completion for the filtered cohort.'
       />
       <SummaryMetric
-        label='Open Budget'
-        value={currencyFormatter.format(dashboardSummary.totalOpenBudget)}
-        detail='Annualized midpoint budget on active requisitions after global filtering.'
+        label='Active Budget'
+        value={currencyFormatter.format(dashboardSummary.totalActiveBudget)}
+        detail='Total midpoint budget on active project plans after global filtering.'
       />
       <SummaryMetric
-        label='Active Owners'
-        value={integerFormatter.format(dashboardSummary.activeOwners)}
-        detail='Distinct hiring owners attached to the currently visible plan.'
+        label='Active Managers'
+        value={integerFormatter.format(dashboardSummary.activeManagers)}
+        detail='Distinct managers attached to the currently visible project portfolio.'
       />
       <SummaryMetric
-        label='Visible Reqs'
-        value={integerFormatter.format(filteredRequisitions.length)}
+        label='Visible Plans'
+        value={integerFormatter.format(filteredProjectPlans.length)}
         detail='This KPI card reads the same filtered slice as the charts.'
       />
     </div>
   )
 }
 
-function HiringVolumeCard() {
-  const chart = useDashboardChart('hiringVolume')
+/** Normalized dashboard chart card resolved through the dashboard registry. */
+function PlanningVolumeCard() {
+  const chart = useDashboardChart('planningVolume')
 
   return (
     <DashboardCard
-      title='Opening Volume'
-      subtitle='Hiring demand over time by function, resolved from the dashboard chart registry.'>
+      title='Planning Volume'
+      subtitle='Project plans created over time by initiative, resolved from the dashboard chart registry.'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'timeBucket', 'filters']} hidden={['source']} />
         <div className='mt-4'>
@@ -559,13 +851,31 @@ function HiringVolumeCard() {
   )
 }
 
-function OwnerLoadCard() {
-  const chart = useDashboardChart('ownerLoad')
+/**
+ * Cross-dataset chart card backed by the explicit `projectPlansWithManager` view.
+ *
+ * The dashboard still supplies the normalized filtered project-plan slice
+ * first, and only then do we materialize the manager lookup projection for this
+ * chart.
+ */
+function MaterializedManagerLoadCard() {
+  const filteredProjectPlans = useDashboardDataset('projectPlans')
+  const rows = useMemo(
+    () => projectPlansWithManager.materialize({
+      ...planningModelData,
+      projectPlans: filteredProjectPlans,
+    }),
+    [filteredProjectPlans],
+  )
+  const chart = useChart({
+    data: rows,
+    schema: managerLoadSchema,
+  })
 
   return (
     <DashboardCard
-      title='Owner Load'
-      subtitle='Which hiring owners are carrying the biggest active backlog today.'>
+      title='Manager Load'
+      subtitle='Explicit materialized project-plan grain with manager columns projected from the linked model.'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'filters']} hidden={['source', 'timeBucket']} />
         <div className='mt-4'>
@@ -576,13 +886,47 @@ function OwnerLoadCard() {
   )
 }
 
-function CompensationMixCard() {
-  const chart = useDashboardChart('compensationMix')
+/**
+ * Cross-dataset chart card backed by the explicit `projectCapabilityView`.
+ *
+ * This is the many-to-many smoke test for Phase 7 in the playground.
+ */
+function MaterializedCapabilityDemandCard() {
+  const filteredProjectPlans = useDashboardDataset('projectPlans')
+  const rows = useMemo(
+    () => projectCapabilityView.materialize({
+      ...planningModelData,
+      projectPlans: filteredProjectPlans,
+    }),
+    [filteredProjectPlans],
+  )
+  const chart = useChart({
+    data: rows,
+    schema: capabilityDemandSchema,
+  })
 
   return (
     <DashboardCard
-      title='Compensation Mix'
-      subtitle='Average salary midpoint by level and region to compare the shape of the plan.'>
+      title='Capability Demand'
+      subtitle='Explicit project-plan-capability grain derived through the model association and reused like a normal dataset.'>
+      <Chart chart={chart}>
+        <ChartToolbar pinned={['groupBy', 'filters']} hidden={['source', 'timeBucket']} />
+        <div className='mt-4'>
+          <ChartCanvas height={300} />
+        </div>
+      </Chart>
+    </DashboardCard>
+  )
+}
+
+/** Normalized dashboard chart card for delivery-tier and region budget analysis. */
+function BudgetMixCard() {
+  const chart = useDashboardChart('budgetMix')
+
+  return (
+    <DashboardCard
+      title='Budget Mix'
+      subtitle='Average midpoint budget by delivery tier and region to compare the shape of the plan.'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'filters', 'metric']} hidden={['source', 'timeBucket']} />
         <div className='mt-4'>
@@ -593,13 +937,14 @@ function CompensationMixCard() {
   )
 }
 
-function TimeToFillCard() {
-  const chart = useDashboardChart('timeToFill')
+/** Normalized dashboard chart card for project completion-time analysis. */
+function TimeToCompleteCard() {
+  const chart = useDashboardChart('timeToComplete')
 
   return (
     <DashboardCard
-      title='Time To Fill'
-      subtitle='Average close time by function and region for roles that have already closed.'>
+      title='Time To Complete'
+      subtitle='Average completion time by initiative and region for projects that have already finished.'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'filters', 'metric']} hidden={['source', 'timeBucket']} />
         <div className='mt-4'>
@@ -610,26 +955,41 @@ function TimeToFillCard() {
   )
 }
 
+/**
+ * Diagnostics section for the example.
+ *
+ * It shows the split between:
+ * - dataset-owned column contracts
+ * - dashboard-level shared state
+ * - explicit materialized views for cross-dataset grains
+ */
 function MetadataSection({validation}: {validation: string}) {
-  const filteredRequisitions = useDashboardDataset('requisitions')
+  const filteredProjectPlans = useDashboardDataset('projectPlans')
+  const filteredProjectCapabilities = useMemo(
+    () => projectCapabilityView.materialize({
+      ...planningModelData,
+      projectPlans: filteredProjectPlans,
+    }),
+    [filteredProjectPlans],
+  )
 
-  const hottestSkills = useMemo(
-    () => topSkillDemand(filteredRequisitions, jobSkillRows),
-    [filteredRequisitions],
+  const hottestCapabilities = useMemo(
+    () => topCapabilityDemand(filteredProjectCapabilities),
+    [filteredProjectCapabilities],
   )
 
   return (
     <div className='grid gap-4 lg:grid-cols-3'>
       <DashboardCard
         title='Dataset Layer'
-        subtitle='Reusable dataset-owned columns still feed every requisition chart in this tab.'>
+        subtitle='Reusable dataset-owned columns still feed every project-planning chart in this tab.'>
         <div className='space-y-3'>
-          <MetadataLine label='Requisition key' value={(requisitionsDataset.key ?? []).join(', ')} />
+          <MetadataLine label='Project plan key' value={(projectPlansDataset.key ?? []).join(', ')} />
           <MetadataLine
             label='Column count'
-            value={integerFormatter.format(Object.keys(requisitionsDataset.columns ?? {}).length)}
+            value={integerFormatter.format(Object.keys(projectPlansDataset.columns ?? {}).length)}
           />
-          <MetadataLine label='Chart registry' value={Object.keys(hiringDashboard.charts).join(', ')} />
+          <MetadataLine label='Chart registry' value={Object.keys(deliveryPlanningDashboard.charts).join(', ')} />
           <p className='text-xs leading-5 text-muted-foreground'>
             `defineDataset(...).columns(...)` stays the reusable source of truth. The dashboard only registers charts by id and resolves them later.
           </p>
@@ -640,36 +1000,40 @@ function MetadataSection({validation}: {validation: string}) {
         title='Dashboard Runtime'
         subtitle='Phase 5 composes dataset-backed charts; Phase 6 coordinates shared filters explicitly.'>
         <div className='space-y-3'>
-          <MetadataLine label='Shared filters' value={Object.keys(hiringDashboard.sharedFilters).join(', ')} />
-          <MetadataLine label='Model attributes' value={Object.keys(hiringModel.attributes).join(', ')} />
-          <MetadataLine label='Non-chart consumer' value='useDashboardDataset("requisitions")' />
+          <MetadataLine label='Shared filters' value={Object.keys(deliveryPlanningDashboard.sharedFilters).join(', ')} />
+          <MetadataLine label='Model attributes' value={Object.keys(deliveryModel.attributes).join(', ')} />
+          <MetadataLine
+            label='Materialized views'
+            value={[projectPlansWithManager.materialization.id, projectCapabilityView.materialization.id].join(', ')}
+          />
+          <MetadataLine label='Non-chart consumer' value='useDashboardDataset("projectPlans")' />
           <p className='rounded-2xl border border-border/60 bg-muted/25 px-3 py-3 text-xs leading-5 text-muted-foreground'>
             {validation === 'Validated'
-              ? 'Runtime validation passed: dataset keys are unique, owner foreign keys resolve, and every skill edge points at a registered skill. The summary cards and skill list below read the same shared dashboard slice as the charts.'
+              ? 'Runtime validation passed: dataset keys are unique, manager foreign keys resolve, and every capability edge points at a registered capability. The cards below combine normalized dashboard slices with explicit materialized views instead of hidden joins.'
               : validation}
           </p>
         </div>
       </DashboardCard>
 
       <DashboardCard
-        title='Most Requested Skills'
-        subtitle='Association edges still stay explicit while non-chart consumers react to shared filters.'>
+        title='Most Requested Capabilities'
+        subtitle='A non-chart consumer can still reuse an explicit materialized project-plan-capability view when that grain is the honest shape.'>
         <div className='space-y-2'>
-          {hottestSkills.map((skill) => (
+          {hottestCapabilities.map((capability) => (
             <div
-              key={skill.name}
+              key={capability.name}
               className='flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-3 py-2'>
               <div>
-                <div className='text-sm font-medium text-foreground'>{skill.name}</div>
-                <div className='text-xs text-muted-foreground'>{skill.domain}</div>
+                <div className='text-sm font-medium text-foreground'>{capability.name}</div>
+                <div className='text-xs text-muted-foreground'>{capability.domain}</div>
               </div>
               <div className='rounded-full bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground'>
-                {integerFormatter.format(skill.count)} reqs
+                {integerFormatter.format(capability.count)} plans
               </div>
             </div>
           ))}
           <p className='pt-1 text-xs leading-5 text-muted-foreground'>
-            This list is not a joined chart. It derives from `useDashboardDataset(...)` plus explicit requisition-skill edges, which keeps many-to-many behavior visible.
+            This list reads the shared project-plan slice first, then explicitly materializes `projectCapabilityView` to keep the many-to-many grain visible instead of rebuilding lookup maps by hand.
           </p>
         </div>
       </DashboardCard>
@@ -677,6 +1041,7 @@ function MetadataSection({validation}: {validation: string}) {
   )
 }
 
+/** Compose the full dataset/model/dashboard/materialized-view example into one screen. */
 function DatasetModelDashboard({validation}: {validation: string}) {
   return (
     <div className='space-y-6'>
@@ -687,10 +1052,10 @@ function DatasetModelDashboard({validation}: {validation: string}) {
               Dataset + Model + Dashboard
             </div>
             <div>
-              <h2 className='text-xl font-semibold text-foreground'>Global hiring planning dashboard</h2>
+              <h2 className='text-xl font-semibold text-foreground'>Global project planning dashboard</h2>
               <p className='mt-2 max-w-3xl text-sm leading-6 text-muted-foreground'>
-                This scenario now uses the full additive stack: reusable dataset-owned columns, an explicit linked model for owners and skills, a typed dashboard chart registry,
-                and shared dashboard filters that coordinate both charts and non-chart consumers without changing the simple `useChart({'{'}data, schema{'}'})` path.
+                This scenario now uses the full additive stack: reusable dataset-owned columns, an explicit linked model for managers and capabilities, a typed dashboard chart registry,
+                shared dashboard filters that coordinate both charts and non-chart consumers, and explicit model-derived views for the cross-dataset grains that genuinely need them.
               </p>
             </div>
 
@@ -702,45 +1067,38 @@ function DatasetModelDashboard({validation}: {validation: string}) {
       </div>
 
       <div className='grid gap-4 xl:grid-cols-2'>
-        <HiringVolumeCard />
-        <OwnerLoadCard />
-        <CompensationMixCard />
-        <TimeToFillCard />
+        <PlanningVolumeCard />
+        <BudgetMixCard />
+        <TimeToCompleteCard />
+        <MaterializedManagerLoadCard />
+        <MaterializedCapabilityDemandCard />
       </div>
 
       <MetadataSection validation={validation} />
 
       <div className='rounded-3xl border border-border/60 bg-background px-5 py-4 text-xs leading-6 text-muted-foreground shadow-sm'>
-        The contract stays strict: each chart still executes against one flat requisition dataset, while the dashboard runtime composes registered charts by id and applies explicit shared filters first.
-        There are still no hidden joins, linked metrics, or automatic denormalization.
+        The contract stays strict: dashboard charts still execute against one flat project-plan dataset, while cross-dataset charts come from explicit model-derived views with visible grains like `project-plan` and `project-plan-capability`.
+        The joins stay opt-in, the many-to-many expansion stays visible, and `useChart({'{'}data, schema{'}'})` remains the simple path underneath both examples.
       </div>
     </div>
   )
 }
 
 /**
- * Playground showcase for Phases 1 through 6:
+ * Playground showcase for Phases 1 through 7:
  * dataset-owned columns, a linked model, typed dashboard composition, explicit
- * shared filters, and non-chart consumers all layered on top of the existing
- * single-chart runtime.
+ * shared filters, and model-derived materialized views all layered on top of
+ * the existing single-chart runtime.
  */
 export function DatasetModelChart() {
   const dashboard = useDashboard({
-    definition: hiringDashboard,
-    data: {
-      requisitions: requisitionRows,
-      owners: ownerRows,
-      skills: skillRows,
-    },
+    definition: deliveryPlanningDashboard,
+    data: planningModelData,
   })
 
   const validation = useMemo(() => {
     try {
-      hiringModel.validateData({
-        requisitions: requisitionRows,
-        owners: ownerRows,
-        skills: skillRows,
-      })
+      deliveryModel.validateData(planningModelData)
 
       return 'Validated'
     } catch (error) {

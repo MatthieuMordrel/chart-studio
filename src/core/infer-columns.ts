@@ -344,7 +344,10 @@ function detectStringDateSignal(key: string, samples: readonly string[]): Infere
   return {
     type: 'category',
     confidence: parseRatio >= 0.8 ? 'medium' : 'low',
-    looksDateLike: parseRatio >= 0.8,
+    // `Date.parse()` accepts many id-like strings such as `req-1`, so only
+    // surface the date-like warning when the key or the values provide an
+    // actual date signal instead of relying on parseability alone.
+    looksDateLike: strongPatternRatio >= 0.8 || (parseRatio >= 0.8 && hasDateKeySignal),
   }
 }
 

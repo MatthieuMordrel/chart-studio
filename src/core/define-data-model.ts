@@ -1,4 +1,5 @@
 import {resolveDatasetDefinition, validateDatasetData} from './define-dataset.js'
+import {createMaterializationStartBuilder} from './materialized-view.js'
 import type {
   DataModelBuilder,
   DefinedDataModel,
@@ -297,6 +298,11 @@ function createDefinedDataModel<
       relationships: state.relationships,
       associations: state.associations,
       attributes: state.attributes,
+      materialize(id, defineView) {
+        return defineView(
+          createMaterializationStartBuilder(id, definedModel),
+        )
+      },
       validateData(data) {
         validateModelRuntimeData(state, data)
       },
@@ -444,6 +450,14 @@ function createDataModelBuilder<
         },
       })
     },
+    materialize(id: any, defineView: any) {
+      const model = cachedModel ?? createDefinedDataModel(state)
+      cachedModel = model
+
+      return defineView(
+        createMaterializationStartBuilder(id, model),
+      )
+    },
     validateData(data: any) {
       validateModelRuntimeData(state, data)
     },
@@ -460,7 +474,8 @@ function createDataModelBuilder<
 
 /**
  * Define one linked data model for dataset registration, relationships,
- * associations, and reusable model-level filter attributes.
+ * associations, reusable model-level filter attributes, and explicit
+ * Phase 7 materialized views.
  */
 export function defineDataModel() {
   return createDataModelBuilder()

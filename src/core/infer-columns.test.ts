@@ -101,6 +101,23 @@ describe('inferColumnsFromData', () => {
     expect(byId.get('region')?.type).toBe('category')
   })
 
+  it('does not warn for id-like strings that are accidentally parseable by Date.parse', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const data = [
+      {id: 'req-1', managerId: 'mgr-1', label: 'Platform refresh'},
+      {id: 'req-2', managerId: 'mgr-2', label: 'Analytics rollout'},
+    ] as const
+
+    const columns = inferColumnsFromData(data)
+    const byId = new Map<string, (typeof columns)[number]>(columns.map((column) => [column.id, column]))
+    const warningText = warnSpy.mock.calls.flat().join('\n')
+
+    expect(byId.get('id')?.type).toBe('category')
+    expect(byId.get('managerId')?.type).toBe('category')
+    expect(warningText).not.toContain('looks date-like')
+    warnSpy.mockRestore()
+  })
+
   it('keeps derived columns additive-only at runtime even when untyped input reuses a raw field id', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const data = [

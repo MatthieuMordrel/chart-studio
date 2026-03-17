@@ -36,6 +36,15 @@ export type {
   SelectAttributeConfig,
 } from './data-model.types.js'
 export type {
+  DefinedMaterializedView,
+  MaterializedProjectableColumnId,
+  MaterializedViewDefinition,
+  MaterializedViewMetadata,
+  MaterializedViewStepMetadata,
+  ModelMaterializationBuilder,
+  ModelMaterializationStartBuilder,
+} from './materialized-view.types.js'
+export type {
   DatasetBuilder,
   DatasetChartBuilder,
   DatasetChartDefinition,
