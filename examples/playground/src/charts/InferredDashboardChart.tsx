@@ -138,7 +138,7 @@ export function InferredDashboardChart() {
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border bg-background text-foreground hover:border-primary/40'
                 }`}>
-                {option.label} <span className='opacity-70'>({option.count})</span>
+                {option.label}
               </button>
             )
           })}
