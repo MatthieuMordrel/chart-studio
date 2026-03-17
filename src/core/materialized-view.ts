@@ -413,14 +413,12 @@ function getMaterializedBaseRawColumnIds(
 
 /** Copy only the declared materialized base-row fields into one output row. */
 function buildBaseOutputRow(
-  model: DefinedDataModel<any, any, any, any>,
-  baseDatasetId: string,
-  steps: readonly MaterializationStep[],
+  baseColumnIds: readonly string[],
   row: Record<string, unknown>,
 ): Record<string, unknown> {
   const outputRow: Record<string, unknown> = {}
 
-  getMaterializedBaseRawColumnIds(model, baseDatasetId, steps).forEach((columnId) => {
+  baseColumnIds.forEach((columnId) => {
     outputRow[columnId] = row[columnId]
   })
 
@@ -667,11 +665,12 @@ function buildMaterializedColumns(
 ): Record<string, unknown> | undefined {
   const baseDataset = model.datasets[baseDatasetId]!
   const baseColumns = baseDataset.columns ?? {}
+  const baseRawColumnIds = getMaterializedBaseRawColumnIds(model, baseDatasetId, steps)
 
   const nextColumns: Record<string, unknown> = {}
   const derivedColumns: Record<string, unknown> = {}
 
-  getMaterializedBaseRawColumnIds(model, baseDatasetId, steps).forEach((columnId) => {
+  baseRawColumnIds.forEach((columnId) => {
     const column = baseColumns[columnId]
     nextColumns[columnId] = column && !isDerivedDatasetColumn(column)
       ? column
@@ -794,6 +793,11 @@ function createDefinedMaterializedView<
         const relationshipChildrenCache = new Map<string, ReadonlyMap<string, readonly Record<string, unknown>[]>>()
         const associationLookupCache = new Map<string, AssociationLookup>()
         const expansionStep = definition.steps.find((step) => step.kind !== 'join')
+        const baseRawColumnIds = getMaterializedBaseRawColumnIds(
+          definition.model,
+          definition.baseDatasetId,
+          definition.steps,
+        )
 
         /** Lazily build per-dataset lookup indexes only when a step needs them. */
         const getDatasetIndex = (datasetId: string): DatasetKeyIndex => {
@@ -849,12 +853,7 @@ function createDefinedMaterializedView<
 
         /** Start from the base row, then project lookups, then optionally expand grain once. */
         baseRows.forEach((baseRow, baseRowIndex) => {
-          const baseOutputRow = buildBaseOutputRow(
-            definition.model,
-            definition.baseDatasetId,
-            definition.steps,
-            baseRow,
-          )
+          const baseOutputRow = buildBaseOutputRow(baseRawColumnIds, baseRow)
 
           definition.steps.forEach((step) => {
             if (step.kind !== 'join') {
