@@ -352,6 +352,81 @@ function buildProjectedColumnConfig(
   return nextColumn
 }
 
+/** Return true when one dataset column definition is a derived field. */
+function isDerivedDatasetColumn(
+  column: unknown,
+): column is {
+  kind: 'derived'
+} {
+  return !!column && typeof column === 'object' && 'kind' in column && column.kind === 'derived'
+}
+
+/**
+ * Resolve the raw base columns that a materialized view should preserve.
+ *
+ * Keys remain available by default, explicit lookup joins preserve their
+ * foreign-key columns, and omitted fields stay omitted unless they are one of
+ * those structural columns. Explicit `false` exclusions still win.
+ */
+function getMaterializedBaseRawColumnIds(
+  model: DefinedDataModel<any, any, any, any>,
+  baseDatasetId: string,
+  steps: readonly MaterializationStep[],
+): string[] {
+  const baseDataset = model.datasets[baseDatasetId]!
+  const baseColumns = baseDataset.columns ?? {}
+  const columnIds: string[] = []
+
+  const includeColumnId = (columnId: string) => {
+    if (baseColumns[columnId] === false || columnIds.includes(columnId)) {
+      return
+    }
+
+    columnIds.push(columnId)
+  }
+
+  baseDataset.key?.forEach((columnId: string) => {
+    includeColumnId(columnId)
+  })
+
+  steps.forEach((step) => {
+    if (step.kind !== 'join') {
+      return
+    }
+
+    const relationship = model.relationships[step.relationshipId] as ModelRelationshipDefinition
+    if (relationship.to.dataset === baseDatasetId) {
+      includeColumnId(relationship.to.column)
+    }
+  })
+
+  Object.entries(baseColumns).forEach(([columnId, column]) => {
+    if (column === false || isDerivedDatasetColumn(column)) {
+      return
+    }
+
+    includeColumnId(columnId)
+  })
+
+  return columnIds
+}
+
+/** Copy only the declared materialized base-row fields into one output row. */
+function buildBaseOutputRow(
+  model: DefinedDataModel<any, any, any, any>,
+  baseDatasetId: string,
+  steps: readonly MaterializationStep[],
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  const outputRow: Record<string, unknown> = {}
+
+  getMaterializedBaseRawColumnIds(model, baseDatasetId, steps).forEach((columnId) => {
+    outputRow[columnId] = row[columnId]
+  })
+
+  return outputRow
+}
+
 /** Build a key lookup for one dataset so lookup joins and expansions stay fast. */
 function buildDatasetKeyIndex(
   _datasetId: string,
@@ -593,20 +668,24 @@ function buildMaterializedColumns(
   const baseDataset = model.datasets[baseDatasetId]!
   const baseColumns = baseDataset.columns ?? {}
 
-  // Separate raw and derived base columns, filtering out excluded (false) entries
   const nextColumns: Record<string, unknown> = {}
   const derivedColumns: Record<string, unknown> = {}
 
-  for (const [key, value] of Object.entries(baseColumns)) {
-    if (value === false) continue
-    if (value && typeof value === 'object' && 'kind' in value && value.kind === 'derived') {
-      derivedColumns[key] = value
-    } else {
-      nextColumns[key] = value
-    }
-  }
+  getMaterializedBaseRawColumnIds(model, baseDatasetId, steps).forEach((columnId) => {
+    const column = baseColumns[columnId]
+    nextColumns[columnId] = column && !isDerivedDatasetColumn(column)
+      ? column
+      : {}
+  })
 
-  // Add projected columns from joins
+  Object.entries(baseColumns).forEach(([columnId, column]) => {
+    if (column === false || !isDerivedDatasetColumn(column)) {
+      return
+    }
+
+    derivedColumns[columnId] = column
+  })
+
   steps.forEach((step) => {
     const targetDataset = model.datasets[step.targetDatasetId]!
 
@@ -624,7 +703,6 @@ function buildMaterializedColumns(
     })
   })
 
-  // Append derived columns after joined columns
   Object.assign(nextColumns, derivedColumns)
 
   return Object.keys(nextColumns).length > 0 ? nextColumns : undefined
@@ -769,16 +847,14 @@ function createDefinedMaterializedView<
 
         const materializedRows: TRow[] = []
 
-        if (definition.steps.length === 0) {
-          materializedRowsCache.set(cacheKey, baseRows as readonly TRow[])
-          return baseRows as readonly TRow[]
-        }
-
         /** Start from the base row, then project lookups, then optionally expand grain once. */
         baseRows.forEach((baseRow, baseRowIndex) => {
-          const baseOutputRow: Record<string, unknown> = {
-            ...baseRow,
-          }
+          const baseOutputRow = buildBaseOutputRow(
+            definition.model,
+            definition.baseDatasetId,
+            definition.steps,
+            baseRow,
+          )
 
           definition.steps.forEach((step) => {
             if (step.kind !== 'join') {
