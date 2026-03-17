@@ -1,5 +1,7 @@
 import {isSameMetric, normalizeMetricAllowances} from './metric-utils.js'
 import type {DatasetChartBuilder} from './dataset-builder.types.js'
+import type {DatasetChartMetadata} from './dataset-chart-metadata.js'
+import {DATASET_CHART_METADATA} from './dataset-chart-metadata.js'
 import type {
   BooleanColumnOptions,
   BuilderSchemaState,
@@ -480,6 +482,7 @@ function createChartDefinitionBuilder<
   TTimeBucket extends TimeBucketConfig | undefined = undefined,
   TConnectNulls extends boolean | undefined = undefined,
   TAllowColumns extends boolean = true,
+  TChartId extends string | undefined = undefined,
 >(
   state: BuilderSchemaState<
     TColumns,
@@ -493,6 +496,7 @@ function createChartDefinitionBuilder<
   > = {},
   options: {
     allowColumns: TAllowColumns
+    datasetChartMetadata?: DatasetChartMetadata<TChartId>
   },
 ): (
   TAllowColumns extends true
@@ -516,7 +520,8 @@ function createChartDefinitionBuilder<
         TMetric,
         TChartType,
         TTimeBucket,
-        TConnectNulls
+        TConnectNulls,
+        TChartId
       >
 ) {
   let cachedSchema: unknown
@@ -551,7 +556,8 @@ function createChartDefinitionBuilder<
     TNextChartType,
     TNextTimeBucket,
     TNextConnectNulls,
-    TAllowColumns
+    TAllowColumns,
+    TChartId
   >(nextState, options)
 
   const builder: Record<string, unknown> = {
@@ -612,17 +618,32 @@ function createChartDefinitionBuilder<
     build() {
       if (cachedSchema) {
         return cachedSchema as ReturnType<
-          ChartSchemaBuilder<
-            TRow,
-            TColumns,
-            TXAxis,
-            TGroupBy,
-            TFilters,
-            TMetric,
-            TChartType,
-            TTimeBucket,
-            TConnectNulls
-          >['build']
+          (
+            TAllowColumns extends true
+              ? ChartSchemaBuilder<
+                  TRow,
+                  TColumns,
+                  TXAxis,
+                  TGroupBy,
+                  TFilters,
+                  TMetric,
+                  TChartType,
+                  TTimeBucket,
+                  TConnectNulls
+                >
+              : DatasetChartBuilder<
+                  TRow,
+                  TColumns,
+                  TXAxis,
+                  TGroupBy,
+                  TFilters,
+                  TMetric,
+                  TChartType,
+                  TTimeBucket,
+                  TConnectNulls,
+                  TChartId
+                >
+          )['build']
         >
       }
 
@@ -636,6 +657,15 @@ function createChartDefinitionBuilder<
         ...(state.timeBucket !== undefined ? {timeBucket: state.timeBucket} : {}),
         ...(state.connectNulls !== undefined ? {connectNulls: state.connectNulls} : {}),
         __chartSchemaBrand: 'chart-schema-definition',
+      }
+
+      if (options.datasetChartMetadata) {
+        Object.defineProperty(cachedSchema as object, DATASET_CHART_METADATA, {
+          value: options.datasetChartMetadata,
+          enumerable: false,
+          configurable: false,
+          writable: false,
+        })
       }
 
       return cachedSchema as ReturnType<
@@ -661,11 +691,21 @@ function createChartDefinitionBuilder<
                 TMetric,
                 TChartType,
                 TTimeBucket,
-                TConnectNulls
+                TConnectNulls,
+                TChartId
               >
         )['build']
       >
     },
+  }
+
+  if (options.datasetChartMetadata) {
+    Object.defineProperty(builder, DATASET_CHART_METADATA, {
+      value: options.datasetChartMetadata,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    })
   }
 
   if (options.allowColumns) {
@@ -711,7 +751,8 @@ function createChartDefinitionBuilder<
           TMetric,
           TChartType,
           TTimeBucket,
-          TConnectNulls
+          TConnectNulls,
+          TChartId
         >
   )
 }
@@ -761,6 +802,7 @@ export function createDatasetChartBuilder<
   TChartType extends ChartTypeConfig | undefined = undefined,
   TTimeBucket extends TimeBucketConfig | undefined = undefined,
   TConnectNulls extends boolean | undefined = undefined,
+  TChartId extends string | undefined = undefined,
 >(
   state: BuilderSchemaState<
     TColumns,
@@ -772,6 +814,7 @@ export function createDatasetChartBuilder<
     TTimeBucket,
     TConnectNulls
   > = {},
+  metadata?: DatasetChartMetadata<TChartId>,
 ): DatasetChartBuilder<
   TRow,
   TColumns,
@@ -781,7 +824,11 @@ export function createDatasetChartBuilder<
   TMetric,
   TChartType,
   TTimeBucket,
-  TConnectNulls
+  TConnectNulls,
+  TChartId
 > {
-  return createChartDefinitionBuilder(state, {allowColumns: false})
+  return createChartDefinitionBuilder(state, {
+    allowColumns: false,
+    datasetChartMetadata: metadata,
+  })
 }

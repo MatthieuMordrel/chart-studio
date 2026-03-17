@@ -116,9 +116,23 @@ function createDefinedDataset<
     const definedDataset: DefinedDataset<TRow, TColumns, TKey> = {
       ...(state.key !== undefined ? {key: state.key} : {}),
       ...(state.columns !== undefined ? {columns: state.columns} : {}),
-      chart(_id) {
-        return createDatasetChartBuilder<TRow, TColumns>({
+      chart(id) {
+        return createDatasetChartBuilder<
+          TRow,
+          TColumns,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          any
+        >({
           ...(state.columns !== undefined ? {columns: state.columns} : {}),
+        }, {
+          dataset: definedDataset,
+          chartId: id,
         })
       },
       validateData(data) {
@@ -145,6 +159,14 @@ function createDatasetBuilder<
   state: DatasetBuilderState<TColumns, TKey> = {},
 ): DatasetBuilder<TRow, TColumns, TKey> {
   let cachedDataset: DefinedDataset<TRow, TColumns, TKey> | undefined
+  const getOrBuildDataset = () => {
+    if (cachedDataset) {
+      return cachedDataset
+    }
+
+    cachedDataset = createDefinedDataset(state)
+    return cachedDataset
+  }
 
   return {
     key(keyOrKeys: InferableFieldKey<TRow> | DatasetKey<TRow>) {
@@ -166,21 +188,30 @@ function createDatasetBuilder<
         columns: buildColumnsMap(entries) as ColumnsFromEntries<TRow, typeof entries>,
       })
     },
-    chart(_id) {
-      return createDatasetChartBuilder<TRow, TColumns>({
+    chart(id) {
+      return createDatasetChartBuilder<
+        TRow,
+        TColumns,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        any
+      >({
         ...(state.columns !== undefined ? {columns: state.columns} : {}),
+      }, {
+        dataset: getOrBuildDataset(),
+        chartId: id,
       })
     },
     validateData(data) {
       validateDatasetRows(state.key, data, 'dataset')
     },
     build() {
-      if (cachedDataset) {
-        return cachedDataset
-      }
-
-      cachedDataset = createDefinedDataset(state)
-      return cachedDataset
+      return getOrBuildDataset()
     },
   } as DatasetBuilder<TRow, TColumns, TKey>
 }

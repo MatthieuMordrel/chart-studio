@@ -305,6 +305,11 @@ export type DataModelDefinition<
   build(): DefinedDataModel<TDatasets, TRelationships, TAssociations, TAttributes>
 }
 
+export type ResolvedDataModelFromDefinition<TModel> =
+  TModel extends DataModelDefinition<any, any, any, any>
+    ? ReturnType<TModel['build']>
+    : never
+
 export interface DataModelBuilder<
   TDatasets extends ModelDatasets = {},
   TRelationships extends Record<string, ModelRelationshipDefinition> = {},

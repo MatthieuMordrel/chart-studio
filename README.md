@@ -218,7 +218,95 @@ Important limits of the current model layer:
 - relationships are one public primitive: declared key -> foreign-key column
 - many-to-many stays explicit through `association(...)`
 - `validateData(...)` hard-fails on duplicate declared keys, orphan foreign keys, and malformed association edges
-- charts still execute against one flat dataset at a time; the model layer does not add dashboard runtime, shared state, or automatic denormalization yet
+- charts still execute against one flat dataset at a time
+- dashboard composition and shared filters now build on top of the model layer explicitly
+- automatic denormalization and linked metrics do not exist yet
+
+### 4. Dashboard composition
+
+Use `defineDashboard(model)` when several reusable dataset-backed charts belong
+to one dashboard:
+
+```tsx
+import {
+  defineDashboard,
+  useDashboard,
+  useDashboardChart,
+  DashboardProvider,
+} from '@matthieumordrel/chart-studio'
+
+const hiringDashboard = defineDashboard(hiringModel)
+  .chart('jobsByMonth', jobsByMonth)
+  .chart('candidatesByStage', candidatesByStage)
+
+function HiringOverview() {
+  const dashboard = useDashboard({
+    definition: hiringDashboard,
+    data: {
+      jobs: jobsData,
+      owners: ownersData,
+      candidates: candidatesData,
+    },
+  })
+
+  const jobsChart = useDashboardChart(dashboard, 'jobsByMonth')
+
+  return (
+    <DashboardProvider dashboard={dashboard}>
+      <Chart chart={jobsChart}>
+        <ChartCanvas />
+      </Chart>
+    </DashboardProvider>
+  )
+}
+```
+
+Rules for dashboard composition:
+
+- dashboard charts must come from `defineDataset<Row>().chart(...)`
+- chart registration is explicit by id
+- `useDashboardChart(...)` resolves the reusable chart by id and keeps React in charge of placement
+- `useDashboardDataset(...)` exposes the globally filtered rows for non-chart consumers like KPI cards or tables
+
+### 5. Shared dashboard filters
+
+Shared dashboard filters layer on top of dashboard composition.
+
+Reuse model-level relationship semantics when the same filter concept should
+work across several dashboards:
+
+```tsx
+const dashboard = defineDashboard(hiringModel)
+  .chart('jobsByMonth', jobsByMonth)
+  .sharedFilter('owner')
+```
+
+Add one-off dashboard-local filters when the concept is specific to one
+dashboard:
+
+```tsx
+const dashboard = defineDashboard(hiringModel)
+  .chart('jobsByMonth', jobsByMonth)
+  .sharedFilter('status', {
+    kind: 'select',
+    source: { dataset: 'jobs', column: 'status' },
+  })
+  .sharedFilter('activityDate', {
+    kind: 'date-range',
+    targets: [
+      { dataset: 'jobs', column: 'createdAt' },
+      { dataset: 'candidates', column: 'appliedAt' },
+    ],
+  })
+```
+
+Rules for shared dashboard filters:
+
+- shared filters are explicit; nothing is guessed from chart configs
+- shared filters narrow dataset slices before chart-local `useChart(...)` filters run
+- local and global filters compose by intersection
+- when a shared filter targets the same chart-local column, the dashboard owns that filter for that chart by default
+- cross-dataset ambiguity requires an explicit model `attribute(...)` or explicit target choice
 
 ## Column Types
 
@@ -445,6 +533,7 @@ Yes, but there are two different meanings:
 
 - `useChart({ sources: [...] })` is for source-switching within one chart
 - `defineDataModel()` is for linked dataset metadata, validation, and reusable filter semantics outside the chart runtime
+- `defineDashboard()` plus `useDashboard()` is for composing several reusable charts and optional shared dashboard filters
 
 The current chart runtime still executes one flat dataset at a time. Multi-source
 source-switching is separate from linked data models and from future dashboard
@@ -497,7 +586,7 @@ Rules:
 - `dateRange` is `{ preset, customFilter }`
 - when an input is controlled, chart setters request changes through the matching callback
 - `chart.filters` and related date state are always the sanitized effective state for the active source
-- this still does not create a dashboard runtime or shared state between charts
+- this still does not create a dashboard runtime or shared state between charts; use `defineDashboard()` for that
 
 ### What chart types are available?
 
@@ -540,11 +629,11 @@ There is currently no built-in support for drill-down, click-to-filter, brush se
 
 ### Multi-dataset composition
 
-Each chart instance still operates on a single flat dataset, even though
-reusable datasets and linked data models can now be declared separately.
-Overlaying series from different schemas (e.g. revenue on the left Y-axis and
-headcount on the right) would require separate chart instances today. Dual-axis
-and cross-dataset composition are not yet supported.
+Dashboard composition and shared dashboard filters are now available, but each
+chart instance still operates on one flat dataset at a time. Overlaying series
+from different schemas (e.g. revenue on the left Y-axis and headcount on the
+right) would require separate chart instances today. Dual-axis cross-dataset
+execution, automatic denormalization, and linked metrics are not yet supported.
 
 ### Schema Builder Ergonomics
 

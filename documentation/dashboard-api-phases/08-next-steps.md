@@ -13,17 +13,17 @@ The recommended working order is:
 7. Phase 6: add shared dashboard filters
 8. Phase 7: add explicit materialized views and linked metrics
 
-Phases 0 through 4 are now implemented. The immediate follow-up work starts at
-Phase 5.
+Phases 0 through 6 are now implemented. The immediate follow-up work starts at
+Phase 7.
 
 ## Suggested Immediate Implementation Sequence
 
 The highest-signal next steps are now:
 
-1. Define typed dashboard composition on top of datasets, models, and chart definitions.
-2. Define how dashboard runtimes consume model `attribute(...)` semantics.
-3. Add explicit shared dashboard filters and date controls on top of Phase 4 chart inputs.
-4. Keep materialization and linked metrics explicit in later phases.
+1. Add explicit materialized views for flat multi-dataset analytic grains.
+2. Define linked metrics on top of explicit materialization rather than hidden denormalization.
+3. Improve dashboard shared-filter ergonomics only where real usage demands it.
+4. Keep multi-source, dashboards, and materialized views clearly separated.
 
 ## Questions To Resolve Before Coding Deeply
 
@@ -41,3 +41,5 @@ The architecture is successful if:
 - linked data is explicit and validated
 - many-to-many remains visible instead of magical
 - dashboards compose those layers rather than replacing them
+- shared dashboard filters stay explicit and additive
+
