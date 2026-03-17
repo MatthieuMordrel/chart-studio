@@ -1,4 +1,5 @@
 import { generateEventProgramData } from './mock-data/generate-event-program-data'
+import { generateHiringNetworkData } from './mock-data/generate-hiring-network-data'
 import { generateQuarterlyFinancialData } from './mock-data/generate-quarterly-financial-data'
 import { generateRecipeLogData } from './mock-data/generate-recipe-log-data'
 
@@ -32,6 +33,57 @@ export type EventProgramRecord = {
   isSoldOut: boolean
   attendees: number
   ticketRevenue: number
+}
+
+/** Record for a realistic hiring requisition planning dataset. */
+export type HiringRequisitionRecord = {
+  id: string
+  ownerId: string
+  roleFamily: 'Engineering' | 'Data' | 'Security' | 'Design' | 'Revenue' | 'Operations'
+  team: string
+  region: 'AMER' | 'EMEA' | 'APAC'
+  office: string
+  level: 'IC4' | 'IC5' | 'Staff' | 'Manager' | 'Director'
+  hiringMotion: 'Backfill' | 'Growth' | 'Expansion'
+  employmentType: 'Full Time' | 'Contract'
+  status: 'Open' | 'Filled' | 'Paused' | 'Cancelled'
+  openedAt: string
+  targetStartAt: string
+  closedAt: string | null
+  salaryMidpoint: number
+  headcount: number
+  applicants: number
+  onsiteCount: number
+  offersExtended: number
+  offersAccepted: number
+}
+
+export type HiringOwnerRecord = {
+  id: string
+  name: string
+  region: 'AMER' | 'EMEA' | 'APAC'
+  portfolio: 'Platform' | 'Revenue' | 'Data' | 'Security' | 'Product' | 'Operations' | 'Growth' | 'Design'
+}
+
+export type HiringSkillRecord = {
+  id: string
+  name: string
+  domain:
+    | 'Frontend'
+    | 'Backend'
+    | 'Infrastructure'
+    | 'Data'
+    | 'Growth'
+    | 'Revenue'
+    | 'Product'
+    | 'Design'
+    | 'Security'
+    | 'Operations'
+}
+
+export type HiringJobSkillRecord = {
+  jobId: string
+  skillId: string
 }
 
 /**
@@ -85,6 +137,12 @@ export const quarterlyFinancialData: QuarterlyFinancialRecord[] = generateQuarte
  * }
  */
 export const eventProgramData: EventProgramRecord[] = generateEventProgramData(250)
+
+/**
+ * Hiring planning network: normalized requisitions, owners, skills, and
+ * explicit job-skill association edges.
+ */
+export const hiringNetworkData = generateHiringNetworkData()
 
 /**
  * Source catalog used by the playground source switcher.

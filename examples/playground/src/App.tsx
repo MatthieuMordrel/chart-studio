@@ -41,8 +41,8 @@ const SCENARIOS = [
     id: 'dataset-model' as const,
     label: 'Dataset + Model',
     description:
-      'Phase 1 and Phase 2 together: reusable dataset-owned columns, multiple charts from one dataset, ' +
-      'and an explicit linked data model with relationships, associations, attributes, and runtime validation.'
+      'A realistic hiring planning dashboard built on the new APIs: reusable dataset-owned columns, ' +
+      'multiple charts from one requisition dataset, and an explicit linked model for owners, skills, associations, and validation.'
   },
   {
     id: 'minimal' as const,
