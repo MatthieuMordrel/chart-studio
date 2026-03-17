@@ -73,11 +73,16 @@ function createAvailableFilterValueMap<TColumnId extends string>(
 }
 
 /**
- * Headless React hook that manages all chart configuration, state, and derived/transformed data for chart rendering.
+ * Headless React hook that manages one chart's configuration, state, and
+ * derived/transformed data for rendering.
  *
- * There are two major usage patterns:
- * - Single source: Provide plain `data` and optional `schema`.
- * - Multi-source: Provide a `sources` array, each having an `id`, `label`, `data`, and optional `schema`.
+ * The stable primary path is single-source:
+ * - `useChart({data})` for zero-config inference
+ * - `useChart({data, schema})` when one chart needs an explicit contract
+ *
+ * Multi-source `sources` support exists for source-switching between
+ * interchangeable datasets, but it is intentionally separate from the
+ * single-chart schema contract and is not dashboard composition.
  *
  * @template T - The type of each data record in the dataset.
  * @template TSchema - Optional explicit schema for inferred single-source columns.
@@ -86,7 +91,8 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   - `data`, optional `schema`, and (optionally) `sourceLabel` for a single source
  *   - or `sources` array for multiple sources
  *   Any explicit single-source or per-source schema is usually authored with
- *   `defineChartSchema<Row>()...`. Plain schema objects are also accepted.
+ *   `defineChartSchema<Row>()...`. Builders can be passed directly; plain
+ *   schema objects are also accepted.
  *
  * @returns {ChartInstance}
  *   An object representing chart configuration, state, and all derived data/operations:

@@ -243,6 +243,57 @@ describe('useChart', () => {
     expect(result.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
   })
 
+  it('treats defineChartSchema as the direct single-chart shortcut', () => {
+    const schemaBuilder = defineChartSchema<JobRecord>()
+      .columns((c) => [
+        c.date('dateAdded', {label: 'Date Added'}),
+        c.category('ownerName', {label: 'Owner'}),
+        c.number('salary', {format: 'currency'}),
+        c.exclude('isOpen'),
+        c.derived.category('salaryBand', {
+          label: 'Salary Band',
+          accessor: (row) => (row.salary != null && row.salary >= 100 ? 'High' : 'Low'),
+        }),
+      ])
+      .xAxis((x) => x.allowed('dateAdded').default('dateAdded'))
+      .groupBy((g) => g.allowed('salaryBand').default('salaryBand'))
+      .filters((f) => f.allowed('ownerName', 'salaryBand'))
+      .metric((m) => m.aggregate('salary', 'sum').defaultAggregate('salary', 'sum'))
+      .chartType((t) => t.allowed('bar', 'line').default('line'))
+      .timeBucket((tb) => tb.allowed('month', 'quarter').default('quarter'))
+
+    const {result: fromBuilder} = renderHook(() =>
+      useChart({
+        data: jobData,
+        schema: schemaBuilder,
+      }),
+    )
+    const {result: fromBuiltSchema} = renderHook(() =>
+      useChart({
+        data: jobData,
+        schema: schemaBuilder.build(),
+      }),
+    )
+
+    expect(fromBuilder.current.columns.map((column) => column.id)).toEqual([
+      'dateAdded',
+      'ownerName',
+      'salary',
+      'salaryBand',
+    ])
+    expect(fromBuilder.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
+    expect(fromBuilder.current.availableGroupBys).toEqual([{id: 'salaryBand', label: 'Salary Band'}])
+    expect(fromBuilder.current.availableFilters.map((filter) => filter.columnId)).toEqual(['ownerName', 'salaryBand'])
+    expect(fromBuilder.current.groupById).toBe('salaryBand')
+    expect(fromBuilder.current.metric).toEqual({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
+    expect(fromBuilder.current.chartType).toBe('line')
+    expect(fromBuilder.current.timeBucket).toBe('quarter')
+    expect(fromBuilder.current.transformedData).toEqual(fromBuiltSchema.current.transformedData)
+    expect(fromBuilder.current.availableMetrics).toEqual(fromBuiltSchema.current.availableMetrics)
+    expect(fromBuilder.current.availableChartTypes).toEqual(fromBuiltSchema.current.availableChartTypes)
+    expect(fromBuilder.current.availableTimeBuckets).toEqual(fromBuiltSchema.current.availableTimeBuckets)
+  })
+
   it('supports declarative groupBy and metric schema restrictions', () => {
     const {result} = renderHook(() =>
       useChart({

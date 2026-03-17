@@ -7,8 +7,8 @@ import type {
 /**
  * Single-source options for `useChart(...)`.
  *
- * This is the common case: one dataset, one optional schema, one optional
- * human-readable source label.
+ * This is the stable chart-first path:
+ * one dataset, one optional schema, one chart.
  */
 export interface SingleSourceOptions<
   T,
@@ -24,8 +24,9 @@ export interface SingleSourceOptions<
   /**
    * Optional explicit schema layered on top of inference.
    *
-   * Usually this is the fluent builder returned by `defineChartSchema<Row>()`.
-   * Plain schema objects are also accepted.
+   * Usually this is the fluent builder returned by `defineChartSchema<Row>()`,
+   * passed directly without calling `.build()`. Plain schema objects are also
+   * accepted.
    *
    * Use this when you want to:
    * - rename fields with `label`
@@ -34,6 +35,9 @@ export interface SingleSourceOptions<
    * - exclude fields
    * - create derived columns
    * - restrict what users can select in the chart UI
+   *
+   * Unspecified raw fields still participate through inference unless you
+   * explicitly exclude them.
    */
   schema?: TSchema
   /**
@@ -48,8 +52,9 @@ export interface SingleSourceOptions<
 /**
  * Multi-source options for `useChart(...)`.
  *
- * Use this when the user should be able to switch between several datasets that
- * may each have their own schema.
+ * Use this for source-switching within one chart. It is separate from the
+ * single-source `useChart({data, schema})` contract and is not dashboard
+ * composition.
  */
 export interface MultiSourceOptions<TSources extends NonEmptyChartSourceOptions = NonEmptyChartSourceOptions> {
   data?: never

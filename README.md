@@ -101,6 +101,18 @@ export function JobsChart() {
 2. Add an optional `schema` with `defineChartSchema<Row>()...` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
 3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
 
+## Stable Single-Chart Contract
+
+For the simple case, the public contract is:
+
+- `useChart({ data })` stays the zero-config path
+- `useChart({ data, schema })` is the explicit single-chart path
+- `defineChartSchema<Row>()` is the chart-first shortcut for that path
+- `.columns(...)` is the authoring entry point: override raw fields, exclude fields, and add derived columns
+- raw fields you do not mention in `.columns(...)` still infer normally unless you exclude them
+- `xAxis`, `groupBy`, `filters`, `metric`, `chartType`, `timeBucket`, and `connectNulls` restrict that one chart's public controls
+- pass the builder directly to `useChart(...)`, or call `.build()` if you need the plain schema object
+
 ## Column Types
 
 | Type       | What it is for                          |
@@ -322,7 +334,9 @@ Only for the UI layer. The headless core does not require it.
 
 ### Can I use multiple datasets?
 
-Yes:
+Yes, for source-switching within one chart. This is separate from the
+single-chart `useChart({ data, schema })` contract and is not dashboard
+composition.
 
 ```tsx
 import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'

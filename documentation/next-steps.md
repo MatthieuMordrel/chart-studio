@@ -9,6 +9,10 @@ The goal is:
 - preserve strong type safety when users provide explicit `schema`
 - make future features additive rather than forcing another API rewrite
 
+Phase 0 now treats `defineChartSchema<Row>()`, `.columns(...)`, and
+`useChart({data, schema})` as the stable single-chart contract. The remaining
+work below should extend that surface, not replace it.
+
 ## 1. Finish The Derived-Column Contract
 
 - Derived columns now live inside `schema.columns`, which is the right long-term shape.

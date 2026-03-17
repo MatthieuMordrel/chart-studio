@@ -150,4 +150,37 @@ describe('defineChartSchema builder', () => {
 
     expect(builder.build()).toBe(builder.build())
   })
+
+  it('keeps base builders reusable when branching into chart variants', () => {
+    const base = defineChartSchema<ExampleRow>()
+      .columns((c) => [
+        c.date('createdAt'),
+        c.category('ownerName'),
+        c.number('salary'),
+      ])
+
+    const grouped = base
+      .groupBy((g) => g.allowed('ownerName'))
+      .build()
+    const metered = base
+      .metric((m) => m.aggregate('salary', 'sum'))
+      .build()
+
+    expect(base.build()).toEqual({
+      columns: {
+        createdAt: {type: 'date'},
+        ownerName: {type: 'category'},
+        salary: {type: 'number'},
+      },
+      __chartSchemaBrand: 'chart-schema-definition',
+    })
+    expect(grouped.groupBy).toEqual({
+      allowed: ['ownerName'],
+    })
+    expect(metered.metric).toEqual({
+      allowed: [
+        {kind: 'aggregate', columnId: 'salary', aggregate: 'sum'},
+      ],
+    })
+  })
 })

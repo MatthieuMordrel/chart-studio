@@ -1,9 +1,13 @@
 import {createChartSchemaBuilder} from './schema-builder.js'
 
 /**
- * Define one explicit chart schema through a fluent builder API.
+ * Define one explicit chart schema for the simple single-chart case.
  *
- * Put `.columns(...)` early in the chain so later sections can narrow against
+ * Treat this as the chart-first shortcut used with
+ * `useChart({data, schema})`.
+ *
+ * `.columns(...)` is the authoring entry point: declare raw overrides,
+ * exclusions, and derived columns first so later sections can narrow against
  * the declared column ids and roles.
  *
  * Typical shape:
@@ -29,7 +33,8 @@ import {createChartSchemaBuilder} from './schema-builder.js'
  *       .defaultAggregate('salary', 'sum')
  *   )
  *
- * // Pass the builder directly to useChart(...) or inferColumnsFromData(...).
+ * // Pass the builder directly to useChart(...) or inferColumnsFromData(...),
+ * // or call build() if you need the plain schema object.
  * ```
  */
 export function defineChartSchema<TRow>() {

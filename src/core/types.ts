@@ -831,8 +831,12 @@ export type DefinedChartSchema<
 /**
  * Public schema definition input accepted by chart-studio APIs.
  *
- * Most callers use the fluent builder returned by `defineChartSchema<Row>()`.
- * Plain schema objects are also accepted at the runtime boundary.
+ * In the simple single-chart case this is the contract for
+ * `useChart({data, schema})`.
+ *
+ * Most callers use the fluent builder returned by `defineChartSchema<Row>()`
+ * and pass it directly. Plain schema objects are also accepted at the runtime
+ * boundary.
  */
 export type ChartSchemaDefinition<
   T,

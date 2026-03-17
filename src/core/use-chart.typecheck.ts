@@ -92,6 +92,14 @@ function verifyBuilderTyping() {
       c.field('createdAt', {label: 'Created Again'}),
     ])
 
+  const singleUseColumnsBuilder = defineChartSchema<ExampleRecord>()
+    .columns((c) => [
+      c.date('createdAt'),
+    ])
+
+  // @ts-expect-error .columns(...) is the single authoring entry point
+  singleUseColumnsBuilder.columns((c) => [c.category('ownerName')])
+
   defineChartSchema<ExampleRecord>()
     .columns((c) => [
       // @ts-expect-error number helper should only accept numeric raw fields
