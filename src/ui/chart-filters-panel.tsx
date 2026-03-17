@@ -6,7 +6,7 @@
  * Each column section can be expanded/collapsed independently.
  */
 
-import {useRef, useState} from 'react'
+import {useLayoutEffect, useRef, useState} from 'react'
 import {ChevronDown, Eraser, Search, X} from 'lucide-react'
 import {useChartContext} from './chart-context.js'
 
@@ -17,7 +17,7 @@ const MAX_VISIBLE_OPTIONS = 6
  * Filters panel content (no popover wrapper).
  *
  * @property className - Additional CSS classes
- * @property showHeader - When true (default), shows "X filter(s) active · Filters" + clear icon.
+ * @property showHeader - When true (default), shows "Filters" title + clear button.
  *   Set false when the header is rendered by the parent (e.g. overflow DetailPage).
  */
 export function ChartFiltersPanel({
@@ -33,6 +33,16 @@ export function ChartFiltersPanel({
 
   // Count total active filters
   const activeCount = [...filters.values()].reduce((sum, set) => sum + set.size, 0)
+
+  // Flat list of active filter badges for the bottom badge row
+  const activeBadges = availableFilters.flatMap((af) => {
+    const active = filters.get(af.columnId)
+    if (!active?.size) return []
+    return [...active].map((value) => {
+      const option = af.options.find((o) => o.value === value)
+      return {columnId: af.columnId, value, label: `${af.label}: ${option?.label ?? value}`}
+    })
+  })
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const isSearching = normalizedQuery.length > 0
@@ -60,26 +70,18 @@ export function ChartFiltersPanel({
 
   return (
     <div className={className}>
-      {/* Header — one row: "X filter(s) active · Filters" + clear icon (when showHeader) */}
+      {/* Header — always renders same structure to avoid layout shift */}
       {showHeader && (
         <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="truncate text-xs font-semibold text-foreground">
-            {activeCount > 0 && (
-              <span className="text-muted-foreground">
-                {activeCount} filter{activeCount !== 1 ? 's' : ''} active ·{' '}
-              </span>
-            )}
-            Filters
-          </div>
-          {activeCount > 0 && (
-            <button
-              onClick={() => clearAllFilters()}
-              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Clear all filters"
-            >
-              <Eraser className="h-3.5 w-3.5" />
-            </button>
-          )}
+          <div className="truncate text-xs font-semibold text-foreground">Filters</div>
+          <button
+            onClick={() => clearAllFilters()}
+            disabled={activeCount === 0}
+            className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors enabled:hover:bg-muted enabled:hover:text-foreground disabled:opacity-0"
+            aria-label="Clear all filters"
+          >
+            <Eraser className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
@@ -130,30 +132,10 @@ export function ChartFiltersPanel({
         ))}
       </div>
 
-      {/* Active filter badges — rendered at bottom so content above never shifts */}
+      {/* Active filter badges — at bottom so they never shift content above */}
       {activeCount > 0 && (
         <div className="mt-2 border-t border-border/40 pt-2">
-          <div className="flex flex-wrap gap-1">
-            {availableFilters.flatMap((filter) => {
-              const activeValues = filters.get(filter.columnId)
-              if (!activeValues?.size) return []
-              return [...activeValues].map((value) => {
-                const option = filter.options.find((o) => o.value === value)
-                return (
-                  <button
-                    key={`${filter.columnId}-${value}`}
-                    onClick={() => toggleFilter(filter.columnId, value)}
-                    className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
-                  >
-                    <span className="max-w-[10rem] truncate">
-                      {filter.label}: {option?.label ?? value}
-                    </span>
-                    <X className="h-2.5 w-2.5 shrink-0 opacity-60" />
-                  </button>
-                )
-              })
-            })}
-          </div>
+          <BadgeRow badges={activeBadges} onRemove={toggleFilter} />
         </div>
       )}
     </div>
@@ -163,6 +145,102 @@ export function ChartFiltersPanel({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+export type BadgeItem = {columnId: string; value: string; label: string}
+
+/**
+ * Renders filter badges that fit within 2 rows, with a "+N" overflow pill
+ * for badges that don't fit. Measures after layout to determine the cutoff.
+ */
+export function BadgeRow({
+  badges,
+  onRemove,
+}: {
+  badges: BadgeItem[]
+  onRemove: (columnId: string, value: string) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  // null = not yet measured (first render shows all for measurement)
+  const [visibleCount, setVisibleCount] = useState<number | null>(null)
+
+  // Measure on every badge change. useLayoutEffect runs before paint,
+  // so the user never sees the "all badges" measurement frame.
+  useLayoutEffect(() => {
+    // Reset to show all so we can measure them
+    setVisibleCount(null)
+  }, [badges.length])
+
+  useLayoutEffect(() => {
+    // Only measure when all badges are rendered (visibleCount === null)
+    if (visibleCount !== null) return
+    const container = containerRef.current
+    if (!container) return
+
+    const children = Array.from(container.children) as HTMLElement[]
+    const first = children[0]
+    if (!first) return
+
+    const gap = 4 // gap-1 = 0.25rem = 4px
+    const maxBottom = first.offsetTop + first.offsetHeight * 2 + gap
+    const badgeCount = badges.length
+
+    // Find first badge that falls outside 2 rows
+    let fits = badgeCount
+    for (let i = 0; i < badgeCount; i++) {
+      const el = children[i]!
+      if (el.offsetTop + el.offsetHeight > maxBottom) {
+        fits = i
+        break
+      }
+    }
+
+    if (fits >= badgeCount) {
+      setVisibleCount(badgeCount)
+      return
+    }
+
+    // Account for the "+N" pill width — walk backwards until it fits on the row
+    // Estimate pill width: ~30px ("+N" text + padding) + gap
+    const pillSpace = 34 + gap
+    let adjusted = fits
+    for (let i = fits - 1; i >= 0; i--) {
+      const el = children[i]!
+      if (el.offsetLeft + el.offsetWidth + pillSpace <= container.clientWidth) {
+        adjusted = i + 1
+        break
+      }
+      adjusted = i
+    }
+
+    setVisibleCount(Math.max(1, adjusted))
+  })
+
+  const resolved = visibleCount ?? badges.length
+  const overflowCount = badges.length - resolved
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex min-w-0 flex-1 flex-wrap content-start items-start gap-1"
+    >
+      {badges.slice(0, resolved).map(({columnId, value, label}) => (
+        <button
+          key={`${columnId}-${value}`}
+          onClick={() => onRemove(columnId, value)}
+          className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
+        >
+          <span className="max-w-[10rem] truncate">{label}</span>
+          <X className="h-2.5 w-2.5 shrink-0 opacity-60" />
+        </button>
+      ))}
+      {overflowCount > 0 && (
+        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          +{overflowCount}
+        </span>
+      )}
+    </div>
+  )
+}
 
 /** A collapsible filter column section with checkable options. */
 function FilterSection({

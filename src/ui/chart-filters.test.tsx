@@ -48,13 +48,11 @@ describe('ChartFilters', () => {
     fireEvent.click(screen.getByRole('button', {name: /owner name/i}))
     fireEvent.click(screen.getByRole('button', {name: /alice/i}))
 
-    expect(screen.getByText(/1 filter active/i).textContent).toContain('1 filter active')
     expect(screen.getByRole('button', {name: /clear all filters/i})).toBeTruthy()
     expect(screen.getByTestId('active-filter-count').textContent).toBe('1')
 
     fireEvent.click(screen.getByRole('button', {name: /clear all filters/i}))
 
-    expect(screen.queryByText(/1 filter active/i)).toBeNull()
     expect(screen.getByTestId('active-filter-count').textContent).toBe('0')
   })
 

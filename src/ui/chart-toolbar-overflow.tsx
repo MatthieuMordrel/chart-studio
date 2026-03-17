@@ -210,22 +210,16 @@ function DetailPage({controlId, onBack}: {controlId: ControlId; onBack: () => vo
         {controlId === 'filters' ? (
           <>
             <div className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
-              {filterActiveCount > 0 && (
-                <span className="text-muted-foreground">
-                  {filterActiveCount} filter{filterActiveCount !== 1 ? 's' : ''} active ·{' '}
-                </span>
-              )}
               Filters
             </div>
-            {filterActiveCount > 0 && (
-              <button
-                onClick={() => clearAllFilters()}
-                className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Clear all filters"
-              >
-                <Eraser className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <button
+              onClick={() => clearAllFilters()}
+              disabled={filterActiveCount === 0}
+              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors enabled:hover:bg-muted enabled:hover:text-foreground disabled:opacity-0"
+              aria-label="Clear all filters"
+            >
+              <Eraser className="h-3.5 w-3.5" />
+            </button>
           </>
         ) : (
           <div className="text-xs font-semibold text-foreground">{entry.label}</div>
