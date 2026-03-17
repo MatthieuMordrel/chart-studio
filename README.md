@@ -111,6 +111,7 @@ For the simple case, the public contract is:
 - `.columns(...)` is the authoring entry point: override raw fields, exclude fields, and add derived columns
 - raw fields you do not mention in `.columns(...)` still infer normally unless you exclude them
 - `xAxis`, `groupBy`, `filters`, `metric`, `chartType`, `timeBucket`, and `connectNulls` restrict that one chart's public controls
+- `inputs` is an additive escape hatch for externally controlled data-scope state; it does not replace the simple `useChart({ data })` or `useChart({ data, schema })` path
 - pass the builder directly to `useChart(...)`, or call `.build()` if you need the plain schema object
 
 ## Three Authoring Entry Points
@@ -465,6 +466,38 @@ const chart = useChart({
   ]
 })
 ```
+
+Each source may use either `defineChartSchema<Row>()` or
+`defineDataset<Row>().chart(...)`. The chart still reads one active source at a
+time, so this is not dashboard composition and not cross-dataset execution.
+
+### Can outside state drive one chart's filters or date range?
+
+Yes. Use `inputs` for externally controlled data-scope state:
+
+```tsx
+const chart = useChart({
+  data: jobs,
+  schema,
+  inputs: {
+    filters,
+    onFiltersChange: setFilters,
+    referenceDateId,
+    onReferenceDateIdChange: setReferenceDateId,
+    dateRange,
+    onDateRangeChange: setDateRange
+  }
+})
+```
+
+Rules:
+
+- `inputs` only covers data-scope state: filters, reference date, and date range
+- presentation controls such as `xAxis`, `groupBy`, `metric`, and `chartType` stay chart-local
+- `dateRange` is `{ preset, customFilter }`
+- when an input is controlled, chart setters request changes through the matching callback
+- `chart.filters` and related date state are always the sanitized effective state for the active source
+- this still does not create a dashboard runtime or shared state between charts
 
 ### What chart types are available?
 

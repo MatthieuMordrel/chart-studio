@@ -1,48 +1,88 @@
 # Phase 4: Controlled Chart Inputs
 
+## Status
+
+Implemented.
+
 ## Goal
 
-Add controlled chart inputs for data-scope state so dashboards can drive charts
-cleanly.
+Let outside state drive one chart's data scope without changing the locked
+single-chart contract.
 
-## Why This Phase Exists
+## Locked Contract
 
-Dashboard-global filters cannot be implemented cleanly while `useChart(...)`
-fully owns filter and date state internally.
+Controlled data-scope state is additive through `useChart({inputs: ...})`.
 
-This phase is the bridge between standalone charts and dashboard coordination.
+```tsx
+const chart = useChart({
+  data: jobs,
+  schema,
+  inputs: {
+    filters,
+    onFiltersChange: setFilters,
+    referenceDateId,
+    onReferenceDateIdChange: setReferenceDateId,
+    dateRange,
+    onDateRangeChange: setDateRange,
+  },
+})
+```
+
+Where `dateRange` is:
+
+```ts
+{
+  preset: DateRangePresetId | null
+  customFilter: DateRangeFilter | null
+}
+```
 
 ## Scope
 
-- controlled categorical/boolean filters
-- controlled date range filters
-- controlled reference-date state if needed
-- clear merge rules between controlled and uncontrolled modes
+- categorical and boolean filters
+- reference-date selection
+- date-range selection
 
-## Out Of Scope
+## Explicit Non-Goals
 
-- dashboard composition itself
-- model-level linked metrics
-- materialized view query planning
+- dashboard runtime
+- shared dashboard state
+- linked metrics
+- relationship traversal
+- dashboard-local vs chart-local merge policy beyond one chart's own data scope
 
-## Core Rules
+## Control Rules
 
-- controlled state should only cover data-scope controls
-- presentation controls such as `xAxis`, `groupBy`, and `chartType` remain chart-local by default
-- local and future global filters must compose by intersection
+- omit an input value to keep that slice uncontrolled
+- provide an input value to make that slice controlled
+- callbacks fire in both modes
+- in controlled mode, chart setters request changes through callbacks instead of
+  mutating hook-owned state
+- `chart.dataScopeControl` exposes which slices are controlled vs uncontrolled
 
-## Deliverables
+## Sanitization Rules
 
-- controlled inputs in `useChart(...)`
-- docs for standalone controlled and uncontrolled usage
-- tests around external filter driving
+- `chart.filters`, `chart.referenceDateId`, `chart.dateRangePreset`, and
+  `chart.dateRangeFilter` always expose the sanitized effective runtime state
+- stale controlled filters or reference dates are ignored at runtime rather than
+  throwing
+- the hook does not auto-rewrite external state just because the active source
+  cannot currently use it
+- switching back to a compatible source can make the previously requested
+  controlled or uncontrolled state effective again
+- when `dateRange.preset` is non-null, the effective filter is derived from that
+  preset and `customFilter` is only stored for custom mode
+- `setDateRangeFilter(null)` maps to the same effective selection as
+  `'all-time'`
 
-## Exit Criteria
+## Separation From Dashboard Work
 
-- dashboard-global state can flow into charts without hacks
-- standalone charts still remain easy to use
+This phase only makes one chart controllable from the outside.
 
-## Risks
+It does not define:
 
-- making the hook too complex for the simple case
-- unclear precedence between controlled and uncontrolled state
+- how several charts are composed together
+- how shared filters are declared
+- how model attributes propagate across relationships
+
+Those remain later dashboard phases.

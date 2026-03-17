@@ -1,46 +1,87 @@
 # Phase 3: Revisit Multi-Source
 
+## Status
+
+Implemented.
+
 ## Goal
 
-Clarify multi-source as source-switching for one chart, separate from dashboard
-composition.
+Keep `useChart({sources: [...]})` as source-switching for one chart, clearly
+separate from dashboard composition.
 
-## Why This Phase Exists
+## Locked Contract
 
-`useChart({sources: [...]})` already exists, but it should not drift into a
-dashboard-shaped abstraction.
+- multi-source means one rendered chart with one active source at a time
+- each source keeps the same authoring model as single-source:
+  raw `data` plus an optional per-source `schema`
+- that schema may come from either:
+  - `defineChartSchema<Row>()`
+  - `defineDataset<Row>().chart(...)`
+- linked data models are not consulted at chart runtime here
+- no source is joined, overlaid, denormalized, or aggregated together with
+  another source inside one chart instance
 
-## Scope
+## Runtime Rules
 
-- document multi-source as “one chart, many interchangeable inputs”
-- allow dataset-backed schemas in multi-source usage
-- verify source-local typing remains predictable
-- define the intended setter behavior when active source changes
+- `activeSourceId` is the only source selector
+- switching sources recalculates columns, metrics, filters, date columns, and
+  transformed output from the active source only
+- `chart.filters` is always the sanitized effective filter state for the active
+  source
+- stale filter columns or values are hidden from the effective runtime state
+- stale `referenceDateId` falls back to the active source's valid date context,
+  or `null` when no date column exists
+- requested state is not hard-reset internally just because another source
+  cannot use it right now
+- when the user switches back to a compatible source, previously requested
+  source-local selections can become effective again
 
-## Out Of Scope
+## What This Still Does Not Mean
 
-- shared filters across charts
-- dashboard composition
-- linked metrics
+- not dashboard composition
+- not shared state across several charts
+- not linked metrics
+- not relationship traversal through `defineDataModel(...)`
+- not cross-dataset execution inside one chart
 
-## Core Rules
+## Example
 
-- multi-source is not dashboard composition
-- multi-source does not imply cross-dataset analytics
-- one active source at a time
+```tsx
+const jobs = defineDataset<Job>()
+  .columns((c) => [
+    c.date('createdAt'),
+    c.category('owner'),
+    c.number('salary'),
+  ])
 
-## Deliverables
+const candidates = defineDataset<Candidate>()
+  .columns((c) => [
+    c.category('stage'),
+    c.boolean('isActive'),
+    c.number('expectedSalary'),
+  ])
 
-- clearer docs and examples
-- type tests around active-source narrowing
-- stable rules for stale state reset when source changes
+const chart = useChart({
+  sources: [
+    {
+      id: 'jobs',
+      label: 'Jobs',
+      data: jobsData,
+      schema: jobs
+        .chart('jobsByOwner')
+        .xAxis((x) => x.allowed('owner').default('owner')),
+    },
+    {
+      id: 'candidates',
+      label: 'Candidates',
+      data: candidatesData,
+      schema: candidates
+        .chart('candidatesByStage')
+        .xAxis((x) => x.allowed('stage').default('stage')),
+    },
+  ],
+})
+```
 
-## Exit Criteria
-
-- multi-source is explicitly distinct from dashboards
-- source switching remains correct and predictable
-
-## Risks
-
-- accidental overlap with dashboard concerns
-- unclear behavior for controlled state across source switches
+This is still one chart. The source changes, but the chart never composes both
+datasets at the same time.

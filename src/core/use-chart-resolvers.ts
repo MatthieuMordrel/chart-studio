@@ -1,6 +1,18 @@
 import type {ChartColumn, DateColumn, FilterState} from './types.js'
 
 /**
+ * Clone filter state so callers can safely derive the next map without sharing
+ * mutable `Set` instances.
+ */
+export function cloneFilterState<TColumnId extends string>(
+  filters: FilterState<TColumnId>,
+): FilterState<TColumnId> {
+  return new Map(
+    [...filters].map(([columnId, values]) => [columnId, new Set(values)]),
+  )
+}
+
+/**
  * Resolve the active X-axis, preferring date columns first.
  */
 export function resolveXAxisId<T, TColumnId extends string>(
@@ -46,6 +58,7 @@ export function resolveReferenceDateId<T, TColumnId extends string>(
 export function sanitizeFilters<T, TColumnId extends string>(
   filters: FilterState<TColumnId>,
   activeColumns: readonly ChartColumn<T, TColumnId>[],
+  availableValues?: ReadonlyMap<TColumnId, ReadonlySet<string>>,
 ): FilterState<TColumnId> {
   const validColumnIds = new Set(activeColumns.map((column) => column.id))
   const next = new Map<TColumnId, Set<string>>()
@@ -55,7 +68,16 @@ export function sanitizeFilters<T, TColumnId extends string>(
       continue
     }
 
-    next.set(columnId, new Set(values))
+    const allowedValues = availableValues?.get(columnId)
+    const sanitizedValues = allowedValues
+      ? new Set([...values].filter((value) => allowedValues.has(value)))
+      : new Set(values)
+
+    if (sanitizedValues.size === 0) {
+      continue
+    }
+
+    next.set(columnId, sanitizedValues)
   }
 
   return next

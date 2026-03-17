@@ -1,4 +1,5 @@
 import {defineChartSchema} from './define-chart-schema.js'
+import {defineDataset} from './define-dataset.js'
 import {useChart} from './use-chart.js'
 
 type SalesRecord = {
@@ -34,6 +35,22 @@ const userSchema = defineChartSchema<UserRecord>()
   ])
   .groupBy((g) => g.allowed('plan', 'isActive'))
 
+const salesDataset = defineDataset<SalesRecord>()
+  .columns((c) => [
+    c.date('createdAt', {label: 'Created'}),
+    c.category('region'),
+    c.number('revenue', {format: 'currency'}),
+    c.exclude('internalId'),
+  ])
+
+const userDataset = defineDataset<UserRecord>()
+  .columns((c) => [
+    c.date('signedUpAt', {label: 'Signed Up'}),
+    c.category('plan'),
+    c.boolean('isActive'),
+    c.exclude('city'),
+  ])
+
 /**
  * Compile-time helper used to assert inferred types.
  */
@@ -68,6 +85,8 @@ function verifyMultiSourceChartTyping() {
 
   // @ts-expect-error unknown source ids should fail
   chart.setActiveSource('missing')
+  // @ts-expect-error unknown filter ids should fail across the multi-source union
+  chart.toggleFilter('missing', 'value')
 
   if (chart.activeSourceId === 'sales') {
     expectType<readonly SalesRecord[]>(chart.rawData)
@@ -97,4 +116,78 @@ function verifyMultiSourceChartTyping() {
   }
 }
 
+function verifyDatasetBackedMultiSourceChartTyping() {
+  const chart = useChart({
+    sources: [
+      {
+        id: 'sales',
+        label: 'Sales',
+        data: [] as SalesRecord[],
+        schema: salesDataset
+          .chart('salesByRegion')
+          .xAxis((x) => x.allowed('region').default('region'))
+          .filters((f) => f.allowed('region')),
+      },
+      {
+        id: 'users',
+        label: 'Users',
+        data: [] as UserRecord[],
+        schema: userDataset
+          .chart('usersByPlan')
+          .xAxis((x) => x.allowed('plan').default('plan'))
+          .groupBy((g) => g.allowed('isActive')),
+      },
+    ] as const,
+    inputs: {
+      filters: new Map<'region' | 'plan' | 'isActive', Set<string>>([
+        ['region', new Set(['EMEA'])],
+      ]),
+      onFiltersChange(filters: Map<'region' | 'plan' | 'isActive', Set<string>>) {
+        expectType<Map<'region' | 'plan' | 'isActive', Set<string>>>(filters)
+      },
+      referenceDateId: 'createdAt',
+      onReferenceDateIdChange(columnId: 'createdAt' | 'signedUpAt' | null) {
+        expectType<'createdAt' | 'signedUpAt' | null>(columnId)
+      },
+      dateRange: {
+        preset: 'all-time',
+        customFilter: null,
+      },
+    },
+  })
+
+  chart.setActiveSource('sales')
+  chart.setActiveSource('users')
+
+  if (chart.activeSourceId === 'sales') {
+    chart.toggleFilter('region', 'EMEA')
+    chart.setReferenceDateId('createdAt')
+  } else {
+    chart.toggleFilter('plan', 'Pro')
+    chart.setReferenceDateId('signedUpAt')
+  }
+
+  useChart({
+    sources: [
+      {
+        id: 'sales',
+        label: 'Sales',
+        data: [] as SalesRecord[],
+        schema: salesDataset.chart('salesByRegion'),
+      },
+      {
+        id: 'users',
+        label: 'Users',
+        data: [] as UserRecord[],
+        schema: userDataset.chart('usersByPlan'),
+      },
+    ] as const,
+    inputs: {
+      // @ts-expect-error non-date ids cannot control the reference date in multi-source charts
+      referenceDateId: 'region',
+    },
+  })
+}
+
 void verifyMultiSourceChartTyping
+void verifyDatasetBackedMultiSourceChartTyping

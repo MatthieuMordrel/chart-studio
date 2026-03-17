@@ -282,8 +282,56 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema() {
   restrictedChart.setMetric({kind: 'aggregate', columnId: 'salary', aggregate: 'sum'})
 }
 
+function verifyControlledDataScopeTyping() {
+  const chart = useChart({
+    data: [] as ExampleRecord[],
+    schema: exampleSchema,
+    inputs: {
+      filters: new Map<'ownerName' | 'marginBucket', Set<string>>([
+        ['ownerName', new Set(['Alice'])],
+      ]),
+      onFiltersChange(filters) {
+        expectType<Map<'ownerName' | 'isOpen' | 'marginBucket' | 'hasSalary', Set<string>>>(filters)
+      },
+      referenceDateId: 'createdAt',
+      onReferenceDateIdChange(columnId) {
+        expectType<'createdAt' | 'createdDay' | null>(columnId)
+      },
+      dateRange: {
+        preset: null,
+        customFilter: {from: null, to: null},
+      },
+      onDateRangeChange(selection) {
+        expectType<null | {from: Date | null; to: Date | null}>(selection.customFilter)
+      },
+    },
+  })
+
+  chart.toggleFilter('ownerName', 'Alice')
+  chart.setReferenceDateId('createdDay')
+
+  useChart({
+    data: [] as ExampleRecord[],
+    schema: exampleSchema,
+    inputs: {
+      // @ts-expect-error date columns cannot be provided through controlled filters
+      filters: new Map<'createdAt', Set<string>>(),
+    },
+  })
+
+  useChart({
+    data: [] as ExampleRecord[],
+    schema: exampleSchema,
+    inputs: {
+      // @ts-expect-error non-date columns cannot be controlled as the reference date
+      referenceDateId: 'ownerName',
+    },
+  })
+}
+
 void verifyBuilderTyping
 void verifyUseChartColumnIds
 void verifyToolRestrictionsTyping
 void verifyGeneralizedSchemaTyping
 void verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema
+void verifyControlledDataScopeTyping

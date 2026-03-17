@@ -1,7 +1,8 @@
 import {act, renderHook} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {candidateData, jobData, type JobRecord} from '../test/chart-test-fixtures.js'
+import {candidateData, jobData, type CandidateRecord, type JobRecord} from '../test/chart-test-fixtures.js'
 import {defineChartSchema} from './define-chart-schema.js'
+import {defineDataset} from './define-dataset.js'
 import {useChart} from './use-chart.js'
 
 const jobSchemaBuilder = defineChartSchema<JobRecord>()
@@ -60,6 +61,22 @@ const restrictedJobSchema = jobSchemaBuilder
   .groupBy((g) => g.allowed('isOpen'))
   .metric((m) => m.aggregate('salary', 'avg', 'sum'))
   .build()
+
+const jobsDataset = defineDataset<JobRecord>()
+  .columns((c) => [
+    c.date('dateAdded', {label: 'Date Added'}),
+    c.category('ownerName', {label: 'Owner'}),
+    c.boolean('isOpen'),
+    c.number('salary', {format: 'currency'}),
+  ])
+
+const candidatesDataset = defineDataset<CandidateRecord>()
+  .columns((c) => [
+    c.category('stage', {label: 'Hiring Stage'}),
+    c.category('city'),
+    c.boolean('isActive'),
+    c.number('expectedSalary', {format: 'currency'}),
+  ])
 
 describe('useChart', () => {
   beforeEach(() => {
@@ -183,6 +200,119 @@ describe('useChart', () => {
     expect(result.current.rawData).toEqual(jobData)
   })
 
+  it('accepts dataset-backed schemas in multi-source charts without composing datasets together', () => {
+    const jobsByOwner = jobsDataset
+      .chart('jobsByOwner')
+      .xAxis((x) => x.allowed('ownerName').default('ownerName'))
+      .filters((f) => f.allowed('ownerName'))
+      .build()
+    const candidatesByStage = candidatesDataset
+      .chart('candidatesByStage')
+      .xAxis((x) => x.allowed('stage').default('stage'))
+      .groupBy((g) => g.allowed('isActive').default('isActive'))
+      .build()
+
+    const {result} = renderHook(() =>
+      useChart({
+        sources: [
+          {id: 'jobs', label: 'Jobs', data: jobData, schema: jobsByOwner},
+          {id: 'candidates', label: 'Candidates', data: candidateData, schema: candidatesByStage},
+        ],
+      }),
+    )
+
+    expect(result.current.activeSourceId).toBe('jobs')
+    expect(result.current.columns.map((column) => column.id)).toEqual([
+      'dateAdded',
+      'ownerName',
+      'isOpen',
+      'salary',
+    ])
+    expect(result.current.xAxisId).toBe('ownerName')
+    expect(result.current.sources).toEqual([
+      {id: 'jobs', label: 'Jobs'},
+      {id: 'candidates', label: 'Candidates'},
+    ])
+
+    act(() => {
+      result.current.setActiveSource('candidates')
+    })
+
+    expect(result.current.activeSourceId).toBe('candidates')
+    expect(result.current.rawData).toEqual(candidateData)
+    expect(result.current.columns.map((column) => column.id)).toEqual([
+      'stage',
+      'city',
+      'isActive',
+      'expectedSalary',
+    ])
+    expect(result.current.xAxisId).toBe('stage')
+    expect(result.current.groupById).toBe('isActive')
+    expect(result.current.transformedData).toEqual([
+      expect.objectContaining({xKey: 'Screen', True: 1}),
+      expect.objectContaining({xKey: 'Interview', False: 1}),
+    ])
+  })
+
+  it('sanitizes stale filter values across source switches while preserving the requested selection for a compatible source', () => {
+    const regionalSales = [
+      {bookedAt: '2026-01-01', region: 'EMEA', revenue: 10},
+      {bookedAt: '2026-01-02', region: 'US', revenue: 20},
+    ]
+    const regionalTargets = [
+      {bookedAt: '2026-01-03', region: 'APAC', revenue: 30},
+      {bookedAt: '2026-01-04', region: 'US', revenue: 40},
+    ]
+    const schema = defineChartSchema<(typeof regionalSales)[number]>()
+      .columns((c) => [
+        c.date('bookedAt'),
+        c.category('region'),
+        c.number('revenue'),
+      ])
+      .xAxis((x) => x.allowed('region').default('region'))
+      .filters((f) => f.allowed('region'))
+      .build()
+
+    const {result} = renderHook(() =>
+      useChart({
+        sources: [
+          {id: 'sales', label: 'Sales', data: regionalSales, schema},
+          {id: 'targets', label: 'Targets', data: regionalTargets, schema},
+        ],
+      }),
+    )
+
+    act(() => {
+      result.current.toggleFilter('region', 'EMEA')
+    })
+
+    expect(result.current.filters.get('region')).toEqual(new Set(['EMEA']))
+    expect(result.current.transformedData).toEqual([
+      expect.objectContaining({xKey: 'EMEA', value: 1}),
+    ])
+
+    act(() => {
+      result.current.setActiveSource('targets')
+    })
+
+    expect(result.current.filters.size).toBe(0)
+    expect(result.current.transformedData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({xKey: 'APAC', value: 1}),
+        expect.objectContaining({xKey: 'US', value: 1}),
+      ]),
+    )
+
+    act(() => {
+      result.current.setActiveSource('sales')
+    })
+
+    expect(result.current.filters.get('region')).toEqual(new Set(['EMEA']))
+    expect(result.current.transformedData).toEqual([
+      expect.objectContaining({xKey: 'EMEA', value: 1}),
+    ])
+  })
+
   it('treats a null date range filter as all time', () => {
     const datedData = [
       {dateAdded: '2024-01-10', ownerName: 'Alice', isOpen: true, salary: 100},
@@ -223,6 +353,151 @@ describe('useChart', () => {
         expect.objectContaining({xKey: '2026-03', value: 1}),
       ]),
     )
+  })
+
+  it('supports controlled data-scope inputs with callback-driven updates', () => {
+    const onFiltersChange = vi.fn()
+    const onReferenceDateIdChange = vi.fn()
+    const onDateRangeChange = vi.fn()
+    const controlledFilters = new Map<'ownerName', Set<string>>([
+      ['ownerName', new Set(['Alice'])],
+    ])
+    const controlledDateRange: {
+      preset: 'all-time' | 'last-30-days' | null
+      customFilter: {from: Date | null; to: Date | null} | null
+    } = {
+      preset: null,
+      customFilter: {from: new Date('2026-03-01T00:00:00Z'), to: null},
+    }
+
+    const {result, rerender} = renderHook(
+      ({
+        filters,
+        referenceDateId,
+        dateRange,
+      }: {
+        filters: Map<'ownerName' | 'isOpen' | 'salaryBand' | 'hasOwner', Set<string>>
+        referenceDateId: 'dateAdded' | 'salaryDate' | null
+        dateRange: {preset: 'all-time' | 'last-30-days' | null; customFilter: {from: Date | null; to: Date | null} | null}
+      }) =>
+        useChart({
+          data: jobData,
+          schema: derivedJobSchema,
+          inputs: {
+            filters,
+            onFiltersChange,
+            referenceDateId,
+            onReferenceDateIdChange,
+            dateRange,
+            onDateRangeChange,
+          },
+        }),
+      {
+        initialProps: {
+          filters: controlledFilters,
+          referenceDateId: 'dateAdded',
+          dateRange: controlledDateRange,
+        },
+      },
+    )
+
+    expect(result.current.dataScopeControl).toEqual({
+      filters: 'controlled',
+      referenceDateId: 'controlled',
+      dateRange: 'controlled',
+    })
+    expect(result.current.filters.get('ownerName')).toEqual(new Set(['Alice']))
+    expect(result.current.referenceDateId).toBe('dateAdded')
+    expect(result.current.dateRangePreset).toBeNull()
+    expect(result.current.transformedData).toEqual([
+      expect.objectContaining({xKey: '2026-03', value: 1}),
+    ])
+
+    act(() => {
+      result.current.toggleFilter('ownerName', 'Bob')
+      result.current.setReferenceDateId('salaryDate')
+      result.current.setDateRangePreset('last-30-days')
+    })
+
+    expect(onFiltersChange).toHaveBeenLastCalledWith(
+      new Map([
+        ['ownerName', new Set(['Alice', 'Bob'])],
+      ]),
+    )
+    expect(onReferenceDateIdChange).toHaveBeenLastCalledWith('salaryDate')
+    expect(onDateRangeChange).toHaveBeenLastCalledWith({
+      preset: 'last-30-days',
+      customFilter: controlledDateRange.customFilter,
+    })
+
+    // Controlled values do not change until the parent rerenders with the next inputs.
+    expect(result.current.filters.get('ownerName')).toEqual(new Set(['Alice']))
+    expect(result.current.referenceDateId).toBe('dateAdded')
+    expect(result.current.dateRangePreset).toBeNull()
+
+    rerender({
+      filters: onFiltersChange.mock.lastCall?.[0] as Map<'ownerName' | 'isOpen' | 'salaryBand' | 'hasOwner', Set<string>>,
+      referenceDateId: onReferenceDateIdChange.mock.lastCall?.[0] as 'dateAdded' | 'salaryDate' | null,
+      dateRange: onDateRangeChange.mock.lastCall?.[0] as {
+        preset: 'all-time' | 'last-30-days' | null
+        customFilter: {from: Date | null; to: Date | null} | null
+      },
+    })
+
+    expect(result.current.filters.get('ownerName')).toEqual(new Set(['Alice', 'Bob']))
+    expect(result.current.referenceDateId).toBe('salaryDate')
+    expect(result.current.dateRangePreset).toBe('last-30-days')
+  })
+
+  it('sanitizes controlled data-scope inputs against the active source without mutating the requested input state', () => {
+    const controlledFilters = new Map<'ownerName', Set<string>>([
+      ['ownerName', new Set(['Alice'])],
+    ])
+
+    const {result} = renderHook(() =>
+      useChart({
+        sources: [
+          {id: 'jobs', label: 'Jobs', data: jobData, schema: derivedJobSchema},
+          {id: 'candidates', label: 'Candidates', data: candidateData, schema: candidateDisplaySchema},
+        ],
+        inputs: {
+          filters: controlledFilters,
+          referenceDateId: 'dateAdded',
+          dateRange: {
+            preset: null,
+            customFilter: {from: new Date('2026-03-01T00:00:00Z'), to: null},
+          },
+        },
+      }),
+    )
+
+    expect((result.current.filters as Map<string, Set<string>>).get('ownerName')).toEqual(new Set(['Alice']))
+    expect(result.current.referenceDateId).toBe('dateAdded')
+    expect(result.current.dataScopeControl).toEqual({
+      filters: 'controlled',
+      referenceDateId: 'controlled',
+      dateRange: 'controlled',
+    })
+
+    act(() => {
+      result.current.setActiveSource('candidates')
+    })
+
+    expect(result.current.filters.size).toBe(0)
+    expect(result.current.referenceDateId).toBeNull()
+    expect(result.current.dateRangePreset).toBeNull()
+    expect(result.current.dateRangeFilter).toEqual({
+      from: new Date('2026-03-01T00:00:00Z'),
+      to: null,
+    })
+    expect(controlledFilters.get('ownerName')).toEqual(new Set(['Alice']))
+
+    act(() => {
+      result.current.setActiveSource('jobs')
+    })
+
+    expect((result.current.filters as Map<string, Set<string>>).get('ownerName')).toEqual(new Set(['Alice']))
+    expect(result.current.referenceDateId).toBe('dateAdded')
   })
 
   it('uses schema columns to exclude fields and override labels', () => {

@@ -1,6 +1,8 @@
 import type {
+  ChartDataScopeInputsFromSchemaDefinition,
   ChartSchemaDefinition,
   ChartSourceOptions,
+  MultiSourceChartDataScopeInputs,
   NonEmptyChartSourceOptions,
 } from './types.js'
 
@@ -50,6 +52,19 @@ export interface SingleSourceOptions<
    * Example: `'Jobs'`, `'Quarterly Financials'`, or `'Pipeline Health'`.
    */
   sourceLabel?: string
+  /**
+   * Optional externally driven data-scope inputs for this one chart.
+   *
+   * This is additive:
+   * `useChart({data})` and `useChart({data, schema})` stay the simple chart-first paths.
+   *
+   * Only data-scope state belongs here:
+   * filters, reference-date selection, and date-range selection.
+   *
+   * Presentation controls such as `xAxis`, `groupBy`, `metric`, and
+   * `chartType` remain chart-local.
+   */
+  inputs?: ChartDataScopeInputsFromSchemaDefinition<T, TSchema>
   sources?: never
 }
 
@@ -64,6 +79,13 @@ export interface MultiSourceOptions<TSources extends NonEmptyChartSourceOptions 
   data?: never
   schema?: never
   sourceLabel?: never
+  /**
+   * Optional externally driven data-scope inputs for one source-switching chart.
+   *
+   * These inputs are chart-level and sanitize against the active source at
+   * runtime. They do not turn `sources` into dashboard composition.
+   */
+  inputs?: MultiSourceChartDataScopeInputs<TSources>
   /**
    * Named list of chart sources.
    *

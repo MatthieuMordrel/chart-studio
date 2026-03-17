@@ -655,6 +655,55 @@ function sortResolvedColumns<T>(
 }
 
 /**
+ * Reorder resolved columns so that schema-declared columns maintain their
+ * declaration order while inferred-only columns keep their default sorted
+ * positions.
+ *
+ * The algorithm first sorts all columns with the default heuristic, then
+ * replaces the positions occupied by declared columns with those same
+ * columns in schema declaration order. This preserves type-rank placement
+ * for inferred columns while honouring the author's intent for explicitly
+ * declared ones.
+ *
+ * When no schema columns are declared, all columns are sorted using the
+ * default heuristic.
+ */
+function orderResolvedColumns<T>(
+  columns: readonly ChartColumn<T, string>[],
+  schemaColumnOrder: readonly string[] | null,
+): ChartColumn<T, string>[] {
+  const sorted = sortResolvedColumns(columns)
+
+  if (!schemaColumnOrder || schemaColumnOrder.length === 0) {
+    return sorted
+  }
+
+  const declaredIds = new Set(schemaColumnOrder)
+
+  // Collect the sorted-array positions occupied by declared columns.
+  const declaredPositions: number[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (declaredIds.has(sorted[i]!.id)) {
+      declaredPositions.push(i)
+    }
+  }
+
+  // Collect the declared columns in their schema declaration order.
+  const schemaOrderIndex = new Map(schemaColumnOrder.map((id, index) => [id, index]))
+  const declaredInSchemaOrder = sorted
+    .filter(column => declaredIds.has(column.id))
+    .sort((a, b) => schemaOrderIndex.get(a.id)! - schemaOrderIndex.get(b.id)!)
+
+  // Place declaration-ordered columns back into their sorted positions.
+  const result = [...sorted]
+  for (let i = 0; i < declaredPositions.length; i++) {
+    result[declaredPositions[i]!] = declaredInSchemaOrder[i]!
+  }
+
+  return result
+}
+
+/**
  * Resolve chart columns directly from raw data and an optional explicit schema.
  */
 export function inferColumnsFromData<
@@ -687,8 +736,12 @@ export function inferColumnsFromData<
     warn('No inferable or explicit chart columns were found. Provide non-empty data or schema.columns.')
   }
 
+  const schemaColumnOrder = resolvedSchema?.columns
+    ? Object.keys(resolvedSchema.columns)
+    : null
+
   return finalizeResolvedColumns<
     T,
     ResolvedColumnIdFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>
-  >(sortResolvedColumns(resolvedColumns))
+  >(orderResolvedColumns(resolvedColumns, schemaColumnOrder))
 }

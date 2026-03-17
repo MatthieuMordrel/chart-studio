@@ -1339,6 +1339,9 @@ type ChartSchemaDefinitionBrand = {
  */
 export type FilterState<TColumnId extends string = string> = Map<TColumnId, Set<string>>
 
+/** Whether one chart input slice is owned externally or by the hook itself. */
+export type ChartControlMode = 'controlled' | 'uncontrolled'
+
 // ---------------------------------------------------------------------------
 // Sorting
 // ---------------------------------------------------------------------------
@@ -1480,6 +1483,43 @@ export type DateRangeFilter = {
 }
 
 /**
+ * Requested date-range selection for externally driven chart inputs.
+ *
+ * When `preset` is non-null, the effective `dateRangeFilter` is derived from
+ * that preset and `customFilter` is simply preserved for later custom mode.
+ */
+export type ChartDateRangeSelection = {
+  preset: import('./date-range-presets.js').DateRangePresetId | null
+  customFilter: DateRangeFilter | null
+}
+
+/**
+ * Optional externally driven inputs for the chart's data scope.
+ *
+ * Provide a value to control that slice. Omit it to let `useChart(...)` own
+ * the state internally. Callbacks fire for both controlled and uncontrolled
+ * usage; in controlled mode they are the only way setters can request changes.
+ */
+export type ChartDataScopeInputs<
+  TFilterColumnId extends string = string,
+  TDateColumnId extends string = string,
+> = {
+  filters?: FilterState<TFilterColumnId>
+  onFiltersChange?: (filters: FilterState<TFilterColumnId>) => void
+  referenceDateId?: TDateColumnId | null
+  onReferenceDateIdChange?: (columnId: TDateColumnId | null) => void
+  dateRange?: ChartDateRangeSelection
+  onDateRangeChange?: (selection: ChartDateRangeSelection) => void
+}
+
+/** Controlled/uncontrolled status for each data-scope slice. */
+export type ChartDataScopeControlState = {
+  filters: ChartControlMode
+  referenceDateId: ChartControlMode
+  dateRange: ChartControlMode
+}
+
+/**
  * Re-exported from `date-range-presets.ts` for convenience.
  * See that module for the full preset registry and resolution logic.
  */
@@ -1575,9 +1615,11 @@ export type ChartInstance<
    * Derived from the schema's `connectNulls` option.
    */
   connectNulls: boolean
+  /** Which data-scope slices are externally controlled vs chart-owned. */
+  dataScopeControl: ChartDataScopeControlState
 
   // -- Filters --
-  /** Active filter values per column. */
+  /** Active filter values per column after runtime sanitization for the active source. */
   filters: FilterState<TFilterColumnId>
   /**
    * Toggle a specific filter value on/off for a column.
@@ -1600,7 +1642,7 @@ export type ChartInstance<
   // -- Date range --
   /** Date range for the active reference date column (computed from filtered data). */
   dateRange: DateRange<TDateColumnId> | null
-  /** Which date column provides the visible date range context. */
+  /** Which date column provides the visible date range context after source-local fallback. */
   referenceDateId: TDateColumnId | null
   /**
    * Change the reference date column.
@@ -1703,6 +1745,15 @@ export type ChartInstanceFromSchemaDefinition<
   TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
 > = ChartInstanceFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>
 
+/** Data-scope input typing for one single-source chart definition. */
+export type ChartDataScopeInputsFromSchemaDefinition<
+  T,
+  TSchema extends ChartSchemaDefinition<T, any> | undefined = undefined,
+> = ChartDataScopeInputs<
+  RestrictedFilterColumnIdFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>,
+  ResolvedDateColumnIdFromSchema<T, ResolvedChartSchemaFromDefinition<TSchema>>
+>
+
 type SourceIdFromSource<TSource extends AnyChartSourceOptions> = TSource['id']
 type SourceRowFromSource<TSource extends AnyChartSourceOptions> =
   TSource extends ChartSourceOptions<string, infer TRow, any> ? TRow : never
@@ -1739,6 +1790,18 @@ type SourceColumnIdFromSources<TSources extends NonEmptyChartSourceOptions> =
   TSources[number] extends infer TSource
     ? TSource extends AnyChartSourceOptions
       ? SourceColumnIdFromSource<TSource>
+      : never
+    : never
+type SourceFilterColumnIdFromSources<TSources extends NonEmptyChartSourceOptions> =
+  TSources[number] extends infer TSource
+    ? TSource extends AnyChartSourceOptions
+      ? SourceFilterColumnIdFromSource<TSource>
+      : never
+    : never
+type SourceDateColumnIdFromSources<TSources extends NonEmptyChartSourceOptions> =
+  TSources[number] extends infer TSource
+    ? TSource extends AnyChartSourceOptions
+      ? SourceDateColumnIdFromSource<TSource>
       : never
     : never
 
@@ -1805,3 +1868,10 @@ export type MultiSourceChartInstance<TSources extends NonEmptyChartSourceOptions
       ? MultiSourceChartBranch<TSources, TSource>
       : never
     : never
+
+/** Data-scope input typing for one multi-source source-switching chart. */
+export type MultiSourceChartDataScopeInputs<TSources extends NonEmptyChartSourceOptions> =
+  ChartDataScopeInputs<
+    SourceFilterColumnIdFromSources<TSources>,
+    SourceDateColumnIdFromSources<TSources>
+  >

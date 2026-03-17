@@ -10,6 +10,8 @@ import { resolveChartSchemaDefinition } from './schema-builder.js'
 import type {
   AvailableFilter,
   ChartColumn,
+  ChartDataScopeControlState,
+  ChartDateRangeSelection,
   ChartInstance,
   ChartInstanceFromSchemaDefinition,
   ChartSchemaDefinition,
@@ -26,9 +28,25 @@ import type {
   TimeBucket
 } from './types.js'
 import { DEFAULT_TIME_BUCKET, type MultiSourceOptions, type SingleSourceOptions } from './use-chart-options.js'
-import { resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-chart-resolvers.js'
+import { cloneFilterState, resolveReferenceDateId, resolveXAxisId, sanitizeFilters } from './use-chart-resolvers.js'
 
 type RuntimeChartInstance = ChartInstance<any, string>
+
+function hasOwn<TObject extends object, TKey extends PropertyKey>(
+  value: TObject | undefined,
+  key: TKey,
+): value is TObject & Record<TKey, unknown> {
+  return value !== undefined && Object.prototype.hasOwnProperty.call(value, key)
+}
+
+function normalizeDateRangeSelection(
+  selection: ChartDateRangeSelection,
+): ChartDateRangeSelection {
+  return {
+    preset: selection.preset,
+    customFilter: selection.customFilter,
+  }
+}
 
 /**
  * Reapply the public overload return type after the hook has built a broad
@@ -90,6 +108,8 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   Chart configuration options. Should provide either:
  *   - `data`, optional `schema`, and (optionally) `sourceLabel` for a single source
  *   - or `sources` array for multiple sources
+ *   - and optional `inputs` when filters/reference-date/date-range state is
+ *     driven externally
  *   Any explicit single-source or per-source schema is usually authored with
  *   either `defineChartSchema<Row>()...` or `defineDataset<Row>().chart(...)`.
  *   Builders can be passed directly; plain schema objects are also accepted.
@@ -106,6 +126,7 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   - `metric`, `setMetric`, `availableMetrics`: Current aggregation metric, setter, and options
  *   - `timeBucket`, `setTimeBucket`, `availableTimeBuckets`: Date/time bucketing state, setter, and options
  *   - `isTimeSeries`: Whether the chart is a time series (based on axis)
+ *   - `dataScopeControl`: Which data-scope slices are controlled externally
  *   - `filters`, `toggleFilter`, `clearFilter`, `clearAllFilters`, `availableFilters`: Current filters and their controls
  *   - `sorting`, `setSorting`: Current sorting config and setter
  *   - `dateRange`, `referenceDateId`, `setReferenceDateId`, `availableDateColumns`, `dateRangeFilter`, `setDateRangeFilter`: Date filtering state and controls
@@ -116,12 +137,7 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   - `recordCount`: Number of records present in the current data source
  */
 export function useChart<const TSources extends NonEmptyChartSourceOptions>(
-  options: {
-    data?: never
-    schema?: never
-    sourceLabel?: never
-    sources: TSources
-  }
+  options: MultiSourceOptions<TSources>
 ): MultiSourceChartInstance<TSources>
 export function useChart<
   T,
@@ -136,9 +152,14 @@ export function useChart(
     throw new Error('useChart requires at least one source')
   }
 
+  const sourceOptions = 'sources' in options ? options.sources : undefined
+  const singleSourceData = 'data' in options ? options.data : undefined
+  const singleSourceSchema = 'schema' in options ? options.schema : undefined
+  const singleSourceLabel = 'sourceLabel' in options ? options.sourceLabel : undefined
+
   const sources = useMemo<ResolvedChartSource<any, string>[]>(() => {
-    if ('sources' in options && options.sources) {
-      return options.sources.map(source => {
+    if (sourceOptions) {
+      return sourceOptions.map(source => {
         const schema = resolveChartSchemaDefinition(source.schema)
 
         return {
@@ -151,18 +172,18 @@ export function useChart(
       })
     }
 
-    const schema = resolveChartSchemaDefinition(options.schema)
+    const schema = resolveChartSchemaDefinition(singleSourceSchema)
 
     return [
       {
         id: 'default',
-        label: options.sourceLabel ?? 'Unnamed Source',
-        data: options.data,
-        columns: inferColumnsFromData(options.data, schema),
+        label: singleSourceLabel ?? 'Unnamed Source',
+        data: singleSourceData as readonly any[],
+        columns: inferColumnsFromData(singleSourceData as readonly any[], schema),
         schema,
       },
     ]
-  }, [options])
+  }, [singleSourceData, singleSourceLabel, singleSourceSchema, sourceOptions])
   const hasMultipleSources = sources.length > 1
 
   const [activeSourceIdRaw, setActiveSourceRaw] = useState(sources[0]?.id ?? 'default')
@@ -171,11 +192,44 @@ export function useChart(
   const [groupById, setGroupByRaw] = useState<string | null>(null)
   const [metric, setMetricRaw] = useState<Metric<string> | null>(null)
   const [timeBucket, setTimeBucketRaw] = useState<TimeBucket | null>(null)
-  const [filters, setFilters] = useState<FilterState<string>>(() => new Map())
+  const [filtersState, setFiltersState] = useState<FilterState<string>>(() => new Map())
   const [sorting, setSorting] = useState<SortConfig | null>(null)
-  const [referenceDateIdRaw, setReferenceDateIdRaw] = useState<string | null>(null)
-  const [dateRangePreset, setDateRangePresetRaw] = useState<DateRangePresetId | null>('all-time')
-  const [customDateRangeFilter, setCustomDateRangeFilter] = useState<DateRangeFilter | null>(null)
+  const [referenceDateIdState, setReferenceDateIdState] = useState<string | null>(null)
+  const [dateRangePresetState, setDateRangePresetState] = useState<DateRangePresetId | null>('all-time')
+  const [customDateRangeFilterState, setCustomDateRangeFilterState] = useState<DateRangeFilter | null>(null)
+
+  const inputState = options.inputs
+  const isFiltersControlled = inputState?.filters !== undefined
+  const isReferenceDateControlled = hasOwn(inputState, 'referenceDateId')
+  const isDateRangeControlled = inputState?.dateRange !== undefined
+  const onFiltersChange = inputState?.onFiltersChange as ((filters: FilterState<string>) => void) | undefined
+  const onReferenceDateIdChange = inputState?.onReferenceDateIdChange as ((columnId: string | null) => void) | undefined
+  const onDateRangeChange = inputState?.onDateRangeChange as ((selection: ChartDateRangeSelection) => void) | undefined
+
+  const requestedFilters = useMemo(
+    () => (isFiltersControlled ? cloneFilterState(inputState.filters as FilterState<string>) : filtersState),
+    [filtersState, inputState?.filters, isFiltersControlled],
+  )
+  const requestedReferenceDateId = isReferenceDateControlled
+    ? (inputState.referenceDateId as string | null | undefined) ?? null
+    : referenceDateIdState
+  const requestedDateRangeSelection = useMemo(
+    () =>
+      isDateRangeControlled
+        ? normalizeDateRangeSelection(inputState.dateRange as ChartDateRangeSelection)
+        : {
+            preset: dateRangePresetState,
+            customFilter: customDateRangeFilterState,
+          },
+    [customDateRangeFilterState, dateRangePresetState, inputState?.dateRange, isDateRangeControlled],
+  )
+  const dateRangePreset = requestedDateRangeSelection.preset
+  const customDateRangeFilter = requestedDateRangeSelection.customFilter
+  const dataScopeControl: ChartDataScopeControlState = {
+    filters: isFiltersControlled ? 'controlled' : 'uncontrolled',
+    referenceDateId: isReferenceDateControlled ? 'controlled' : 'uncontrolled',
+    dateRange: isDateRangeControlled ? 'controlled' : 'uncontrolled',
+  }
 
   const sourceIds = useMemo(() => new Set(sources.map(source => source.id)), [sources])
   const activeSourceId = sourceIds.has(activeSourceIdRaw) ? activeSourceIdRaw : (sources[0]?.id ?? 'default')
@@ -225,8 +279,8 @@ export function useChart(
   const resolvedXAxisType: ChartAxisType | null = xColumn && xColumn.type !== 'number' ? xColumn.type : null
   const isTimeSeries = resolvedXAxisType === 'date'
   const referenceDateId = useMemo(
-    () => resolveReferenceDateId(referenceDateIdRaw, dateColumns, resolvedXAxisId, isTimeSeries),
-    [referenceDateIdRaw, dateColumns, resolvedXAxisId, isTimeSeries]
+    () => resolveReferenceDateId(requestedReferenceDateId, dateColumns, resolvedXAxisId, isTimeSeries),
+    [requestedReferenceDateId, dateColumns, resolvedXAxisId, isTimeSeries]
   )
 
   const availableGroupBys = useMemo(
@@ -316,15 +370,38 @@ export function useChart(
     },
     [effectiveData, activeColumns, activeSource.schema]
   )
-  const availableFilterValues = useMemo(
-    () => createAvailableFilterValueMap(baseAvailableFilters),
-    [baseAvailableFilters]
+  // Build toggleable filter values from the full raw data so that values
+  // excluded by the date-range filter can still be selected. The UI counts
+  // (availableFilters) use effectiveData for relevance, but the toggle guard
+  // must accept any value present in the unfiltered dataset.
+  const toggleableFilterValues = useMemo(
+    () => {
+      if (rawData === effectiveData) {
+        return createAvailableFilterValueMap(baseAvailableFilters)
+      }
+
+      const rawFilters = extractAvailableFilters(rawData, activeColumns)
+      const selectableRawFilters = rawFilters.map(filter => ({
+        ...filter,
+        id: filter.columnId,
+      }))
+
+      const restrictedRawFilters = restrictConfiguredIdOptions(selectableRawFilters, activeSource.schema?.filters as any)
+        .map(({id: _id, ...filter}) => filter)
+
+      return createAvailableFilterValueMap(restrictedRawFilters)
+    },
+    [rawData, effectiveData, baseAvailableFilters, activeColumns, activeSource.schema]
   )
   const filterColumns = useMemo(
     () => activeColumns.filter(column => baseAvailableFilters.some(filter => filter.columnId === column.id)),
     [activeColumns, baseAvailableFilters]
   )
-  const resolvedFilters = useMemo(() => sanitizeFilters(filters, filterColumns), [filters, filterColumns])
+  const filterColumnIds = useMemo(() => new Set(filterColumns.map((column) => column.id)), [filterColumns])
+  const resolvedFilters = useMemo(
+    () => sanitizeFilters(requestedFilters, filterColumns, toggleableFilterValues),
+    [requestedFilters, filterColumns, toggleableFilterValues],
+  )
 
   // Cross-filtered counts: for each column, counts reflect filters on all *other* columns
   const availableFilters = useMemo(
@@ -399,14 +476,55 @@ export function useChart(
     setTimeBucketRaw(nextTimeBucket)
   }
 
+  const commitFilters = (
+    updater: (previous: FilterState<string>) => FilterState<string>,
+  ) => {
+    if (isFiltersControlled) {
+      const next = cloneFilterState(updater(requestedFilters))
+      onFiltersChange?.(next)
+      return
+    }
+
+    let next: FilterState<string> | null = null
+    setFiltersState((previous) => {
+      next = cloneFilterState(updater(previous))
+      return next
+    })
+
+    if (next) {
+      onFiltersChange?.(cloneFilterState(next))
+    }
+  }
+
+  const commitReferenceDateId = (nextReferenceDateId: string | null) => {
+    if (!isReferenceDateControlled) {
+      setReferenceDateIdState(nextReferenceDateId)
+    }
+
+    onReferenceDateIdChange?.(nextReferenceDateId)
+  }
+
+  const commitDateRangeSelection = (
+    nextSelection: ChartDateRangeSelection,
+  ) => {
+    const normalized = normalizeDateRangeSelection(nextSelection)
+
+    if (!isDateRangeControlled) {
+      setDateRangePresetState(normalized.preset)
+      setCustomDateRangeFilterState(normalized.customFilter)
+    }
+
+    onDateRangeChange?.(normalized)
+  }
+
   const toggleFilter = (columnId: string, value: string) => {
-    const availableValues = availableFilterValues.get(columnId)
+    const availableValues = toggleableFilterValues.get(columnId)
     if (!availableValues?.has(value)) {
       return
     }
 
-    setFilters(prev => {
-      const next = new Map(prev)
+    commitFilters((previous) => {
+      const next = cloneFilterState(previous)
       const current = next.get(columnId) ?? new Set<string>()
       const updated = new Set(current)
 
@@ -427,41 +545,42 @@ export function useChart(
   }
 
   const clearFilter = (columnId: string) => {
-    if (!availableFilterValues.has(columnId)) {
+    if (!filterColumnIds.has(columnId)) {
       return
     }
 
-    setFilters(prev => {
-      const next = new Map(prev)
+    commitFilters((previous) => {
+      const next = cloneFilterState(previous)
       next.delete(columnId)
       return next
     })
   }
 
   const clearAllFilters = () => {
-    setFilters(new Map())
+    commitFilters(() => new Map())
   }
   const setReferenceDateId = (columnId: string) => {
     if (!availableDateColumnIds.has(columnId)) {
       return
     }
 
-    setReferenceDateIdRaw(columnId)
+    commitReferenceDateId(columnId)
   }
 
   const setDateRangePreset = (preset: DateRangePresetId) => {
-    setDateRangePresetRaw(preset)
+    commitDateRangeSelection({
+      preset,
+      customFilter: requestedDateRangeSelection.customFilter,
+    })
   }
 
   const setDateRangeFilter = (filter: DateRangeFilter | null) => {
     // Direct filter sets clear the active preset (entering custom mode).
     // Passing null is equivalent to clearing the custom range (all time).
     if (filter === null) {
-      setDateRangePresetRaw('all-time')
-      setCustomDateRangeFilter(null)
+      commitDateRangeSelection({preset: 'all-time', customFilter: null})
     } else {
-      setDateRangePresetRaw(null)
-      setCustomDateRangeFilter(filter)
+      commitDateRangeSelection({preset: null, customFilter: filter})
     }
   }
 
@@ -487,6 +606,7 @@ export function useChart(
     availableTimeBuckets,
     isTimeSeries,
     connectNulls: activeSource.schema?.connectNulls ?? true,
+    dataScopeControl,
     filters: resolvedFilters,
     toggleFilter,
     clearFilter,

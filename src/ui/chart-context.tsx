@@ -48,6 +48,7 @@ type AnyChartInstance = {
   availableTimeBuckets: ChartContextChart['availableTimeBuckets']
   isTimeSeries: boolean
   connectNulls: boolean
+  dataScopeControl: ChartContextChart['dataScopeControl']
   filters: Map<any, Set<string>>
   toggleFilter: (...args: any[]) => unknown
   clearFilter: (...args: any[]) => unknown
@@ -133,6 +134,7 @@ function createChartContextChart(chart: AnyChartInstance): ChartContextChart {
     availableTimeBuckets: chart.availableTimeBuckets,
     isTimeSeries: chart.isTimeSeries,
     connectNulls: chart.connectNulls,
+    dataScopeControl: chart.dataScopeControl,
     filters: new Map(chart.filters),
     toggleFilter: (columnId, value) => {
       if (!isKnownColumnId<string>(columnIds, columnId)) {
