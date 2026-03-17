@@ -91,8 +91,8 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   - `data`, optional `schema`, and (optionally) `sourceLabel` for a single source
  *   - or `sources` array for multiple sources
  *   Any explicit single-source or per-source schema is usually authored with
- *   `defineChartSchema<Row>()...`. Builders can be passed directly; plain
- *   schema objects are also accepted.
+ *   either `defineChartSchema<Row>()...` or `defineDataset<Row>().chart(...)`.
+ *   Builders can be passed directly; plain schema objects are also accepted.
  *
  * @returns {ChartInstance}
  *   An object representing chart configuration, state, and all derived data/operations:

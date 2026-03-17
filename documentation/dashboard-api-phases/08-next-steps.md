@@ -13,23 +13,21 @@ The recommended working order is:
 7. Phase 7: add explicit materialized views and linked metrics
 8. Phase 3 can be revisited in parallel where useful, but should stay clearly separate from dashboards
 
+Phases 0, 1, and 2 are now implemented. The immediate follow-up work starts at
+Phase 3 and Phase 4.
+
 ## Suggested Immediate Implementation Sequence
 
-If implementation starts now, the highest-signal next steps are:
+The highest-signal next steps are now:
 
-1. Lock the current `defineChartSchema<Row>()` surface with docs and tests.
-2. Design `defineDataset(...).key(...).columns(...)` and `dataset.chart(...)`.
-3. Design runtime key validation semantics.
-4. Design `defineDataModel(...)` with:
-   - `relationship(...)`
-   - `association(...)`
-   - `attribute(...)`
-5. Only after that, add controlled filter/date inputs to `useChart(...)`.
+1. Revisit Phase 3 multi-source semantics on top of dataset-backed authoring.
+2. Add controlled filter/date inputs to `useChart(...)` before dashboard composition.
+3. Define how dashboard runtimes consume model `attribute(...)` semantics.
+4. Keep materialization and linked metrics explicit in later phases.
 
 ## Questions To Resolve Before Coding Deeply
 
 - exact shorthand syntax policy, for example whether `'owners.id'` should be allowed
-- orphan foreign-key validation policy
 - association API ergonomics for explicit data vs derived edge data
 - `attribute(...)` ergonomics for simple vs complex cases
 - materialized view naming and output key rules

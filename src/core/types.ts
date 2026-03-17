@@ -834,9 +834,13 @@ export type DefinedChartSchema<
  * In the simple single-chart case this is the contract for
  * `useChart({data, schema})`.
  *
- * Most callers use the fluent builder returned by `defineChartSchema<Row>()`
- * and pass it directly. Plain schema objects are also accepted at the runtime
- * boundary.
+ * Most callers use either:
+ * - the fluent builder returned by `defineChartSchema<Row>()`
+ * - or a reusable dataset-backed chart builder from
+ *   `defineDataset<Row>().chart(...)`
+ *
+ * Both can be passed directly. Plain schema objects are also accepted at the
+ * runtime boundary.
  */
 export type ChartSchemaDefinition<
   T,

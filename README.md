@@ -98,7 +98,7 @@ export function JobsChart() {
 ## How It Works
 
 1. Pass your raw data to `useChart()`.
-2. Add an optional `schema` with `defineChartSchema<Row>()...` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
+2. Add an optional `schema` with either `defineChartSchema<Row>()...` or `defineDataset<Row>().chart(...)` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
 3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
 
 ## Stable Single-Chart Contract
@@ -112,6 +112,112 @@ For the simple case, the public contract is:
 - raw fields you do not mention in `.columns(...)` still infer normally unless you exclude them
 - `xAxis`, `groupBy`, `filters`, `metric`, `chartType`, `timeBucket`, and `connectNulls` restrict that one chart's public controls
 - pass the builder directly to `useChart(...)`, or call `.build()` if you need the plain schema object
+
+## Three Authoring Entry Points
+
+### 1. Chart-first shortcut
+
+Use `defineChartSchema<Row>()` when one chart owns its own explicit contract:
+
+```tsx
+const schema = defineChartSchema<Job>()
+  .columns((c) => [
+    c.date('createdAt'),
+    c.category('ownerName'),
+    c.number('salary')
+  ])
+  .xAxis((x) => x.allowed('createdAt'))
+  .metric((m) => m.aggregate('salary', 'sum'))
+
+const chart = useChart({ data: jobs, schema })
+```
+
+This remains the simplest explicit path. Conceptually, it is the chart-first
+shortcut over an anonymous one-off dataset.
+
+### 2. Dataset-first reuse
+
+Use `defineDataset<Row>()` when several charts should share one `.columns(...)`
+contract and one optional declared key:
+
+```tsx
+import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
+
+const jobs = defineDataset<Job>()
+  .key('id')
+  .columns((c) => [
+    c.field('id'),
+    c.field('ownerId'),
+    c.date('createdAt', { label: 'Created' }),
+    c.number('salary', { format: 'currency' }),
+    c.derived.category('salaryBand', {
+      label: 'Salary Band',
+      accessor: (row) => (row.salary >= 100_000 ? 'High' : 'Base')
+    })
+  ])
+
+const jobsByMonth = jobs
+  .chart('jobsByMonth')
+  .xAxis((x) => x.allowed('createdAt').default('createdAt'))
+  .groupBy((g) => g.allowed('salaryBand'))
+  .metric((m) => m.count().aggregate('salary', 'sum'))
+
+const chart = useChart({ data: jobsData, schema: jobsByMonth })
+```
+
+Rules for the dataset-first path:
+
+- dataset `.columns(...)` is the canonical reusable meaning of columns
+- `dataset.chart(...)` reuses the same chart-definition surface as `defineChartSchema(...)`
+- `dataset.chart(...)` inherits dataset columns, so charts do not reopen `.columns(...)`
+- declared dataset keys can be validated at runtime with `dataset.validateData(data)` or `validateDatasetData(dataset, data)`
+
+### 3. Model-level linked data
+
+Use `defineDataModel()` when linked datasets, relationships, associations, and
+reusable shared-filter semantics need to be declared explicitly:
+
+```tsx
+import { defineDataModel } from '@matthieumordrel/chart-studio'
+
+const hiringModel = defineDataModel()
+  .dataset('jobs', jobs)
+  .dataset('owners', owners)
+  .dataset('skills', skills)
+  .relationship('jobOwner', {
+    from: { dataset: 'owners', key: 'id' },
+    to: { dataset: 'jobs', column: 'ownerId' }
+  })
+  .association('jobSkills', {
+    from: { dataset: 'jobs', key: 'id' },
+    to: { dataset: 'skills', key: 'id' },
+    data: jobSkillEdges,
+    columns: {
+      from: 'jobId',
+      to: 'skillId'
+    }
+  })
+  .attribute('owner', {
+    kind: 'select',
+    source: { dataset: 'owners', key: 'id', label: 'name' },
+    targets: [
+      { dataset: 'jobs', column: 'ownerId', via: 'jobOwner' }
+    ]
+  })
+
+hiringModel.validateData({
+  jobs: jobsData,
+  owners: ownersData,
+  skills: skillsData
+})
+```
+
+Important limits of the current model layer:
+
+- relationships are one public primitive: declared key -> foreign-key column
+- many-to-many stays explicit through `association(...)`
+- `validateData(...)` hard-fails on duplicate declared keys, orphan foreign keys, and malformed association edges
+- charts still execute against one flat dataset at a time; the model layer does not add dashboard runtime, shared state, or automatic denormalization yet
 
 ## Column Types
 
@@ -334,8 +440,13 @@ Only for the UI layer. The headless core does not require it.
 
 ### Can I use multiple datasets?
 
-Yes, for source-switching within one chart. This is separate from the
-single-chart `useChart({ data, schema })` contract and is not dashboard
+Yes, but there are two different meanings:
+
+- `useChart({ sources: [...] })` is for source-switching within one chart
+- `defineDataModel()` is for linked dataset metadata, validation, and reusable filter semantics outside the chart runtime
+
+The current chart runtime still executes one flat dataset at a time. Multi-source
+source-switching is separate from linked data models and from future dashboard
 composition.
 
 ```tsx
@@ -396,11 +507,18 @@ There is currently no built-in support for drill-down, click-to-filter, brush se
 
 ### Multi-dataset composition
 
-Each chart instance operates on a single flat dataset. Overlaying series from different schemas (e.g. revenue on the left Y-axis and headcount on the right) would require separate chart instances today. Dual-axis and cross-dataset composition are not yet supported.
+Each chart instance still operates on a single flat dataset, even though
+reusable datasets and linked data models can now be declared separately.
+Overlaying series from different schemas (e.g. revenue on the left Y-axis and
+headcount on the right) would require separate chart instances today. Dual-axis
+and cross-dataset composition are not yet supported.
 
 ### Schema Builder Ergonomics
 
-`defineChartSchema<Row>()` now returns one fluent builder that you pass directly to `useChart(...)` or `inferColumnsFromData(...)`. That keeps the public API strongly typed while improving IntelliSense for raw field ids, derived columns, and control restrictions.
+`defineChartSchema<Row>()` remains the simple chart-first shortcut, while
+`defineDataset<Row>()` now owns the reusable `.columns(...)` contract. Both feed
+the same chart-definition surface that you pass directly to `useChart(...)` or
+`inferColumnsFromData(...)`.
 
 ## Release
 

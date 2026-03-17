@@ -10,6 +10,8 @@ export type {DataLabelDefaults, DataLabelStyle, DataLabelPosition} from './data-
 export {getSeriesColor, buildColorMap} from './colors.js'
 export {DATE_RANGE_PRESETS, autoFilterForBucket, resolvePresetFilter, getPresetLabel} from './date-range-presets.js'
 export type {DateRangePreset} from './date-range-presets.js'
+export {defineDataModel} from './define-data-model.js'
+export {defineDataset, validateDatasetData} from './define-dataset.js'
 export {defineChartSchema} from './define-chart-schema.js'
 export {inferColumnsFromData} from './infer-columns.js'
 export {buildAvailableMetrics, getMetricLabel} from './metric-utils.js'
@@ -19,6 +21,26 @@ export {useChart} from './use-chart.js'
 export type {UseChartOptions} from './use-chart-options.js'
 export type {ChartAxisType, ChartTypeCapabilities} from './chart-capabilities.js'
 
+export type {
+  DataModelDefinition,
+  DataModelBuilder,
+  DefinedDataModel,
+  ModelAssociationDefinition,
+  ModelAttributeDefinition,
+  ModelDataInput,
+  ModelDatasetId,
+  ModelRelationshipDefinition,
+  SelectAttributeConfig,
+} from './data-model.types.js'
+export type {
+  DatasetBuilder,
+  DatasetChartBuilder,
+  DatasetDefinition,
+  DatasetKey,
+  DatasetRow,
+  DefinedDataset,
+  SingleDatasetKeyId,
+} from './dataset-builder.types.js'
 export type {
   ChartSourceOptions,
   ChartColumn,

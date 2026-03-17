@@ -24,9 +24,13 @@ export interface SingleSourceOptions<
   /**
    * Optional explicit schema layered on top of inference.
    *
-   * Usually this is the fluent builder returned by `defineChartSchema<Row>()`,
-   * passed directly without calling `.build()`. Plain schema objects are also
-   * accepted.
+   * Usually this is either:
+   * - the fluent builder returned by `defineChartSchema<Row>()`
+   * - or a reusable dataset-backed chart builder from
+   *   `defineDataset<Row>().chart(...)`
+   *
+   * Both can be passed directly without calling `.build()`. Plain schema
+   * objects are also accepted.
    *
    * Use this when you want to:
    * - rename fields with `label`

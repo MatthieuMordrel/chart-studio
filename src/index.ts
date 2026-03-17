@@ -34,9 +34,12 @@
 // Headless charting API.
 export {
   CHART_TYPE_CONFIG,
+  defineDataModel,
+  defineDataset,
   defineChartSchema,
   inferColumnsFromData,
   useChart,
+  validateDatasetData,
   getSeriesColor,
   buildColorMap,
   runPipeline,
@@ -47,6 +50,22 @@ export {
 } from './core/index.js'
 
 export type {
+  DataModelDefinition,
+  DataModelBuilder,
+  DefinedDataModel,
+  ModelAssociationDefinition,
+  ModelAttributeDefinition,
+  ModelDataInput,
+  ModelDatasetId,
+  ModelRelationshipDefinition,
+  SelectAttributeConfig,
+  DatasetBuilder,
+  DatasetChartBuilder,
+  DatasetDefinition,
+  DatasetKey,
+  DatasetRow,
+  DefinedDataset,
+  SingleDatasetKeyId,
   ChartSourceOptions,
   ChartAxisType,
   ChartTypeCapabilities,

@@ -1,4 +1,5 @@
 import {isSameMetric, normalizeMetricAllowances} from './metric-utils.js'
+import type {DatasetChartBuilder} from './dataset-builder.types.js'
 import type {
   BooleanColumnOptions,
   BuilderSchemaState,
@@ -53,7 +54,7 @@ type RuntimeMetricConfig<TColumnId extends string> = {
   default?: Metric<TColumnId>
 }
 
-const COLUMN_HELPER: ColumnHelper<any> = {
+export const COLUMN_HELPER: ColumnHelper<any> = {
   field(id, options = {}) {
     return {
       kind: 'raw',
@@ -426,7 +427,7 @@ function getMetricBuilderConfig<TBuilder>(
   return (builder as MetricControlRuntime<MetricBuilderConfig<TBuilder>>)[METRIC_CONTROL_CONFIG]
 }
 
-function buildColumnsMap<TRow>(
+export function buildColumnsMap<TRow>(
   entries: readonly SchemaColumnEntry<TRow>[],
 ): Record<string, unknown> {
   const columns: Record<string, unknown> = {}
@@ -442,11 +443,12 @@ function buildColumnsMap<TRow>(
   return columns
 }
 
-function assertColumnEntries<TRow>(
+export function assertColumnEntries<TRow>(
   entries: readonly SchemaColumnEntry<TRow>[],
+  owner = 'defineChartSchema',
 ): void {
   if (!Array.isArray(entries)) {
-    throw new TypeError('defineChartSchema().columns(...) must return an array of column entries.')
+    throw new TypeError(`${owner}().columns(...) must return an array of column entries.`)
   }
 }
 
@@ -467,7 +469,7 @@ export function resolveChartSchemaDefinition<
   return schema as ResolvedChartSchemaFromDefinition<TSchema>
 }
 
-export function createChartSchemaBuilder<
+function createChartDefinitionBuilder<
   TRow,
   TColumns extends Record<string, unknown> | undefined = undefined,
   TXAxis extends XAxisConfig<any> | undefined = undefined,
@@ -477,6 +479,7 @@ export function createChartSchemaBuilder<
   TChartType extends ChartTypeConfig | undefined = undefined,
   TTimeBucket extends TimeBucketConfig | undefined = undefined,
   TConnectNulls extends boolean | undefined = undefined,
+  TAllowColumns extends boolean = true,
 >(
   state: BuilderSchemaState<
     TColumns,
@@ -488,27 +491,14 @@ export function createChartSchemaBuilder<
     TTimeBucket,
     TConnectNulls
   > = {},
-): ChartSchemaBuilder<
-  TRow,
-  TColumns,
-  TXAxis,
-  TGroupBy,
-  TFilters,
-  TMetric,
-  TChartType,
-  TTimeBucket,
-  TConnectNulls
-> {
-  let cachedSchema: unknown
-
-  return {
-    columns(defineColumns) {
-      const entries = defineColumns(COLUMN_HELPER as ColumnHelper<TRow>)
-      assertColumnEntries(entries)
-
-      return createChartSchemaBuilder<
+  options: {
+    allowColumns: TAllowColumns
+  },
+): (
+  TAllowColumns extends true
+    ? ChartSchemaBuilder<
         TRow,
-        ColumnsFromEntries<TRow, typeof entries>,
+        TColumns,
         TXAxis,
         TGroupBy,
         TFilters,
@@ -516,61 +506,105 @@ export function createChartSchemaBuilder<
         TChartType,
         TTimeBucket,
         TConnectNulls
-      >({
-        ...state,
-        columns: buildColumnsMap(entries) as ColumnsFromEntries<TRow, typeof entries>,
-      })
-    },
-    xAxis(defineXAxis) {
+      >
+    : DatasetChartBuilder<
+        TRow,
+        TColumns,
+        TXAxis,
+        TGroupBy,
+        TFilters,
+        TMetric,
+        TChartType,
+        TTimeBucket,
+        TConnectNulls
+      >
+) {
+  let cachedSchema: unknown
+
+  const createNext = <
+    TNextColumns extends Record<string, unknown> | undefined = TColumns,
+    TNextXAxis extends XAxisConfig<any> | undefined = TXAxis,
+    TNextGroupBy extends GroupByConfig<any> | undefined = TGroupBy,
+    TNextFilters extends FiltersConfig<any> | undefined = TFilters,
+    TNextMetric extends MetricConfig<any> | undefined = TMetric,
+    TNextChartType extends ChartTypeConfig | undefined = TChartType,
+    TNextTimeBucket extends TimeBucketConfig | undefined = TTimeBucket,
+    TNextConnectNulls extends boolean | undefined = TConnectNulls,
+  >(
+    nextState: BuilderSchemaState<
+      TNextColumns,
+      TNextXAxis,
+      TNextGroupBy,
+      TNextFilters,
+      TNextMetric,
+      TNextChartType,
+      TNextTimeBucket,
+      TNextConnectNulls
+    >,
+  ) => createChartDefinitionBuilder<
+    TRow,
+    TNextColumns,
+    TNextXAxis,
+    TNextGroupBy,
+    TNextFilters,
+    TNextMetric,
+    TNextChartType,
+    TNextTimeBucket,
+    TNextConnectNulls,
+    TAllowColumns
+  >(nextState, options)
+
+  const builder: Record<string, unknown> = {
+    xAxis(defineXAxis: any) {
       const builder = defineXAxis(createSelectableControlBuilder({}, true))
 
-      return createChartSchemaBuilder({
+      return createNext({
         ...state,
         xAxis: getSelectableControlConfig(builder),
       })
     },
-    groupBy(defineGroupBy) {
+    groupBy(defineGroupBy: any) {
       const builder = defineGroupBy(createSelectableControlBuilder({}, true))
 
-      return createChartSchemaBuilder({
+      return createNext({
         ...state,
         groupBy: getSelectableControlConfig(builder),
       })
     },
-    filters(defineFilters) {
+    filters(defineFilters: any) {
       const builder = defineFilters(createSelectableControlBuilder({}, false))
 
-      return createChartSchemaBuilder({
+      return createNext({
         ...state,
         filters: getSelectableControlConfig(builder),
       })
     },
-    metric(defineMetric) {
+    metric(defineMetric: any) {
       const builder = defineMetric(createMetricBuilder())
 
-      return createChartSchemaBuilder({
+      return createNext({
         ...state,
         metric: getMetricBuilderConfig(builder),
       })
     },
-    chartType(defineChartType) {
+    chartType(defineChartType: any) {
       const builder = defineChartType(createSelectableControlBuilder<ChartType, true>({}, true))
 
-      return createChartSchemaBuilder({
+      return createNext({
         ...state,
         chartType: getSelectableControlConfig(builder),
       })
     },
-    timeBucket(defineTimeBucket) {
+    timeBucket(defineTimeBucket: any) {
       const builder = defineTimeBucket(createSelectableControlBuilder<TimeBucket, true>({}, true))
 
-      return createChartSchemaBuilder({
+      return createNext({
         ...state,
         timeBucket: getSelectableControlConfig(builder),
       })
     },
-    connectNulls(value) {
-      return createChartSchemaBuilder({
+    connectNulls(value: any) {
+      return createNext({
         ...state,
         connectNulls: value,
       })
@@ -605,7 +639,59 @@ export function createChartSchemaBuilder<
       }
 
       return cachedSchema as ReturnType<
-        ChartSchemaBuilder<
+        (
+          TAllowColumns extends true
+            ? ChartSchemaBuilder<
+                TRow,
+                TColumns,
+                TXAxis,
+                TGroupBy,
+                TFilters,
+                TMetric,
+                TChartType,
+                TTimeBucket,
+                TConnectNulls
+              >
+            : DatasetChartBuilder<
+                TRow,
+                TColumns,
+                TXAxis,
+                TGroupBy,
+                TFilters,
+                TMetric,
+                TChartType,
+                TTimeBucket,
+                TConnectNulls
+              >
+        )['build']
+      >
+    },
+  }
+
+  if (options.allowColumns) {
+    builder['columns'] = (defineColumns: (columns: ColumnHelper<TRow>) => readonly SchemaColumnEntry<TRow>[]) => {
+      const entries = defineColumns(COLUMN_HELPER as ColumnHelper<TRow>)
+      assertColumnEntries(entries)
+
+      return createNext<
+        ColumnsFromEntries<TRow, typeof entries>,
+        TXAxis,
+        TGroupBy,
+        TFilters,
+        TMetric,
+        TChartType,
+        TTimeBucket,
+        TConnectNulls
+      >({
+        ...state,
+        columns: buildColumnsMap(entries) as ColumnsFromEntries<TRow, typeof entries>,
+      })
+    }
+  }
+
+  return builder as (
+    TAllowColumns extends true
+      ? ChartSchemaBuilder<
           TRow,
           TColumns,
           TXAxis,
@@ -615,11 +701,33 @@ export function createChartSchemaBuilder<
           TChartType,
           TTimeBucket,
           TConnectNulls
-        >['build']
-      >
-    },
-  } as ChartSchemaBuilder<
-    TRow,
+        >
+      : DatasetChartBuilder<
+          TRow,
+          TColumns,
+          TXAxis,
+          TGroupBy,
+          TFilters,
+          TMetric,
+          TChartType,
+          TTimeBucket,
+          TConnectNulls
+        >
+  )
+}
+
+export function createChartSchemaBuilder<
+  TRow,
+  TColumns extends Record<string, unknown> | undefined = undefined,
+  TXAxis extends XAxisConfig<any> | undefined = undefined,
+  TGroupBy extends GroupByConfig<any> | undefined = undefined,
+  TFilters extends FiltersConfig<any> | undefined = undefined,
+  TMetric extends MetricConfig<any> | undefined = undefined,
+  TChartType extends ChartTypeConfig | undefined = undefined,
+  TTimeBucket extends TimeBucketConfig | undefined = undefined,
+  TConnectNulls extends boolean | undefined = undefined,
+>(
+  state: BuilderSchemaState<
     TColumns,
     TXAxis,
     TGroupBy,
@@ -628,5 +736,52 @@ export function createChartSchemaBuilder<
     TChartType,
     TTimeBucket,
     TConnectNulls
-  >
+  > = {},
+): ChartSchemaBuilder<
+  TRow,
+  TColumns,
+  TXAxis,
+  TGroupBy,
+  TFilters,
+  TMetric,
+  TChartType,
+  TTimeBucket,
+  TConnectNulls
+> {
+  return createChartDefinitionBuilder(state, {allowColumns: true})
+}
+
+export function createDatasetChartBuilder<
+  TRow,
+  TColumns extends Record<string, unknown> | undefined = undefined,
+  TXAxis extends XAxisConfig<any> | undefined = undefined,
+  TGroupBy extends GroupByConfig<any> | undefined = undefined,
+  TFilters extends FiltersConfig<any> | undefined = undefined,
+  TMetric extends MetricConfig<any> | undefined = undefined,
+  TChartType extends ChartTypeConfig | undefined = undefined,
+  TTimeBucket extends TimeBucketConfig | undefined = undefined,
+  TConnectNulls extends boolean | undefined = undefined,
+>(
+  state: BuilderSchemaState<
+    TColumns,
+    TXAxis,
+    TGroupBy,
+    TFilters,
+    TMetric,
+    TChartType,
+    TTimeBucket,
+    TConnectNulls
+  > = {},
+): DatasetChartBuilder<
+  TRow,
+  TColumns,
+  TXAxis,
+  TGroupBy,
+  TFilters,
+  TMetric,
+  TChartType,
+  TTimeBucket,
+  TConnectNulls
+> {
+  return createChartDefinitionBuilder(state, {allowColumns: false})
 }

@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { DatasetModelChart } from './charts/DatasetModelChart'
 import { DashboardChart } from './charts/DashboardChart'
 import { HeadlessChart } from './charts/HeadlessChart'
 import { KitchenSinkChart } from './charts/KitchenSinkChart'
 import { MinimalChart } from './charts/MinimalChart'
 import { SingleSourceChart } from './charts/SingleSourceChart'
 import { CodePanel } from './CodePanel'
+import datasetModelSource from './charts/DatasetModelChart.tsx?raw'
 import dashboardSource from './charts/DashboardChart.tsx?raw'
 import headlessSource from './charts/HeadlessChart.tsx?raw'
 import kitchenSinkSource from './charts/KitchenSinkChart.tsx?raw'
@@ -12,7 +14,13 @@ import minimalSource from './charts/MinimalChart.tsx?raw'
 import singleSourceSource from './charts/SingleSourceChart.tsx?raw'
 import { ThemeToggle } from './ThemeToggle'
 
-type ScenarioId = 'kitchen-sink' | 'single-source' | 'minimal' | 'dashboard' | 'headless'
+type ScenarioId =
+  | 'kitchen-sink'
+  | 'single-source'
+  | 'dataset-model'
+  | 'minimal'
+  | 'dashboard'
+  | 'headless'
 
 const SCENARIOS = [
   {
@@ -28,6 +36,13 @@ const SCENARIOS = [
     description:
       'Inference-first single-source mode. Pass raw data directly to useChart and add a schema only ' +
       'when you want explicit labels, derived columns, or tighter control restrictions.'
+  },
+  {
+    id: 'dataset-model' as const,
+    label: 'Dataset + Model',
+    description:
+      'Phase 1 and Phase 2 together: reusable dataset-owned columns, multiple charts from one dataset, ' +
+      'and an explicit linked data model with relationships, associations, attributes, and runtime validation.'
   },
   {
     id: 'minimal' as const,
@@ -56,6 +71,7 @@ const SCENARIOS = [
 const SCENARIO_SOURCE: Record<ScenarioId, string> = {
   'kitchen-sink': kitchenSinkSource,
   'single-source': singleSourceSource,
+  'dataset-model': datasetModelSource,
   minimal: minimalSource,
   dashboard: dashboardSource,
   headless: headlessSource
@@ -98,6 +114,7 @@ function App() {
 
         {scenarioId === 'kitchen-sink' && <KitchenSinkChart />}
         {scenarioId === 'single-source' && <SingleSourceChart />}
+        {scenarioId === 'dataset-model' && <DatasetModelChart />}
         {scenarioId === 'minimal' && <MinimalChart />}
         {scenarioId === 'dashboard' && <DashboardChart />}
         {scenarioId === 'headless' && <HeadlessChart />}
