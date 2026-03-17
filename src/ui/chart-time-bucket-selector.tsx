@@ -22,7 +22,7 @@ const BUCKET_LABELS: Record<TimeBucket, string> = {
 export function ChartTimeBucketSelector({className, hideIcon}: {className?: string; hideIcon?: boolean}) {
   const {chartType, isTimeSeries, timeBucket, setTimeBucket, availableTimeBuckets} = useChartContext()
 
-  if (!isTimeSeries || !CHART_TYPE_CONFIG[chartType].supportsTimeBucketing || availableTimeBuckets.length === 0) {
+  if (!isTimeSeries || !CHART_TYPE_CONFIG[chartType].supportsTimeBucketing || availableTimeBuckets.length <= 1) {
     return null
   }
 

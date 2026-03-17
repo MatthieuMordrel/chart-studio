@@ -11,14 +11,14 @@ import {ChartSelect} from './chart-select.js'
 export function ChartGroupBySelector({className, hideIcon}: {className?: string; hideIcon?: boolean}) {
   const {chartType, groupById, setGroupBy, availableGroupBys, isGroupByOptional} = useChartContext()
 
-  if (!CHART_TYPE_CONFIG[chartType].supportsGrouping || availableGroupBys.length === 0) {
-    return null
-  }
-
   const options = [
     ...(isGroupByOptional ? [{value: '', label: 'No grouping'}] : []),
     ...availableGroupBys.map((col) => ({value: col.id, label: col.label})),
   ]
+
+  if (!CHART_TYPE_CONFIG[chartType].supportsGrouping || options.length <= 1) {
+    return null
+  }
 
   return (
     <ChartSelect
