@@ -13,6 +13,7 @@ import type {
   DatasetRow,
 } from './dataset-builder.types.js'
 import type {
+  ChartInstance,
   ChartInstanceFromSchemaDefinition,
   DateRangeFilter,
   DateRangePresetId,
@@ -35,8 +36,14 @@ type AnyDatasetChartDefinition = DatasetChartDefinition<
   any,
   any,
   any,
+  any,
   any
 >
+
+type ChartOwnerFromDefinition<TChart> =
+  TChart extends DatasetChartDefinition<any, any, any, any, any, any, any, any, any, any, infer TOwner>
+    ? TOwner
+    : never
 
 type DatasetFilterColumnId<TDataset> =
   TDataset extends {columns?: Record<string, unknown> | undefined} | undefined
@@ -48,14 +55,43 @@ type DatasetDateColumnId<TDataset> =
     ? ResolvedDateColumnIdFromSchema<DatasetRow<TDataset>, TDataset>
     : never
 
+type DatasetIdForOwner<
+  TModel extends AnyDefinedDataModel,
+  TOwner,
+> = Extract<
+  {
+    [TId in keyof TModel['datasets']]:
+      TOwner extends TModel['datasets'][TId]
+        ? TId
+        : never
+  }[keyof TModel['datasets']],
+  string
+>
+
+type ResolvedDashboardChartDatasetId<
+  TModel extends AnyDefinedDataModel,
+  TChart extends AnyDatasetChartDefinition,
+> = ChartOwnerFromDefinition<TChart> extends MaterializedViewDefinition<
+  any,
+  any,
+  any,
+  any,
+  any,
+  infer TBaseDatasetId extends string,
+  any
+>
+  ? TBaseDatasetId
+  : DatasetIdForOwner<TModel, ChartOwnerFromDefinition<TChart>>
+
 export type DashboardChartRegistration<
   TDatasetId extends string = string,
   TChart extends AnyDatasetChartDefinition = AnyDatasetChartDefinition,
+  TDataSource extends DashboardChartDataSource<TDatasetId> = DashboardChartDataSource<TDatasetId>,
 > = {
   readonly id: string
   readonly datasetId: TDatasetId
   readonly schema: TChart
-  readonly dataSource: DashboardChartDataSource<TDatasetId>
+  readonly dataSource: TDataSource
 }
 
 export type DashboardCharts = Record<string, DashboardChartRegistration>
@@ -81,6 +117,21 @@ export type DashboardChartDataSource<
 > =
   | DashboardDatasetChartDataSource<TDatasetId>
   | DashboardMaterializedViewChartDataSource<TDatasetId>
+
+type DashboardChartDataSourceForOwner<
+  TDatasetId extends string,
+  TOwner,
+> = TOwner extends MaterializedViewDefinition<any, any, any, any>
+  ? DashboardMaterializedViewChartDataSource<TDatasetId, TOwner>
+  : DashboardDatasetChartDataSource<TDatasetId>
+
+type ResolvedDashboardChartDataSource<
+  TModel extends AnyDefinedDataModel,
+  TChart extends AnyDatasetChartDefinition,
+> = DashboardChartDataSourceForOwner<
+  ResolvedDashboardChartDatasetId<TModel, TChart>,
+  ChartOwnerFromDefinition<TChart>
+>
 
 export type DashboardLocalSharedSelectFilterConfig<
   TDatasets extends ModelDatasets,
@@ -224,6 +275,212 @@ export type DashboardChartDefinitionFromDefinition<
   TChartId extends DashboardChartIdFromDefinition<TDashboard>,
 > = ResolvedDashboardFromDefinition<TDashboard>['charts'][TChartId]['schema']
 
+type DashboardChartDatasetIdFromDefinition<
+  TDashboard,
+  TChartId extends DashboardChartIdFromDefinition<TDashboard>,
+> = ResolvedDashboardFromDefinition<TDashboard>['charts'][TChartId]['datasetId']
+
+type DashboardRelationshipsFromDefinition<TDashboard> =
+  ResolvedDashboardFromDefinition<TDashboard>['model']['relationships']
+
+type StripIdSuffix<TValue extends string> =
+  TValue extends `${infer TPrefix}Id`
+    ? TPrefix
+    : never
+
+type ProjectedLookupAliasForDataset<
+  TRelationships,
+  TSourceDatasetId extends string,
+  TBaseDatasetId extends string,
+> = Extract<
+  {
+    [TRelationshipId in keyof TRelationships]:
+      TRelationships[TRelationshipId] extends {
+        from: {dataset: TSourceDatasetId}
+        to: {dataset: TBaseDatasetId; column: infer TColumnId extends string}
+      }
+        ? StripIdSuffix<TColumnId>
+        : never
+  }[keyof TRelationships],
+  string
+>
+
+type ProjectedOwnedColumnId<
+  TRelationships,
+  TSourceDatasetId extends string,
+  TBaseDatasetId extends string,
+  TColumnId extends string,
+> = ProjectedLookupAliasForDataset<
+  TRelationships,
+  TSourceDatasetId,
+  TBaseDatasetId
+> extends infer TAlias extends string
+  ? `${TAlias}${Capitalize<TColumnId>}`
+  : never
+
+type OwnedColumnIdForDatasetColumn<
+  TRelationships,
+  TDatasetId extends string,
+  TBaseDatasetId extends string,
+  TColumnId extends string,
+> = TDatasetId extends TBaseDatasetId
+  ? TColumnId
+  : ProjectedOwnedColumnId<TRelationships, TDatasetId, TBaseDatasetId, TColumnId>
+
+type SharedFilterTargetOwnedFilterColumnIds<
+  TRelationships,
+  TBaseDatasetId extends string,
+  TTargets,
+> = TTargets extends readonly (infer TTarget)[]
+  ? TTarget extends {
+      dataset: infer TDatasetId extends string
+      column: infer TColumnId extends string
+    }
+    ? OwnedColumnIdForDatasetColumn<
+        TRelationships,
+        TDatasetId,
+        TBaseDatasetId,
+        TColumnId
+      >
+    : never
+  : never
+
+type SharedFilterTargetOwnedDateColumnIds<
+  TRelationships,
+  TBaseDatasetId extends string,
+  TTargets,
+> = TTargets extends readonly (infer TTarget)[]
+  ? TTarget extends {
+      dataset: infer TDatasetId extends string
+      column: infer TColumnId extends string
+    }
+    ? OwnedColumnIdForDatasetColumn<
+        TRelationships,
+        TDatasetId,
+        TBaseDatasetId,
+        TColumnId
+      >
+    : never
+  : never
+
+type DashboardOwnedFilterColumnIdsForSharedFilter<
+  TDashboard,
+  TChartId extends DashboardChartIdFromDefinition<TDashboard>,
+  TFilter,
+> = TFilter extends {
+  kind: 'select'
+  source: {
+    kind: 'attribute'
+    dataset: infer TSourceDatasetId extends string
+    key: infer TSourceKey extends string
+    label: infer TSourceLabel extends string
+  }
+  targets: infer TTargets
+}
+  ? OwnedColumnIdForDatasetColumn<
+      DashboardRelationshipsFromDefinition<TDashboard>,
+      TSourceDatasetId,
+      DashboardChartDatasetIdFromDefinition<TDashboard, TChartId>,
+      TSourceKey | TSourceLabel
+    >
+    | SharedFilterTargetOwnedFilterColumnIds<
+      DashboardRelationshipsFromDefinition<TDashboard>,
+      DashboardChartDatasetIdFromDefinition<TDashboard, TChartId>,
+      TTargets
+    >
+  : TFilter extends {
+      kind: 'select'
+      source: {
+        kind: 'column'
+        dataset: infer TSourceDatasetId extends string
+        column: infer TSourceColumnId extends string
+      }
+      targets: infer TTargets
+    }
+    ? OwnedColumnIdForDatasetColumn<
+        DashboardRelationshipsFromDefinition<TDashboard>,
+        TSourceDatasetId,
+        DashboardChartDatasetIdFromDefinition<TDashboard, TChartId>,
+        TSourceColumnId
+      >
+      | SharedFilterTargetOwnedFilterColumnIds<
+        DashboardRelationshipsFromDefinition<TDashboard>,
+        DashboardChartDatasetIdFromDefinition<TDashboard, TChartId>,
+        TTargets
+      >
+    : never
+
+type DashboardOwnedDateColumnIdsForSharedFilter<
+  TDashboard,
+  TChartId extends DashboardChartIdFromDefinition<TDashboard>,
+  TFilter,
+> = TFilter extends {
+  kind: 'date-range'
+  targets: infer TTargets
+}
+  ? SharedFilterTargetOwnedDateColumnIds<
+      DashboardRelationshipsFromDefinition<TDashboard>,
+      DashboardChartDatasetIdFromDefinition<TDashboard, TChartId>,
+      TTargets
+    >
+  : never
+
+type DashboardOwnedFilterColumnIdFromDefinition<
+  TDashboard,
+  TChartId extends DashboardChartIdFromDefinition<TDashboard>,
+> = DashboardSharedFilterIdFromDefinition<TDashboard> extends infer TFilterId
+  ? TFilterId extends DashboardSharedFilterIdFromDefinition<TDashboard>
+    ? DashboardOwnedFilterColumnIdsForSharedFilter<
+        TDashboard,
+        TChartId,
+        ResolvedDashboardFromDefinition<TDashboard>['sharedFilters'][TFilterId]
+      >
+    : never
+  : never
+
+type DashboardOwnedDateColumnIdFromDefinition<
+  TDashboard,
+  TChartId extends DashboardChartIdFromDefinition<TDashboard>,
+> = DashboardSharedFilterIdFromDefinition<TDashboard> extends infer TFilterId
+  ? TFilterId extends DashboardSharedFilterIdFromDefinition<TDashboard>
+    ? DashboardOwnedDateColumnIdsForSharedFilter<
+        TDashboard,
+        TChartId,
+        ResolvedDashboardFromDefinition<TDashboard>['sharedFilters'][TFilterId]
+      >
+    : never
+  : never
+
+type DashboardOwnedChartInstance<
+  TChartInstance,
+  TOwnedFilterColumnId extends string,
+  TOwnedDateColumnId extends string,
+> = TChartInstance extends ChartInstance<
+  infer TRow,
+  infer TColumnId,
+  infer TChartType,
+  infer TXAxisId,
+  infer TGroupById,
+  infer TMetricColumnId,
+  infer TMetric,
+  infer TFilterColumnId,
+  infer TDateColumnId,
+  infer TTimeBucket
+>
+  ? ChartInstance<
+      TRow,
+      TColumnId,
+      TChartType,
+      TXAxisId,
+      TGroupById,
+      TMetricColumnId,
+      TMetric,
+      Exclude<TFilterColumnId, TOwnedFilterColumnId>,
+      Exclude<TDateColumnId, TOwnedDateColumnId>,
+      TTimeBucket
+    >
+  : never
+
 export type DashboardChartInstanceFromDefinition<
   TDashboard,
   TChartId extends DashboardChartIdFromDefinition<TDashboard>,
@@ -237,11 +494,16 @@ export type DashboardChartInstanceFromDefinition<
   any,
   any,
   any,
+  any,
   any
 >
-  ? ChartInstanceFromSchemaDefinition<
-      TRow,
-      DashboardChartDefinitionFromDefinition<TDashboard, TChartId>
+  ? DashboardOwnedChartInstance<
+      ChartInstanceFromSchemaDefinition<
+        TRow,
+        DashboardChartDefinitionFromDefinition<TDashboard, TChartId>
+      >,
+      Extract<DashboardOwnedFilterColumnIdFromDefinition<TDashboard, TChartId>, string>,
+      Extract<DashboardOwnedDateColumnIdFromDefinition<TDashboard, TChartId>, string>
     >
   : never
 
@@ -314,6 +576,7 @@ export type DashboardResolvedChart<
   any,
   any,
   any,
+  any,
   any
 >
   ? {
@@ -356,7 +619,14 @@ export interface DashboardBuilder<
     chart: TChart,
   ): DashboardBuilder<
     TModel,
-    TCharts & Record<TId, DashboardChartRegistration<string, TChart>>,
+    TCharts & Record<
+      TId,
+      DashboardChartRegistration<
+        ResolvedDashboardChartDatasetId<TModel, TChart>,
+        TChart,
+        ResolvedDashboardChartDataSource<TModel, TChart>
+      >
+    >,
     TSharedFilters
   >
 

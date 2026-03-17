@@ -48,6 +48,7 @@ export type DefinedDatasetChartSchema<
   TTimeBucket extends TimeBucketConfig | undefined,
   TConnectNulls extends boolean | undefined,
   TChartId extends string | undefined = undefined,
+  TOwner = unknown,
 > = DefinedChartSchema<
   TRow,
   SchemaFromBuilder<
@@ -61,7 +62,7 @@ export type DefinedDatasetChartSchema<
     TConnectNulls
   >
 > & {
-  readonly [DATASET_CHART_METADATA]: DatasetChartMetadata<TChartId>
+  readonly [DATASET_CHART_METADATA]: DatasetChartMetadata<TChartId, TOwner>
 }
 
 export type DatasetKey<TRow> = NonEmptyReadonlyArray<InferableFieldKey<TRow>>
@@ -83,7 +84,19 @@ export type DefinedDataset<
   readonly columns?: TColumns
   chart<const TChartId extends string | undefined = undefined>(
     id?: TChartId,
-  ): DatasetChartBuilder<TRow, TColumns>
+  ): DatasetChartBuilder<
+    TRow,
+    TColumns,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    TChartId,
+    DefinedDataset<TRow, TColumns, TKey>
+  >
   validateData(data: readonly TRow[]): void
   build(): DefinedDataset<TRow, TColumns, TKey>
   readonly __datasetBrand: 'dataset-definition'
@@ -133,6 +146,7 @@ export type DatasetChartBuilder<
   TTimeBucket extends TimeBucketConfig | undefined = undefined,
   TConnectNulls extends boolean | undefined = undefined,
   TChartId extends string | undefined = undefined,
+  TOwner = unknown,
 > = {
   xAxis<const TBuilder extends SelectableControlBuilder<
     ResolvedXAxisColumnIdFromSchema<TRow, DatasetColumnsContext<TColumns>>,
@@ -154,7 +168,8 @@ export type DatasetChartBuilder<
     TChartType,
     TTimeBucket,
     TConnectNulls,
-    TChartId
+    TChartId,
+    TOwner
   >
 
   groupBy<const TBuilder extends SelectableControlBuilder<
@@ -177,7 +192,8 @@ export type DatasetChartBuilder<
     TChartType,
     TTimeBucket,
     TConnectNulls,
-    TChartId
+    TChartId,
+    TOwner
   >
 
   filters<const TBuilder extends SelectableControlBuilder<
@@ -200,7 +216,8 @@ export type DatasetChartBuilder<
     TChartType,
     TTimeBucket,
     TConnectNulls,
-    TChartId
+    TChartId,
+    TOwner
   >
 
   metric<const TBuilder extends MetricBuilder<
@@ -224,7 +241,8 @@ export type DatasetChartBuilder<
     TChartType,
     TTimeBucket,
     TConnectNulls,
-    TChartId
+    TChartId,
+    TOwner
   >
 
   chartType<const TBuilder extends SelectableControlBuilder<ChartType, true>>(
@@ -241,7 +259,8 @@ export type DatasetChartBuilder<
     SelectableControlBuilderConfig<TBuilder>,
     TTimeBucket,
     TConnectNulls,
-    TChartId
+    TChartId,
+    TOwner
   >
 
   timeBucket<const TBuilder extends SelectableControlBuilder<TimeBucket, true>>(
@@ -258,7 +277,8 @@ export type DatasetChartBuilder<
     TChartType,
     SelectableControlBuilderConfig<TBuilder>,
     TConnectNulls,
-    TChartId
+    TChartId,
+    TOwner
   >
 
   connectNulls<const TValue extends boolean>(
@@ -273,7 +293,8 @@ export type DatasetChartBuilder<
     TChartType,
     TTimeBucket,
     TValue,
-    TChartId
+    TChartId,
+    TOwner
   >
 
   build(): DefinedDatasetChartSchema<
@@ -286,9 +307,10 @@ export type DatasetChartBuilder<
     TChartType,
     TTimeBucket,
     TConnectNulls,
-    TChartId
+    TChartId,
+    TOwner
   >
-  readonly [DATASET_CHART_METADATA]: DatasetChartMetadata<TChartId>
+  readonly [DATASET_CHART_METADATA]: DatasetChartMetadata<TChartId, TOwner>
 }
 
 export type DatasetChartDefinition<
@@ -302,6 +324,7 @@ export type DatasetChartDefinition<
   TTimeBucket extends TimeBucketConfig | undefined = undefined,
   TConnectNulls extends boolean | undefined = undefined,
   TChartId extends string | undefined = undefined,
+  TOwner = unknown,
 > =
   | DatasetChartBuilder<
       TRow,
@@ -313,7 +336,8 @@ export type DatasetChartDefinition<
       TChartType,
       TTimeBucket,
       TConnectNulls,
-      TChartId
+      TChartId,
+      TOwner
     >
   | DefinedDatasetChartSchema<
       TRow,
@@ -325,7 +349,8 @@ export type DatasetChartDefinition<
       TChartType,
       TTimeBucket,
       TConnectNulls,
-      TChartId
+      TChartId,
+      TOwner
     >
 
 export type DatasetChartBuilderState<
@@ -372,7 +397,19 @@ export interface DatasetBuilder<
 
   chart<const TChartId extends string | undefined = undefined>(
     id?: TChartId,
-  ): DatasetChartBuilder<TRow, TColumns, undefined, undefined, undefined, undefined, undefined, undefined, undefined, TChartId>
+  ): DatasetChartBuilder<
+    TRow,
+    TColumns,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    TChartId,
+    DefinedDataset<TRow, TColumns, TKey>
+  >
 
   validateData(data: readonly TRow[]): void
 

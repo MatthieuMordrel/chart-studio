@@ -9,6 +9,7 @@ import {
   DashboardProvider,
   useDashboard,
   useDashboardChart,
+  useDashboardContext,
   useDashboardDataset,
   useDashboardSharedFilter,
 } from './use-dashboard.js'
@@ -109,6 +110,10 @@ const hiringDashboard = defineDashboard(hiringModel)
     ] as const,
   })
 
+const secondaryDashboard = defineDashboard(hiringModel)
+  .chart('jobsByMonth', jobsByMonth)
+  .build()
+
 const jobRows: JobRow[] = [
   {id: 'job-1', ownerId: 'owner-1', status: 'open', createdAt: '2026-01-10', salary: 100},
   {id: 'job-2', ownerId: 'owner-1', status: 'closed', createdAt: '2026-02-10', salary: 110},
@@ -137,7 +142,7 @@ describe('dashboard composition', () => {
     ).toThrow('must come from defineDataset(...).chart(...)')
   })
 
-  it('coordinates model and dashboard shared filters through provider hooks', () => {
+  it('coordinates model and dashboard shared filters through typed provider hooks', () => {
     function Wrapper({children}: {children: ReactNode}) {
       const dashboard = useDashboard({
         definition: hiringDashboard,
@@ -156,15 +161,17 @@ describe('dashboard composition', () => {
     }
 
     const {result} = renderHook(() => ({
-      jobsChart: useDashboardChart('jobsByMonth'),
-      jobsRows: useDashboardDataset('jobs'),
-      candidateRows: useDashboardDataset('candidates'),
-      ownerFilter: useDashboardSharedFilter('owner'),
-      statusFilter: useDashboardSharedFilter('status'),
+      jobsChart: useDashboardChart(hiringDashboard, 'jobsByMonth'),
+      typedDashboard: useDashboardContext(hiringDashboard),
+      jobsRows: useDashboardDataset(hiringDashboard, 'jobs'),
+      candidateRows: useDashboardDataset(hiringDashboard, 'candidates'),
+      ownerFilter: useDashboardSharedFilter(hiringDashboard, 'owner'),
+      statusFilter: useDashboardSharedFilter(hiringDashboard, 'status'),
     }), {wrapper: Wrapper})
 
     expect(result.current.jobsChart.recordCount).toBe(3)
     expect(result.current.jobsChart.availableFilters).toEqual([])
+    expect(result.current.typedDashboard.chartIds).toEqual(['jobsByMonth', 'candidatesByStage'])
 
     const aliceValue = result.current.ownerFilter.kind === 'select'
       ? result.current.ownerFilter.options.find((option) => option.label === 'Alice')?.value
@@ -192,7 +199,8 @@ describe('dashboard composition', () => {
       expect.objectContaining({id: 'job-1', status: 'open'}),
     ])
     expect(result.current.jobsChart.recordCount).toBe(1)
-    expect(() => result.current.jobsChart.toggleFilter('status', 'open')).toThrow(
+    const unsafeToggleFilter = result.current.jobsChart.toggleFilter as (columnId: string, value: string) => void
+    expect(() => unsafeToggleFilter('status', 'open')).toThrow(
       'owned by a dashboard shared filter',
     )
   })
@@ -235,8 +243,32 @@ describe('dashboard composition', () => {
     expect(result.current.candidateRows).toEqual([
       expect.objectContaining({id: 'candidate-2'}),
     ])
-    expect(() => result.current.jobsChart.setReferenceDateId('createdAt')).toThrow(
+    const unsafeSetReferenceDateId = result.current.jobsChart.setReferenceDateId as (columnId: string) => void
+    expect(() => unsafeSetReferenceDateId('createdAt')).toThrow(
       'owned by a dashboard shared date range',
     )
+  })
+
+  it('rejects definition-anchored hooks when the provider dashboard does not match', () => {
+    function Wrapper({children}: {children: ReactNode}) {
+      const dashboard = useDashboard({
+        definition: hiringDashboard,
+        data: {
+          jobs: jobRows,
+          owners: ownerRows,
+          candidates: candidateRows,
+        },
+      })
+
+      return (
+        <DashboardProvider dashboard={dashboard}>
+          {children}
+        </DashboardProvider>
+      )
+    }
+
+    expect(() =>
+      renderHook(() => useDashboardChart(secondaryDashboard, 'jobsByMonth'), {wrapper: Wrapper}),
+    ).toThrow('does not match the nearest <DashboardProvider>')
   })
 })

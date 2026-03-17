@@ -5,6 +5,7 @@ import {defineDataset} from './define-dataset.js'
 import {
   useDashboard,
   useDashboardChart,
+  useDashboardContext,
   useDashboardDataset,
   useDashboardSharedFilter,
 } from './use-dashboard.js'
@@ -88,16 +89,29 @@ function verifyDashboardTyping() {
 
   const chartConfig = runtime.chart('jobsByMonth')
   expectType<readonly JobRecord[]>(chartConfig.data)
+  expectType<'jobs'>(chartConfig.datasetId)
 
   const chart = useDashboardChart(runtime, 'jobsByMonth')
   expectType<'createdAt' | null>(chart.xAxisId)
   expectType<readonly JobRecord[]>(useDashboardDataset(runtime, 'jobs'))
 
+  const contextChart = useDashboardChart(dashboard, 'jobsByMonth')
+  expectType<'createdAt' | null>(contextChart.xAxisId)
+  expectType<readonly JobRecord[]>(useDashboardDataset(dashboard, 'jobs'))
+  useDashboardContext(dashboard).chart('jobsByMonth')
+
   const ownerFilter = useDashboardSharedFilter(runtime, 'owner')
   ownerFilter.toggleValue('string:key')
+  useDashboardSharedFilter(dashboard, 'owner').clear()
 
   const activityDate = useDashboardSharedFilter(runtime, 'activityDate')
   activityDate.setDateRangePreset('last-30-days')
+
+  // @ts-expect-error dashboard-owned select filters are removed from the chart-local contract
+  chart.toggleFilter('status', 'open')
+
+  // @ts-expect-error dashboard-owned date controls are removed from the chart-local contract
+  chart.setReferenceDateId('createdAt')
 
   defineDashboard(model).chart(
     'quick',
@@ -167,6 +181,11 @@ function verifyInferredDashboardTyping() {
 
   const chart = useDashboardChart(runtime, 'jobsByOwner')
   expectType<'ownerName' | null>(chart.xAxisId)
+  expectType<'ownerName' | null>(useDashboardChart(dashboard, 'jobsByOwner').xAxisId)
+
+  // @ts-expect-error projected lookup filters owned by shared model attributes are removed too
+  chart.toggleFilter('ownerName', 'Alice')
+
   useDashboardSharedFilter(runtime, 'owner').clear()
 
   // @ts-expect-error inferred shared filters stay typed

@@ -8,6 +8,7 @@ import type {
   ModelRelationshipDefinition,
 } from './data-model.types.js'
 import type {
+  DatasetChartBuilder,
   DatasetColumns,
   DatasetKeyIds,
   DatasetRow,
@@ -377,8 +378,31 @@ export type DefinedMaterializedView<
   TId extends string = string,
   TBaseDatasetId extends string = string,
   TGrain extends string = string,
-> = Omit<DefinedDataset<TRow, TColumns, any>, 'build'> & {
+> = Omit<DefinedDataset<TRow, TColumns, any>, 'build' | 'chart'> & {
   readonly key?: TKey
+  chart<const TChartId extends string | undefined = undefined>(
+    id?: TChartId,
+  ): DatasetChartBuilder<
+    TRow,
+    TColumns,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    TChartId,
+    DefinedMaterializedView<
+      TRow,
+      TColumns,
+      TKey,
+      TModel,
+      TId,
+      TBaseDatasetId,
+      TGrain
+    >
+  >
   /**
    * Materialize one explicit flat row array from linked model data.
    *

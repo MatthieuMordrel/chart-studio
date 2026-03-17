@@ -150,9 +150,6 @@ Recommended path for new dashboard work:
 4. `defineDashboard(model)`
 5. `useDashboard(...)`
 
-`createDashboard(...)` still exists as a compatibility wrapper, but new code
-should start with the model-first path above.
-
 ## Authoring Layers
 
 ### 1. Chart-first shortcut
@@ -348,10 +345,10 @@ dashboard:
 
 ```tsx
 import {
+  DashboardProvider,
   defineDashboard,
   useDashboard,
   useDashboardChart,
-  DashboardProvider,
 } from '@matthieumordrel/chart-studio'
 
 const hiringDashboard = defineDashboard(hiringModel)
@@ -368,14 +365,20 @@ function HiringOverview() {
     },
   })
 
-  const jobsChart = useDashboardChart(dashboard, 'jobsByOwner')
-
   return (
     <DashboardProvider dashboard={dashboard}>
-      <Chart chart={jobsChart}>
-        <ChartCanvas />
-      </Chart>
+      <HiringChart />
     </DashboardProvider>
+  )
+}
+
+function HiringChart() {
+  const jobsChart = useDashboardChart(hiringDashboard, 'jobsByOwner')
+
+  return (
+    <Chart chart={jobsChart}>
+      <ChartCanvas />
+    </Chart>
   )
 }
 ```
@@ -386,6 +389,7 @@ Rules for dashboard composition:
 - dashboard charts may come from `defineDataset<Row>().chart(...)`, `model.chart(...)`, or `model.materialize(...).chart(...)`
 - chart registration is explicit by id
 - `useDashboard(...)` is the runtime boundary; it resolves model-aware charts and explicit materialized views against real data
+- pass the explicit dashboard runtime into dashboard hooks, or inside a matching `DashboardProvider` pass the dashboard definition
 - `useDashboardChart(...)` resolves the reusable chart by id and keeps React in charge of placement
 - `useDashboardDataset(...)` exposes the globally filtered rows for non-chart consumers like KPI cards or tables
 
@@ -662,9 +666,9 @@ The current chart runtime still executes one flat dataset at a time. Multi-sourc
 source-switching is separate from linked data models, explicit materialized
 views, and dashboard composition.
 
-If you are starting fresh with a dashboard, prefer the model-first path. `createDashboard(...)`
-is still available, but it now compiles through the same model/materialization/dashboard
-internals and is no longer the recommended primary API.
+If you are starting fresh with a dashboard, use the model-first path:
+`defineDataModel(...)`, `model.chart(...)` / `model.materialize(...)`,
+`defineDashboard(...)`, and `useDashboard(...)`.
 
 ```tsx
 import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'

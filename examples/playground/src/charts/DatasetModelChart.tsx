@@ -714,10 +714,10 @@ function SharedDateRangeCard({
 
 /** Compact shared filters sidebar panel. */
 function SharedFiltersPanel() {
-  const managerFilter = useDashboardSharedFilter('manager')
-  const capabilityFilter = useDashboardSharedFilter('capability')
-  const statusFilter = useDashboardSharedFilter('status')
-  const planningDateFilter = useDashboardSharedFilter('planningDate')
+  const managerFilter = useDashboardSharedFilter(deliveryPlanningDashboard, 'manager')
+  const capabilityFilter = useDashboardSharedFilter(deliveryPlanningDashboard, 'capability')
+  const statusFilter = useDashboardSharedFilter(deliveryPlanningDashboard, 'status')
+  const planningDateFilter = useDashboardSharedFilter(deliveryPlanningDashboard, 'planningDate')
 
   if (
     managerFilter.kind !== 'select'
@@ -741,7 +741,7 @@ function SharedFiltersPanel() {
 
 /** KPI section that proves normalized dashboard consumers still work without any materialization. */
 function DashboardSummarySection() {
-  const filteredProjectPlans = useDashboardDataset('projectPlans')
+  const filteredProjectPlans = useDashboardDataset(deliveryPlanningDashboard, 'projectPlans')
 
   const dashboardSummary = useMemo(() => {
     const active = filteredProjectPlans.filter(
@@ -788,7 +788,7 @@ function DashboardSummarySection() {
 
 /** Normalized dashboard chart card resolved through the dashboard registry. */
 function PlanningVolumeCard() {
-  const chart = useDashboardChart('planningVolume')
+  const chart = useDashboardChart(deliveryPlanningDashboard, 'planningVolume')
 
   return (
     <DashboardCard title='Planning Volume'>
@@ -810,7 +810,7 @@ function PlanningVolumeCard() {
  * chart.
  */
 function MaterializedManagerLoadCard() {
-  const filteredProjectPlans = useDashboardDataset('projectPlans')
+  const filteredProjectPlans = useDashboardDataset(deliveryPlanningDashboard, 'projectPlans')
   const rows = useMemo(
     () => projectPlansWithManager.materialize({
       ...planningModelData,
@@ -841,7 +841,7 @@ function MaterializedManagerLoadCard() {
  * This is the many-to-many smoke test for Phase 7 in the playground.
  */
 function MaterializedCapabilityDemandCard() {
-  const filteredProjectPlans = useDashboardDataset('projectPlans')
+  const filteredProjectPlans = useDashboardDataset(deliveryPlanningDashboard, 'projectPlans')
   const rows = useMemo(
     () => projectCapabilityView.materialize({
       ...planningModelData,
@@ -868,7 +868,7 @@ function MaterializedCapabilityDemandCard() {
 
 /** Normalized dashboard chart card for delivery-tier and region budget analysis. */
 function BudgetMixCard() {
-  const chart = useDashboardChart('budgetMix')
+  const chart = useDashboardChart(deliveryPlanningDashboard, 'budgetMix')
 
   return (
     <DashboardCard title='Budget Mix'>
@@ -884,7 +884,7 @@ function BudgetMixCard() {
 
 /** Normalized dashboard chart card for project completion-time analysis. */
 function TimeToCompleteCard() {
-  const chart = useDashboardChart('timeToComplete')
+  const chart = useDashboardChart(deliveryPlanningDashboard, 'timeToComplete')
 
   return (
     <DashboardCard title='Time To Complete'>
@@ -906,8 +906,12 @@ function TimeToCompleteCard() {
  * - dashboard-level shared state
  * - explicit materialized views for cross-dataset grains
  */
-function MetadataSection({validation}: {validation: string}) {
-  const filteredProjectPlans = useDashboardDataset('projectPlans')
+function MetadataSection({
+  validation,
+}: {
+  validation: string
+}) {
+  const filteredProjectPlans = useDashboardDataset(deliveryPlanningDashboard, 'projectPlans')
   const filteredProjectCapabilities = useMemo(
     () => projectCapabilityView.materialize({
       ...planningModelData,
@@ -942,7 +946,7 @@ function MetadataSection({validation}: {validation: string}) {
             label='Materialized views'
             value={[projectPlansWithManager.materialization.id, projectCapabilityView.materialization.id].join(', ')}
           />
-          <MetadataLine label='Non-chart consumer' value='useDashboardDataset("projectPlans")' />
+          <MetadataLine label='Non-chart consumer' value='useDashboardDataset(deliveryPlanningDashboard, "projectPlans")' />
           {validation !== 'Validated' && (
             <p className='rounded-lg border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs text-destructive'>{validation}</p>
           )}
@@ -971,7 +975,11 @@ function MetadataSection({validation}: {validation: string}) {
 }
 
 /** Compose the full dataset/model/dashboard/materialized-view example into one screen. */
-function DatasetModelDashboard({validation}: {validation: string}) {
+function DatasetModelDashboard({
+  validation,
+}: {
+  validation: string
+}) {
   return (
     <div className='grid gap-4 xl:grid-cols-[320px_1fr]'>
       <div className='xl:sticky xl:top-6 xl:self-start'>

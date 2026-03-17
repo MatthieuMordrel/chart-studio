@@ -356,8 +356,8 @@ function createDefinedDataModel<
           createMaterializationStartBuilder(id, definedModel),
         )
       },
-      chart(id: string, defineChart: any) {
-        return compileModelChart(definedModel, id, defineChart)
+      chart(id: any, defineChart: any) {
+        return compileModelChart(definedModel, id, defineChart) as any
       },
       validateData(data) {
         try {

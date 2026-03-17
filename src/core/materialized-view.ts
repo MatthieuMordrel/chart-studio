@@ -970,7 +970,8 @@ function createDefinedMaterializedView<
           undefined,
           undefined,
           undefined,
-          any
+          any,
+          typeof definedView
         >({
           ...(definition.columns !== undefined ? {columns: definition.columns} : {}),
         }, {

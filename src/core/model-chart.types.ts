@@ -6,8 +6,10 @@ import type {
 import type {
   ModelDatasetId,
   ModelDatasets,
+  DefinedDataModel,
   ModelRelationshipDefinition,
 } from './data-model.types.js'
+import type {MaterializedViewDefinition} from './materialized-view.types.js'
 import type {
   MetricBuilder,
   MetricBuilderConfig,
@@ -905,8 +907,26 @@ type BroadCompiledModelChartDefinition<TChartId extends string> = DefinedDataset
   ChartTypeConfig | undefined,
   TimeBucketConfig | undefined,
   boolean | undefined,
-  TChartId
+  TChartId,
+  unknown
 >
+
+type CompiledModelChartOwner<
+  TDatasets extends ModelDatasets,
+  TRelationships extends Record<string, ModelRelationshipDefinition>,
+  TBuilder,
+  TBaseDatasetId extends ModelDatasetId<TDatasets>,
+> = [ConfiguredLookupFieldPaths<TBuilder>] extends [never]
+  ? TDatasets[TBaseDatasetId]
+  : MaterializedViewDefinition<
+      any,
+      Record<string, unknown> | undefined,
+      readonly string[] | undefined,
+      DefinedDataModel<TDatasets, TRelationships, any, any>,
+      string,
+      TBaseDatasetId,
+      string
+    >
 
 export type CompileModelChartDefinition<
   TDatasets extends ModelDatasets,
@@ -924,7 +944,13 @@ export type CompileModelChartDefinition<
   BuilderChartTypeConfig<TBuilder>,
   BuilderTimeBucketConfig<TBuilder>,
   BuilderConnectNulls<TBuilder>,
-  TChartId
+  TChartId,
+  CompiledModelChartOwner<
+    TDatasets,
+    TRelationships,
+    TBuilder,
+    Extract<ResolvedBuilderBaseDatasetId<TBuilder>, ModelDatasetId<TDatasets>>
+  >
 >
 
 export type CompileModelChartDefinitionFromState<
@@ -939,6 +965,7 @@ export type CompileModelChartDefinitionFromState<
   TTimeBucket extends TimeBucketConfig | undefined,
   TConnectNulls extends boolean | undefined,
   TChartId extends string,
+  TOwner = unknown,
 > = [ModelDatasetId<TDatasets>] extends [never]
   ? BroadCompiledModelChartDefinition<TChartId>
   : TBaseDatasetId extends ModelDatasetId<TDatasets>
@@ -996,6 +1023,7 @@ export type CompileModelChartDefinitionFromState<
       TChartType,
       TTimeBucket,
       TConnectNulls,
-      TChartId
+      TChartId,
+      TOwner
     >
   : BroadCompiledModelChartDefinition<TChartId>

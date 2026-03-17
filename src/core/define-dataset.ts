@@ -127,7 +127,8 @@ function createDefinedDataset<
           undefined,
           undefined,
           undefined,
-          any
+          any,
+          DefinedDataset<TRow, TColumns, TKey>
         >({
           ...(state.columns !== undefined ? {columns: state.columns} : {}),
         }, {
@@ -199,7 +200,8 @@ function createDatasetBuilder<
         undefined,
         undefined,
         undefined,
-        any
+        any,
+        DefinedDataset<TRow, TColumns, TKey>
       >({
         ...(state.columns !== undefined ? {columns: state.columns} : {}),
       }, {

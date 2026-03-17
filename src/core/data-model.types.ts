@@ -391,7 +391,7 @@ export type AnyDefinedDataModel = {
   chart: (
     id: string,
     defineChart: (chart: ModelChartStartBuilder<any, any>) => ModelChartBuilder<any, any, any, any, any, any, any, any, any, any>,
-  ) => DatasetChartDefinition<any, any, any, any, any, any, any, any, any, any>
+  ) => DatasetChartDefinition<any, any, any, any, any, any, any, any, any, any, any>
   validateData(data: ModelDataInput<ModelDatasets>): void
   build(): AnyDefinedDataModel
   readonly __dataModelBrand: 'data-model-definition'

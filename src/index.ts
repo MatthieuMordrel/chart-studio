@@ -34,7 +34,6 @@
 // Headless charting API.
 export {
   CHART_TYPE_CONFIG,
-  createDashboard,
   defineDataModel,
   defineDashboard,
   defineDataset,
@@ -59,17 +58,6 @@ export {
 } from './core/index.js'
 
 export type {
-  CreateDashboardChartConfig,
-  CreateDashboardDatasetConfig,
-  CreateDashboardDatasetsConfig,
-  CreateDashboardExcludeId,
-  CreateDashboardKeys,
-  CreateDashboardMetricSpec,
-  CreateDashboardOptions,
-  CreateDashboardRelationshipConfig,
-  CreateDashboardRelationshipsConfig,
-  CreateDashboardResult,
-  CreateDashboardSharedFilterId,
   DataModelDefinition,
   DataModelBuilder,
   DefinedDataModel,
