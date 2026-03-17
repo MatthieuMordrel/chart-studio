@@ -128,4 +128,50 @@ function verifyDashboardTyping() {
   activityDate.setDateRangePreset('auto')
 }
 
+function verifyInferredDashboardTyping() {
+  const inferredModel = defineDataModel()
+    .dataset('jobs', defineDataset<JobRecord>()
+      .key('id')
+      .columns((c) => [
+        c.date('createdAt'),
+        c.number('salary'),
+      ]))
+    .dataset('owners', defineDataset<OwnerRecord>()
+      .key('id')
+      .columns((c) => [
+        c.category('name'),
+      ]))
+    .infer({
+      relationships: true,
+      attributes: true,
+    })
+
+  const dashboard = defineDashboard(inferredModel)
+    .chart(
+      'jobsByOwner',
+      inferredModel.chart('jobsByOwner', (chart) =>
+        chart
+          .from('jobs')
+          .xAxis((x) => x.allowed('owner.name').default('owner.name'))
+          .metric((m) => m.count())),
+    )
+    .sharedFilter('owner')
+
+  const runtime = useDashboard({
+    definition: dashboard,
+    data: {
+      jobs: [] as JobRecord[],
+      owners: [] as OwnerRecord[],
+    },
+  })
+
+  const chart = useDashboardChart(runtime, 'jobsByOwner')
+  expectType<'ownerName' | null>(chart.xAxisId)
+  useDashboardSharedFilter(runtime, 'owner').clear()
+
+  // @ts-expect-error inferred shared filters stay typed
+  defineDashboard(inferredModel).sharedFilter('missing')
+}
+
 void verifyDashboardTyping
+void verifyInferredDashboardTyping

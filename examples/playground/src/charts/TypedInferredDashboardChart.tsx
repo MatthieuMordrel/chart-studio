@@ -1,5 +1,7 @@
 import {
-  createDashboard,
+  defineDashboard,
+  defineDataModel,
+  defineDataset,
   useDashboard,
   useDashboardChart,
   useDashboardDataset,
@@ -118,76 +120,89 @@ const parentMeetings: ParentMeetingRow[] = [
 ]
 
 // ---------------------------------------------------------------------------
-// Dashboard definition — typed datasets + inferred relationships
+// Model-first dashboard definition
 //
-// Columns are typed for labels and formatting. Relationships
-// (tests.teacherId → teachers.id, students.teacherId → teachers.id, etc.)
-// are inferred automatically from the naming convention.
+// Safe inference now lives on the model. The dashboard stays a thin
+// composition layer over model-owned charts and inferred shared filters.
 // ---------------------------------------------------------------------------
 
-const schoolDashboard = createDashboard({
-  data: {
-    teachers,
-    students,
-    tests,
-    parentMeetings,
-  },
-  datasets: {
-    teachers: {
-      columns: {
-        name: {label: 'Teacher'},
-      },
-    },
-    students: {
-      columns: {
-        enrolledAt: {type: 'date', label: 'Enrolled'},
-      },
-    },
-    tests: {
-      columns: {
-        score: {type: 'number', label: 'Score', format: 'number'},
-        subject: {label: 'Subject'},
-        takenAt: {type: 'date', label: 'Test Date'},
-      },
-    },
-    parentMeetings: {
-      columns: {
-        scheduledAt: {type: 'date', label: 'Meeting Date'},
-        durationMinutes: {type: 'number', label: 'Duration (min)'},
-        status: {label: 'Status'},
-      },
-    },
-  },
-  charts: {
-    avgScoreBySubject: {
-      data: 'tests',
-      xAxis: 'subject',
-      metric: {column: 'score', fn: 'avg'},
-      chartType: 'bar',
-    },
-    testsByMonth: {
-      data: 'tests',
-      xAxis: 'takenAt',
-      groupBy: 'subject',
-      metric: 'count',
-      timeBucket: 'month',
-      chartType: 'grouped-bar',
-    },
-    meetingsByStatus: {
-      data: 'parentMeetings',
-      xAxis: 'status',
-      metric: 'count',
-      chartType: 'donut',
-    },
-    meetingsByTeacher: {
-      data: 'parentMeetings',
-      xAxis: 'teacher.name',
-      metric: {column: 'durationMinutes', fn: 'sum'},
-      chartType: 'bar',
-    },
-  },
-  sharedFilters: ['teacher'],
-})
+const schoolModel = defineDataModel()
+  .dataset('teachers', defineDataset<TeacherRow>()
+    .key('id')
+    .columns((c) => [
+      c.category('name', {label: 'Teacher'}),
+    ]))
+  .dataset('students', defineDataset<StudentRow>()
+    .key('id')
+    .columns((c) => [
+      c.category('name', {label: 'Student'}),
+      c.date('enrolledAt', {label: 'Enrolled'}),
+    ]))
+  .dataset('tests', defineDataset<TestRow>()
+    .key('id')
+    .columns((c) => [
+      c.category('subject', {label: 'Subject'}),
+      c.number('score', {label: 'Score', format: 'number'}),
+      c.date('takenAt', {label: 'Test Date'}),
+    ]))
+  .dataset('parentMeetings', defineDataset<ParentMeetingRow>()
+    .key('id')
+    .columns((c) => [
+      c.date('scheduledAt', {label: 'Meeting Date'}),
+      c.category('status', {label: 'Status'}),
+      c.number('durationMinutes', {label: 'Duration (min)'}),
+    ]))
+  .infer({
+    relationships: true,
+    attributes: true,
+  })
+
+const avgScoreBySubject = schoolModel.chart('avgScoreBySubject', (chart) =>
+  chart
+    .from('tests')
+    .xAxis((x) => x.allowed('subject').default('subject'))
+    .metric((m) =>
+      m
+        .aggregate('score', 'avg')
+        .defaultAggregate('score', 'avg'))
+    .chartType((t) => t.allowed('bar').default('bar')),
+)
+
+const testsByMonth = schoolModel.chart('testsByMonth', (chart) =>
+  chart
+    .from('tests')
+    .xAxis((x) => x.allowed('takenAt').default('takenAt'))
+    .groupBy((g) => g.allowed('subject').default('subject'))
+    .metric((m) => m.count().defaultCount())
+    .timeBucket((t) => t.allowed('month').default('month'))
+    .chartType((t) => t.allowed('grouped-bar').default('grouped-bar')),
+)
+
+const meetingsByStatus = schoolModel.chart('meetingsByStatus', (chart) =>
+  chart
+    .from('parentMeetings')
+    .xAxis((x) => x.allowed('status').default('status'))
+    .metric((m) => m.count().defaultCount())
+    .chartType((t) => t.allowed('donut').default('donut')),
+)
+
+const meetingsByTeacher = schoolModel.chart('meetingsByTeacher', (chart) =>
+  chart
+    .from('parentMeetings')
+    .xAxis((x) => x.allowed('teacher.name').default('teacher.name'))
+    .metric((m) =>
+      m
+        .aggregate('durationMinutes', 'sum')
+        .defaultAggregate('durationMinutes', 'sum'))
+    .chartType((t) => t.allowed('bar').default('bar')),
+)
+
+const schoolDashboard = defineDashboard(schoolModel)
+  .chart('avgScoreBySubject', avgScoreBySubject)
+  .chart('testsByMonth', testsByMonth)
+  .chart('meetingsByStatus', meetingsByStatus)
+  .chart('meetingsByTeacher', meetingsByTeacher)
+  .sharedFilter('teacher')
 
 // ---------------------------------------------------------------------------
 // UI components

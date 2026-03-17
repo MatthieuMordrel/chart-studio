@@ -2,6 +2,7 @@ import {defineDashboard} from './define-dashboard.js'
 import {defineDataModel} from './define-data-model.js'
 import {defineDataset} from './define-dataset.js'
 import {inferColumnsFromData} from './infer-columns.js'
+import {compileModelChartFromState} from './model-chart.js'
 import type {
   DashboardChartRegistration,
   DashboardLocalSharedSelectFilterDefinition,
@@ -9,6 +10,7 @@ import type {
   DefinedDashboard,
 } from './dashboard.types.js'
 import type {
+  AnyDefinedDataModel,
   DefinedDataModel,
   ModelAttributeDefinition,
   ModelRelationshipDefinition,
@@ -671,13 +673,13 @@ type InferredDashboardCharts<
 }
 
 type InferredDashboardSharedFilterDefinition<
-  TModel extends DefinedDataModel,
+  TModel extends AnyDefinedDataModel,
 > =
   | DashboardModelSharedFilterDefinition<string, ModelAttributeDefinition>
   | DashboardLocalSharedSelectFilterDefinition<string, TModel['datasets']>
 
 type InferredDashboardSharedFilters<
-  TModel extends DefinedDataModel,
+  TModel extends AnyDefinedDataModel,
   TSharedFilters,
 > = TSharedFilters extends readonly (infer TFilterId extends string)[]
   ? Record<TFilterId, InferredDashboardSharedFilterDefinition<TModel>>
@@ -711,85 +713,12 @@ export type CreateDashboardResult<
   InferredDashboardSharedFilters<TModel, TSharedFilters>
 >
 
-type RuntimeRelationship = {
-  id: string
-  alias: string
-  fromDataset: string
-  fromKey: string
-  toDataset: string
-  toColumn: string
-  inferred: boolean
-}
-
 type RuntimeDatasetInfo = {
   id: string
-  rows: readonly Record<string, unknown>[]
-  fieldIds: ReadonlySet<string>
   keyId?: string
   dataset: DefinedDataset<any, any, any>
   columns: readonly ChartColumn<any, string>[]
   columnsById: ReadonlyMap<string, ChartColumn<any, string>>
-}
-
-type ResolvedChartField = {
-  internalId: string
-  lookup?: {
-    alias: string
-    relationship: RuntimeRelationship
-    columnId: string
-  }
-}
-
-function capitalize(value: string): string {
-  return value.length === 0
-    ? value
-    : `${value.charAt(0).toUpperCase()}${value.slice(1)}`
-}
-
-function buildProjectedId(alias: string, columnId: string): string {
-  return `${alias}${capitalize(columnId)}`
-}
-
-function singularizeDatasetId(datasetId: string): string {
-  if (datasetId.endsWith('ies')) {
-    return `${datasetId.slice(0, -3)}y`
-  }
-
-  if (datasetId.endsWith('s')) {
-    return datasetId.slice(0, -1)
-  }
-
-  return datasetId
-}
-
-function stripIdSuffix(value: string): string {
-  return value.endsWith('Id')
-    ? value.slice(0, -2)
-    : value
-}
-
-function buildDatasetFieldIds(
-  rows: readonly Record<string, unknown>[],
-  keyId: string | undefined,
-  overrides: RawColumnSchemaMap<Record<string, unknown>> | undefined,
-): ReadonlySet<string> {
-  const fieldIds = new Set<string>()
-
-  rows.forEach((row) => {
-    Object.keys(row).forEach((fieldId) => {
-      fieldIds.add(fieldId)
-    })
-  })
-
-  Object.keys(overrides ?? {}).forEach((fieldId) => {
-    fieldIds.add(fieldId)
-  })
-
-  if (keyId) {
-    fieldIds.add(keyId)
-  }
-
-  return fieldIds
 }
 
 function buildColumnEntry(column: ChartColumn<any, string>): Record<string, unknown> {
@@ -839,258 +768,11 @@ function buildDatasetInfo(
 
   return {
     id: datasetId,
-    rows,
-    fieldIds: buildDatasetFieldIds(rows, keyId, overrides),
     keyId,
     dataset: datasetBuilder.build(),
     columns: inferredColumns,
     columnsById: new Map(inferredColumns.map((column) => [column.id, column])),
   }
-}
-
-function matchRelationshipSourceDatasets(
-  datasets: Record<string, RuntimeDatasetInfo>,
-  targetDatasetId: string,
-  targetColumnId: string,
-): RuntimeDatasetInfo[] {
-  if (!targetColumnId.endsWith('Id')) {
-    return []
-  }
-
-  const alias = stripIdSuffix(targetColumnId)
-  const matches: RuntimeDatasetInfo[] = []
-
-  Object.values(datasets).forEach((dataset) => {
-    if (dataset.id === targetDatasetId || !dataset.keyId) {
-      return
-    }
-
-    if (
-      (dataset.keyId === 'id' && (
-        dataset.id === alias
-        || singularizeDatasetId(dataset.id) === alias
-      ))
-      || dataset.keyId === targetColumnId
-    ) {
-      matches.push(dataset)
-    }
-  })
-
-  return matches
-}
-
-function inferRelationships(
-  datasets: Record<string, RuntimeDatasetInfo>,
-  explicitRelationships: Record<string, CreateDashboardRelationshipConfig<any, any>> | undefined,
-  excludedFieldPairs: ReadonlySet<string>,
-): RuntimeRelationship[] {
-  const relationships: RuntimeRelationship[] = []
-  const explicitTargetPairs = new Set<string>()
-
-  Object.entries(explicitRelationships ?? {}).forEach(([relationshipId, relationship]) => {
-    explicitTargetPairs.add(`${relationship.to.dataset}.${relationship.to.column}`)
-    relationships.push({
-      id: relationshipId,
-      alias: stripIdSuffix(relationship.to.column),
-      fromDataset: relationship.from.dataset,
-      fromKey: relationship.from.key,
-      toDataset: relationship.to.dataset,
-      toColumn: relationship.to.column,
-      inferred: false,
-    })
-  })
-
-  Object.values(datasets).forEach((targetDataset) => {
-    targetDataset.fieldIds.forEach((fieldId) => {
-      const fieldPairId = `${targetDataset.id}.${fieldId}`
-      if (explicitTargetPairs.has(fieldPairId) || excludedFieldPairs.has(fieldPairId)) {
-        return
-      }
-
-      const matches = matchRelationshipSourceDatasets(datasets, targetDataset.id, fieldId)
-      if (matches.length === 0) {
-        return
-      }
-
-      if (matches.length > 1) {
-        throw new Error(
-          `Cannot safely infer relationship for "${targetDataset.id}.${fieldId}". Multiple datasets match: ${matches.map((dataset) => `"${dataset.id}"`).join(', ')}. Add an explicit relationship or exclude "${targetDataset.id}.${fieldId}".`,
-        )
-      }
-
-      const sourceDataset = matches[0]!
-      relationships.push({
-        id: `${targetDataset.id}.${fieldId} -> ${sourceDataset.id}.${sourceDataset.keyId!}`,
-        alias: stripIdSuffix(fieldId),
-        fromDataset: sourceDataset.id,
-        fromKey: sourceDataset.keyId!,
-        toDataset: targetDataset.id,
-        toColumn: fieldId,
-        inferred: true,
-      })
-    })
-  })
-
-  return relationships
-}
-
-function indexRelationshipsByDataset(
-  relationships: readonly RuntimeRelationship[],
-): ReadonlyMap<string, ReadonlyMap<string, RuntimeRelationship>> {
-  const indexed = new Map<string, Map<string, RuntimeRelationship>>()
-
-  relationships.forEach((relationship) => {
-    const relationshipsForDataset = indexed.get(relationship.toDataset) ?? new Map<string, RuntimeRelationship>()
-    const existing = relationshipsForDataset.get(relationship.alias)
-    if (existing && (
-      existing.fromDataset !== relationship.fromDataset
-      || existing.toColumn !== relationship.toColumn
-      || existing.fromKey !== relationship.fromKey
-    )) {
-      throw new Error(
-        `Lookup alias "${relationship.alias}" is ambiguous on dataset "${relationship.toDataset}". Add explicit relationships with distinct foreign-key column names.`,
-      )
-    }
-
-    relationshipsForDataset.set(relationship.alias, relationship)
-    indexed.set(relationship.toDataset, relationshipsForDataset)
-  })
-
-  return indexed
-}
-
-function assertColumnUsage(
-  column: ChartColumn<any, string>,
-  usage: 'xAxis' | 'groupBy' | 'metric',
-  field: string,
-): void {
-  const isValid = usage === 'xAxis'
-    ? column.type === 'date' || column.type === 'category' || column.type === 'boolean'
-    : usage === 'groupBy'
-      ? column.type === 'category' || column.type === 'boolean'
-      : column.type === 'number'
-
-  if (!isValid) {
-    throw new Error(
-      `Field "${field}" cannot be used as a ${usage}. Resolved column type: "${column.type}".`,
-    )
-  }
-}
-
-function resolveChartField(
-  datasets: Record<string, RuntimeDatasetInfo>,
-  relationshipsByDataset: ReadonlyMap<string, ReadonlyMap<string, RuntimeRelationship>>,
-  datasetId: string,
-  field: string,
-  usage: 'xAxis' | 'groupBy' | 'metric',
-): ResolvedChartField {
-  const dotSegments = field.split('.')
-
-  if (dotSegments.length === 1) {
-    const dataset = datasets[datasetId]!
-    const column = dataset.columnsById.get(field)
-    if (!column) {
-      throw new Error(`Unknown field "${field}" on dataset "${datasetId}".`)
-    }
-
-    assertColumnUsage(column, usage, field)
-    return {internalId: field}
-  }
-
-  if (dotSegments.length !== 2) {
-    throw new Error(
-      `Field path "${field}" is not supported. Inferred dashboards only allow one lookup hop such as "owner.name".`,
-    )
-  }
-
-  const [alias, columnId] = dotSegments as [string, string]
-  const relationship = relationshipsByDataset.get(datasetId)?.get(alias)
-  if (!relationship) {
-    throw new Error(`Cannot resolve lookup path "${field}" from dataset "${datasetId}".`)
-  }
-
-  const sourceDataset = datasets[relationship.fromDataset]!
-  const sourceColumn = sourceDataset.columnsById.get(columnId)
-  if (!sourceColumn) {
-    throw new Error(
-      `Lookup path "${field}" references unknown field "${columnId}" on dataset "${relationship.fromDataset}".`,
-    )
-  }
-
-  assertColumnUsage(sourceColumn, usage, field)
-
-  return {
-    internalId: buildProjectedId(alias, columnId),
-    lookup: {
-      alias,
-      relationship,
-      columnId,
-    },
-  }
-}
-
-function selectSharedFilterLabelColumn(dataset: RuntimeDatasetInfo): string {
-  const preferredIds = ['name', 'title', 'label']
-
-  for (const preferredId of preferredIds) {
-    const column = dataset.columnsById.get(preferredId)
-    if (column?.type === 'category' && preferredId !== dataset.keyId) {
-      return preferredId
-    }
-  }
-
-  for (const column of dataset.columns) {
-    if (
-      column.type === 'category'
-      && column.id !== dataset.keyId
-      && !column.id.endsWith('Id')
-    ) {
-      return column.id
-    }
-  }
-
-  return dataset.keyId ?? dataset.columns[0]?.id ?? 'id'
-}
-
-function wrapInferredModel(
-  model: DefinedDataModel,
-  relationships: readonly RuntimeRelationship[],
-): DefinedDataModel {
-  const inferredRelationshipsById = new Map(
-    relationships
-      .filter((relationship) => relationship.inferred)
-      .map((relationship) => [relationship.id, relationship]),
-  )
-
-  if (inferredRelationshipsById.size === 0) {
-    return model
-  }
-
-  const wrappedModel: DefinedDataModel = {
-    ...model,
-    validateData(data) {
-      try {
-        model.validateData(data)
-      } catch (error) {
-        if (error instanceof Error) {
-          for (const [relationshipId, relationship] of inferredRelationshipsById) {
-            if (error.message.startsWith(`Relationship "${relationshipId}"`)) {
-              throw new Error(
-                `Inferred relationship "${relationship.toDataset}.${relationship.toColumn} -> ${relationship.fromDataset}.${relationship.fromKey}" failed validation: ${error.message.slice(`Relationship "${relationshipId}" `.length)} If this is not a real foreign key, exclude it with: exclude: ['${relationship.toDataset}.${relationship.toColumn}']`,
-              )
-            }
-          }
-        }
-
-        throw error
-      }
-    },
-    build() {
-      return wrappedModel
-    },
-  }
-
-  return wrappedModel
 }
 
 /**
@@ -1170,13 +852,6 @@ export function createDashboard<
       ]
     }),
   ) as Record<string, RuntimeDatasetInfo>
-
-  const relationships = inferRelationships(
-    datasetInfos,
-    options.relationships as Record<string, CreateDashboardRelationshipConfig<any, any>> | undefined,
-    new Set(options.exclude ?? []),
-  )
-  const relationshipsByDataset = indexRelationshipsByDataset(relationships)
   const selectedSharedFilters = [...(options.sharedFilters ?? [])]
 
   let modelBuilder: any = defineDataModel()
@@ -1184,141 +859,82 @@ export function createDashboard<
     modelBuilder = modelBuilder.dataset(datasetInfo.id, datasetInfo.dataset)
   })
 
-  relationships.forEach((relationship) => {
-    modelBuilder = modelBuilder.relationship(relationship.id, {
-      from: {dataset: relationship.fromDataset, key: relationship.fromKey},
-      to: {dataset: relationship.toDataset, column: relationship.toColumn},
+  Object.entries(options.relationships ?? {}).forEach(([relationshipId, relationship]) => {
+    const typedRelationship = relationship as CreateDashboardRelationshipConfig<any, any>
+    modelBuilder = modelBuilder.relationship(relationshipId, {
+      from: {dataset: typedRelationship.from.dataset, key: typedRelationship.from.key},
+      to: {dataset: typedRelationship.to.dataset, column: typedRelationship.to.column},
     })
   })
 
-  selectedSharedFilters.forEach((filterId) => {
-    const matchingRelationships = relationships.filter((relationship) => relationship.alias === filterId)
-    if (matchingRelationships.length === 0) {
-      return
-    }
-
-    const sourceDatasetIds = [...new Set(matchingRelationships.map((relationship) => relationship.fromDataset))]
-    if (sourceDatasetIds.length !== 1) {
-      throw new Error(
-        `Shared filter "${filterId}" is ambiguous. Its inferred relationships point to multiple source datasets.`,
-      )
-    }
-
-    const sourceDataset = datasetInfos[sourceDatasetIds[0]!]!
-    if (!sourceDataset.keyId) {
-      throw new Error(
-        `Shared filter "${filterId}" cannot be inferred because dataset "${sourceDataset.id}" has no key.`,
-      )
-    }
-
-    modelBuilder = modelBuilder.attribute(filterId, {
-      kind: 'select',
-      source: {
-        dataset: sourceDataset.id,
-        key: sourceDataset.keyId,
-        label: selectSharedFilterLabelColumn(sourceDataset),
-      },
-      targets: matchingRelationships.map((relationship) => ({
-        dataset: relationship.toDataset,
-        column: relationship.toColumn,
-        via: relationship.id,
-      })) as readonly {
-        dataset: string
-        column: string
-        via: string
-      }[],
-    })
+  modelBuilder = modelBuilder.infer({
+    relationships: true,
+    attributes: true,
+    exclude: options.exclude,
   })
 
-  const builtModel = wrapInferredModel(modelBuilder.build(), relationships) as DefinedDataModel
+  const builtModel = modelBuilder.build() as DefinedDataModel
 
   const compiledCharts = Object.entries(options.charts).map(([chartId, chartConfig]) => {
-    const xAxis = resolveChartField(
-      datasetInfos,
-      relationshipsByDataset,
-      chartConfig.data,
-      chartConfig.xAxis,
-      'xAxis',
-    )
-    const groupBy = chartConfig.groupBy
-      ? resolveChartField(
-          datasetInfos,
-          relationshipsByDataset,
-          chartConfig.data,
-          chartConfig.groupBy,
-          'groupBy',
-        )
-      : undefined
-    const metric = chartConfig.metric === 'count'
-      ? null
-      : resolveChartField(
-          datasetInfos,
-          relationshipsByDataset,
-          chartConfig.data,
-          chartConfig.metric.column,
-          'metric',
-        )
-    const aggregateMetric = chartConfig.metric === 'count'
-      ? null
-      : chartConfig.metric
-
-    const lookups = new Map<string, {relationship: RuntimeRelationship; columns: Set<string>}>()
-    ;[xAxis, groupBy, metric].forEach((resolvedField) => {
-      if (!resolvedField?.lookup) {
-        return
-      }
-
-      const existing = lookups.get(resolvedField.lookup.alias) ?? {
-        relationship: resolvedField.lookup.relationship,
-        columns: new Set<string>(),
-      }
-      existing.columns.add(resolvedField.lookup.columnId)
-      lookups.set(resolvedField.lookup.alias, existing)
-    })
-
-    const chartSource = lookups.size === 0
-      ? datasetInfos[chartConfig.data]!.dataset
-      : (builtModel as any).materialize(`__inferred_${chartId}`, (m: any) => {
-          let builder: any = m.from(chartConfig.data)
-
-          lookups.forEach(({relationship, columns}, alias) => {
-            builder = builder.join(alias, {
-              relationship: relationship.id,
-              columns: [...columns],
-            })
-          })
-
-          return builder.grain(chartConfig.data)
-        })
-
-    let compiledChart: any = chartSource.chart(chartId)
-      .xAxis((x: any) => x.allowed(xAxis.internalId).default(xAxis.internalId))
-
-    if (groupBy) {
-      compiledChart = compiledChart.groupBy((g: any) => g.allowed(groupBy.internalId).default(groupBy.internalId))
-    }
-
-    if (chartConfig.metric === 'count') {
-      compiledChart = compiledChart.metric((m: any) => m.count())
-    } else {
-      compiledChart = compiledChart.metric((m: any) =>
-        m
-          .aggregate(metric!.internalId, aggregateMetric!.fn, aggregateMetric!.includeZeros)
-          .defaultAggregate(metric!.internalId, aggregateMetric!.fn, aggregateMetric!.includeZeros),
-      )
-    }
-
-    if (chartConfig.chartType) {
-      compiledChart = compiledChart.chartType((t: any) => t.allowed(chartConfig.chartType).default(chartConfig.chartType))
-    }
-
-    if (chartConfig.timeBucket) {
-      compiledChart = compiledChart.timeBucket((tb: any) => tb.allowed(chartConfig.timeBucket).default(chartConfig.timeBucket))
-    }
-
     return {
       id: chartId,
-      schema: compiledChart,
+      schema: compileModelChartFromState(
+        builtModel as any,
+        chartId,
+        {
+          baseDatasetId: chartConfig.data,
+          xAxis: {
+            allowed: [chartConfig.xAxis],
+            default: chartConfig.xAxis,
+          },
+          ...(chartConfig.groupBy
+            ? {
+                groupBy: {
+                  allowed: [chartConfig.groupBy],
+                  default: chartConfig.groupBy,
+                },
+              }
+            : {}),
+          metric: chartConfig.metric === 'count'
+            ? {
+                allowed: [{kind: 'count'}],
+                default: {kind: 'count'},
+              }
+            : {
+                allowed: [{
+                  kind: 'aggregate',
+                  columnId: chartConfig.metric.column,
+                  aggregate: chartConfig.metric.fn,
+                  includeZeros: chartConfig.metric.includeZeros,
+                }],
+                default: {
+                  kind: 'aggregate',
+                  columnId: chartConfig.metric.column,
+                  aggregate: chartConfig.metric.fn,
+                  includeZeros: chartConfig.metric.includeZeros,
+                },
+              },
+          ...(chartConfig.chartType
+            ? {
+                chartType: {
+                  allowed: [chartConfig.chartType],
+                  default: chartConfig.chartType,
+                },
+              }
+            : {}),
+          ...(chartConfig.timeBucket
+            ? {
+                timeBucket: {
+                  allowed: [chartConfig.timeBucket],
+                  default: chartConfig.timeBucket,
+                },
+              }
+            : {}),
+        },
+        {
+          hiddenViewIdPrefix: '__inferred_',
+        },
+      ),
     }
   })
 
@@ -1328,8 +944,7 @@ export function createDashboard<
   })
 
   selectedSharedFilters.forEach((filterId) => {
-    const matchingRelationships = relationships.filter((relationship) => relationship.alias === filterId)
-    if (matchingRelationships.length > 0) {
+    if (filterId in builtModel.attributes) {
       dashboardBuilder = dashboardBuilder.sharedFilter(filterId)
       return
     }

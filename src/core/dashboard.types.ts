@@ -1,6 +1,6 @@
 import type {
+  AnyDefinedDataModel,
   DataModelDefinition,
-  DefinedDataModel,
   ModelAttributeDefinition,
   ModelDataInput,
   ModelDatasetId,
@@ -165,18 +165,18 @@ export type DashboardSharedDateRangeFilterDefinition<
 }
 
 export type DashboardSharedFilterDefinition<
-  TModel extends DefinedDataModel = DefinedDataModel,
+  TModel extends AnyDefinedDataModel = AnyDefinedDataModel,
 > =
   | DashboardModelSharedFilterDefinition<string, ModelAttributeDefinition>
   | DashboardLocalSharedSelectFilterDefinition<string, TModel['datasets']>
   | DashboardSharedDateRangeFilterDefinition<string, TModel['datasets']>
 
 export type DashboardSharedFilters<
-  TModel extends DefinedDataModel = DefinedDataModel,
+  TModel extends AnyDefinedDataModel = AnyDefinedDataModel,
 > = Record<string, DashboardSharedFilterDefinition<TModel>>
 
 export type DefinedDashboard<
-  TModel extends DefinedDataModel = DefinedDataModel,
+  TModel extends AnyDefinedDataModel = AnyDefinedDataModel,
   TCharts extends DashboardCharts = {},
   TSharedFilters extends DashboardSharedFilters<TModel> = {},
 > = {
@@ -188,7 +188,7 @@ export type DefinedDashboard<
 }
 
 export type DashboardDefinition<
-  TModel extends DefinedDataModel = DefinedDataModel,
+  TModel extends AnyDefinedDataModel = AnyDefinedDataModel,
   TCharts extends DashboardCharts = {},
   TSharedFilters extends DashboardSharedFilters<TModel> = {},
 > = {
@@ -344,7 +344,7 @@ export type DashboardRuntime<
 }
 
 export interface DashboardBuilder<
-  TModel extends DefinedDataModel = DefinedDataModel,
+  TModel extends AnyDefinedDataModel = AnyDefinedDataModel,
   TCharts extends DashboardCharts = {},
   TSharedFilters extends DashboardSharedFilters<TModel> = {},
 > extends DashboardDefinition<TModel, TCharts, TSharedFilters> {

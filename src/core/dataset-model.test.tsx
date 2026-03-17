@@ -1,7 +1,9 @@
 import {renderHook} from '@testing-library/react'
 import {describe, expect, it} from 'vitest'
 import {defineDataModel} from './define-data-model.js'
+import {defineDashboard} from './define-dashboard.js'
 import {defineDataset} from './define-dataset.js'
+import {useDashboard, useDashboardChart} from './use-dashboard.js'
 import {useChart} from './use-chart.js'
 
 type JobRow = {
@@ -17,6 +19,13 @@ type OwnerRow = {
   id: string
   name: string
   region: string
+}
+
+type CandidateRow = {
+  id: string
+  ownerId: string | null
+  stage: 'applied' | 'onsite'
+  appliedAt: string
 }
 
 type SkillRow = {
@@ -84,6 +93,11 @@ const validJobs: JobRow[] = [
 const validOwners: OwnerRow[] = [
   {id: 'owner-1', name: 'Alice', region: 'EU'},
   {id: 'owner-2', name: 'Bob', region: 'US'},
+]
+
+const validCandidates: CandidateRow[] = [
+  {id: 'candidate-1', ownerId: 'owner-1', stage: 'applied', appliedAt: '2026-01-15'},
+  {id: 'candidate-2', ownerId: 'owner-2', stage: 'onsite', appliedAt: '2026-03-20'},
 ]
 
 const validSkills: SkillRow[] = [
@@ -198,6 +212,83 @@ describe('dataset builder', () => {
 })
 
 describe('data model builder', () => {
+  it('supports inline datasets with inferred relationships and shared-filter attributes', () => {
+    const model = defineDataModel()
+      .dataset('jobs', defineDataset<JobRow>()
+        .key('id')
+        .columns((c) => [
+          c.date('createdAt'),
+          c.number('salary'),
+        ]))
+      .dataset('owners', defineDataset<OwnerRow>()
+        .key('id')
+        .columns((c) => [
+          c.category('name', {label: 'Owner'}),
+          c.category('region'),
+        ]))
+      .dataset('candidates', defineDataset<CandidateRow>()
+        .key('id')
+        .columns((c) => [
+          c.category('stage'),
+          c.date('appliedAt'),
+        ]))
+      .infer({
+        relationships: true,
+        attributes: true,
+      })
+      .build()
+
+    expect(model.relationships['jobs.ownerId -> owners.id']).toEqual({
+      kind: 'relationship',
+      id: 'jobs.ownerId -> owners.id',
+      from: {dataset: 'owners', key: 'id'},
+      to: {dataset: 'jobs', column: 'ownerId'},
+      reverse: {
+        dataset: 'jobs',
+        column: 'ownerId',
+        to: {dataset: 'owners', key: 'id'},
+      },
+    })
+    expect(model.relationships['candidates.ownerId -> owners.id']).toEqual({
+      kind: 'relationship',
+      id: 'candidates.ownerId -> owners.id',
+      from: {dataset: 'owners', key: 'id'},
+      to: {dataset: 'candidates', column: 'ownerId'},
+      reverse: {
+        dataset: 'candidates',
+        column: 'ownerId',
+        to: {dataset: 'owners', key: 'id'},
+      },
+    })
+    expect(model.attributes.owner).toEqual({
+      id: 'owner',
+      kind: 'select',
+      source: {dataset: 'owners', key: 'id', label: 'name'},
+      targets: [
+        {dataset: 'jobs', column: 'ownerId', via: 'jobs.ownerId -> owners.id'},
+        {dataset: 'candidates', column: 'ownerId', via: 'candidates.ownerId -> owners.id'},
+      ],
+    })
+
+    const dashboardDefinition = defineDashboard(model)
+      .sharedFilter('owner')
+      .build()
+
+    const {result} = renderHook(() =>
+      useDashboard({
+        definition: dashboardDefinition,
+        data: {
+          jobs: validJobs,
+          owners: validOwners,
+          candidates: validCandidates,
+        },
+      }),
+    )
+
+    expect(result.current.sharedFilterIds).toEqual(['owner'])
+    expect(result.current.sharedFilter('owner').kind).toBe('select')
+  })
+
   it('derives reverse traversal metadata from the same relationship and keeps model attributes explicit', () => {
     const model = defineDataModel()
       .dataset('jobs', jobs)
@@ -325,6 +416,118 @@ describe('data model builder', () => {
         skills: validSkills,
       }),
     ).toThrow('Association "jobSkills" has an orphan derived key "skill-missing"')
+  })
+
+  it('rewrites inferred relationship validation failures with exclusion guidance', () => {
+    const model = defineDataModel()
+      .dataset('jobs', defineDataset<JobRow>()
+        .key('id')
+        .columns((c) => [
+          c.date('createdAt'),
+          c.number('salary'),
+        ]))
+      .dataset('owners', defineDataset<OwnerRow>()
+        .key('id')
+        .columns((c) => [
+          c.category('name'),
+        ]))
+      .infer({
+        relationships: true,
+        attributes: true,
+      })
+
+    expect(() =>
+      model.validateData({
+        jobs: [
+          {
+            ...validJobs[0]!,
+            ownerId: 'owner-missing',
+          },
+        ],
+        owners: validOwners,
+      }),
+    ).toThrow(`exclude: ['jobs.ownerId']`)
+  })
+
+  it('authors lookup-preserving charts against the model and compiles them into materialized-view-backed schemas', () => {
+    const model = defineDataModel()
+      .dataset('jobs', defineDataset<JobRow>()
+        .key('id')
+        .columns((c) => [
+          c.date('createdAt'),
+          c.number('salary'),
+        ]))
+      .dataset('owners', defineDataset<OwnerRow>()
+        .key('id')
+        .columns((c) => [
+          c.category('name', {label: 'Owner'}),
+          c.category('region'),
+        ]))
+      .infer({
+        relationships: true,
+        attributes: true,
+      })
+
+    const jobsByOwner = model.chart('jobsByOwner', (chart) =>
+      chart
+        .from('jobs')
+        .xAxis((x) => x.allowed('createdAt', 'owner.name').default('owner.name'))
+        .filters((f) => f.allowed('owner.region'))
+        .metric((m) =>
+          m
+            .aggregate('salary', 'avg')
+            .defaultAggregate('salary', 'avg'))
+        .chartType((t) => t.allowed('bar').default('bar')),
+    )
+
+    const dashboardDefinition = defineDashboard(model)
+      .chart('jobsByOwner', jobsByOwner)
+      .sharedFilter('owner')
+      .build()
+
+    const {result} = renderHook(() => {
+      const dashboard = useDashboard({
+        definition: dashboardDefinition,
+        data: {
+          jobs: validJobs,
+          owners: validOwners,
+        },
+      })
+
+      return {
+        resolvedChart: dashboard.chart('jobsByOwner'),
+        chart: useDashboardChart(dashboard, 'jobsByOwner'),
+      }
+    })
+
+    expect(result.current.resolvedChart.source.kind).toBe('materialized-view')
+    if (result.current.resolvedChart.source.kind !== 'materialized-view') {
+      throw new Error('Expected jobsByOwner to resolve through a materialized view.')
+    }
+
+    expect(result.current.resolvedChart.source.view.materialization).toEqual({
+      id: '__lookup_jobsByOwner',
+      baseDataset: 'jobs',
+      grain: 'jobs',
+      steps: [
+        {
+          kind: 'join',
+          alias: 'owner',
+          relationship: 'jobs.ownerId -> owners.id',
+          targetDataset: 'owners',
+          projectedColumns: ['name', 'region'],
+        },
+      ],
+    })
+    expect(result.current.chart.xAxisId).toBe('ownerName')
+    expect(result.current.chart.columns.map((column) => column.id)).toEqual([
+      'id',
+      'ownerId',
+      'createdAt',
+      'salary',
+      'ownerName',
+      'ownerRegion',
+    ])
   })
 
   it('materializes lookup views explicitly and reuses declared related-table columns', () => {

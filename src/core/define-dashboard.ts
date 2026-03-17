@@ -11,14 +11,14 @@ import type {
   ResolvedDashboardFromDefinition,
 } from './dashboard.types.js'
 import type {
+  AnyDefinedDataModel,
   DataModelDefinition,
-  DefinedDataModel,
 } from './data-model.types.js'
 
 type UniqueStateId = Record<string, unknown>
 
 type DashboardState<
-  TModel extends DefinedDataModel,
+  TModel extends AnyDefinedDataModel,
   TCharts extends DashboardCharts,
   TSharedFilters extends DashboardSharedFilters<TModel>,
 > = {
@@ -65,7 +65,7 @@ function getDatasetChartMetadata(
 }
 
 function findModelDatasetId(
-  model: DefinedDataModel,
+  model: AnyDefinedDataModel,
   dataset: unknown,
 ): string | undefined {
   return Object.entries(model.datasets).find(([, candidate]) => candidate === dataset)?.[0]
@@ -90,7 +90,7 @@ function isMaterializedView(
 }
 
 function resolveChartDataSource(
-  model: DefinedDataModel,
+  model: AnyDefinedDataModel,
   datasetOrView: unknown,
 ): DashboardChartDataSource<string> | undefined {
   const datasetId = findModelDatasetId(model, datasetOrView)
@@ -120,7 +120,7 @@ function resolveChartDataSource(
 }
 
 function createDefinedDashboard<
-  TModel extends DefinedDataModel,
+  TModel extends AnyDefinedDataModel,
   TCharts extends DashboardCharts,
   TSharedFilters extends DashboardSharedFilters<TModel>,
 >(
@@ -151,7 +151,7 @@ function createDefinedDashboard<
 }
 
 function createDashboardBuilder<
-  TModel extends DefinedDataModel,
+  TModel extends AnyDefinedDataModel,
   TCharts extends DashboardCharts = {},
   TSharedFilters extends DashboardSharedFilters<TModel> = {},
 >(

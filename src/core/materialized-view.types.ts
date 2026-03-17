@@ -1,4 +1,5 @@
 import type {
+  AnyDefinedDataModel,
   DefinedDataModel,
   ModelAssociationDefinition,
   ModelAttributeDefinition,
@@ -372,7 +373,7 @@ export type DefinedMaterializedView<
   TRow,
   TColumns extends Record<string, unknown> | undefined,
   TKey extends readonly string[] | undefined,
-  TModel extends DefinedDataModel = DefinedDataModel,
+  TModel extends AnyDefinedDataModel = AnyDefinedDataModel,
   TId extends string = string,
   TBaseDatasetId extends string = string,
   TGrain extends string = string,
@@ -414,7 +415,7 @@ export type MaterializedViewDefinition<
   TRow,
   TColumns extends Record<string, unknown> | undefined,
   TKey extends readonly string[] | undefined,
-  TModel extends DefinedDataModel = DefinedDataModel,
+  TModel extends AnyDefinedDataModel = AnyDefinedDataModel,
   TId extends string = string,
   TBaseDatasetId extends string = string,
   TGrain extends string = string,

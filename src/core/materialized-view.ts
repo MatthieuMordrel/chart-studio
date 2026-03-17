@@ -354,11 +354,10 @@ function buildProjectedColumnConfig(
 
 /** Build a key lookup for one dataset so lookup joins and expansions stay fast. */
 function buildDatasetKeyIndex(
-  datasetId: string,
-  dataset: DefinedDataset<any, any, any>,
+  _datasetId: string,
+  keyId: string,
   rows: readonly Record<string, unknown>[],
 ): DatasetKeyIndex {
-  const keyId = getSingleDatasetKeyId(datasetId, dataset)
   const rowsByKey = new Map<string, Record<string, unknown>>()
 
   rows.forEach((row) => {
@@ -710,9 +709,15 @@ function createDefinedMaterializedView<
           }
 
           const dataset = definition.model.datasets[datasetId]!
+          const relationship = definition.steps.find((step) =>
+            step.kind === 'join'
+            && step.targetDatasetId === datasetId,
+          ) as LookupStep | undefined
           const index = buildDatasetKeyIndex(
             datasetId,
-            dataset,
+            relationship
+              ? (definition.model.relationships[relationship.relationshipId] as ModelRelationshipDefinition).from.key
+              : getSingleDatasetKeyId(datasetId, dataset),
             data[datasetId] as readonly Record<string, unknown>[],
           )
           datasetIndexCache.set(datasetId, index)

@@ -1,5 +1,13 @@
 import {resolveDatasetDefinition, validateDatasetData} from './define-dataset.js'
 import {createMaterializationStartBuilder} from './materialized-view.js'
+import {compileModelChart} from './model-chart.js'
+import {
+  attachModelRuntimeMetadata,
+  getModelRuntimeMetadata,
+  inferModelAttributes,
+  inferModelRelationships,
+  rewriteInferredRelationshipError,
+} from './model-inference.js'
 import type {
   DataModelBuilder,
   DefinedDataModel,
@@ -23,6 +31,7 @@ type DataModelState<
   relationships: TRelationships
   associations: TAssociations
   attributes: TAttributes
+  inferredRelationshipIds: ReadonlySet<string>
 }
 
 function formatValue(value: unknown): string {
@@ -77,13 +86,12 @@ function getDatasetOrThrow(
 
 function createKeyLookup(
   datasetId: string,
-  dataset: DefinedDataset<any, any, any>,
+  keyId: string,
   rows: readonly any[],
 ): {
   keyId: string
   values: Set<string>
 } {
-  const keyId = getSingleDatasetKey(dataset, datasetId)
   const values = new Set<string>()
 
   rows.forEach((row, index) => {
@@ -105,10 +113,10 @@ function createKeyLookup(
 function validateRelationshipData(
   relationship: ModelRelationshipDefinition,
   data: ModelDataInput<any>,
-  keyLookups: Record<string, {keyId: string; values: Set<string>}>,
+  keyLookups: Record<string, Record<string, {keyId: string; values: Set<string>}>>,
 ): void {
   const toRows = data[relationship.to.dataset]
-  const sourceLookup = keyLookups[relationship.from.dataset]
+  const sourceLookup = keyLookups[relationship.from.dataset]?.[relationship.from.key]
 
   if (!sourceLookup) {
     throw new Error(`Relationship "${relationship.id}" requires dataset "${relationship.from.dataset}" data.`)
@@ -171,7 +179,7 @@ function validateDerivedAssociationData(
   association: ModelAssociationDefinition,
   state: DataModelState<any, any, any, any>,
   data: ModelDataInput<any>,
-  keyLookups: Record<string, {keyId: string; values: Set<string>}>,
+  keyLookups: Record<string, Record<string, {keyId: string; values: Set<string>}>>,
 ): void {
   const derivedEdge = association.edge
 
@@ -186,7 +194,10 @@ function validateDerivedAssociationData(
   const oppositeDatasetId = deriveDatasetId === association.from.dataset
     ? association.to.dataset
     : association.from.dataset
-  const oppositeLookup = keyLookups[oppositeDatasetId]
+  const oppositeKeyId = oppositeDatasetId === association.from.dataset
+    ? association.from.key
+    : association.to.key
+  const oppositeLookup = keyLookups[oppositeDatasetId]?.[oppositeKeyId]
 
   if (!oppositeLookup) {
     throw new Error(`Association "${association.id}" requires dataset "${oppositeDatasetId}" data.`)
@@ -226,10 +237,10 @@ function validateAssociationData(
   association: ModelAssociationDefinition,
   state: DataModelState<any, any, any, any>,
   data: ModelDataInput<any>,
-  keyLookups: Record<string, {keyId: string; values: Set<string>}>,
+  keyLookups: Record<string, Record<string, {keyId: string; values: Set<string>}>>,
 ): void {
-  const fromLookup = keyLookups[association.from.dataset]
-  const toLookup = keyLookups[association.to.dataset]
+  const fromLookup = keyLookups[association.from.dataset]?.[association.from.key]
+  const toLookup = keyLookups[association.to.dataset]?.[association.to.key]
 
   if (!fromLookup || !toLookup) {
     throw new Error(`Association "${association.id}" requires both endpoint datasets to be present.`)
@@ -254,7 +265,22 @@ function validateModelRuntimeData(
   state: DataModelState<any, any, any, any>,
   data: ModelDataInput<any>,
 ): void {
-  const keyLookups: Record<string, {keyId: string; values: Set<string>}> = {}
+  const keyLookups: Record<string, Record<string, {keyId: string; values: Set<string>}>> = {}
+  const requiredKeysByDataset = new Map<string, Set<string>>()
+
+  const addRequiredKey = (datasetId: string, keyId: string | undefined) => {
+    if (!keyId) {
+      return
+    }
+
+    const existing = requiredKeysByDataset.get(datasetId)
+    if (existing) {
+      existing.add(keyId)
+      return
+    }
+
+    requiredKeysByDataset.set(datasetId, new Set([keyId]))
+  }
 
   ;(Object.entries(state.datasets) as Array<[string, DefinedDataset<any, any, any>]>).forEach(([datasetId, dataset]) => {
     const rows = data[datasetId]
@@ -263,10 +289,37 @@ function validateModelRuntimeData(
     }
 
     validateDatasetData(dataset, rows, datasetId)
+  })
 
+  ;(Object.values(state.relationships) as ModelRelationshipDefinition[]).forEach((relationship) => {
+    addRequiredKey(relationship.from.dataset, relationship.from.key)
+  })
+
+  ;(Object.values(state.associations) as ModelAssociationDefinition[]).forEach((association) => {
+    addRequiredKey(association.from.dataset, association.from.key)
+    addRequiredKey(association.to.dataset, association.to.key)
+  })
+
+  ;(Object.values(state.attributes) as ModelAttributeDefinition[]).forEach((attribute) => {
+    addRequiredKey(attribute.source.dataset, attribute.source.key)
+  })
+
+  ;(Object.entries(state.datasets) as Array<[string, DefinedDataset<any, any, any>]>).forEach(([datasetId, dataset]) => {
     if (dataset.key && dataset.key.length === 1) {
-      keyLookups[datasetId] = createKeyLookup(datasetId, dataset, rows)
+      addRequiredKey(datasetId, dataset.key[0])
     }
+  })
+
+  requiredKeysByDataset.forEach((keyIds, datasetId) => {
+    const rows = data[datasetId]
+    if (!Array.isArray(rows)) {
+      throw new Error(`Missing dataset data for "${datasetId}".`)
+    }
+
+    keyLookups[datasetId] = {}
+    keyIds.forEach((keyId) => {
+      keyLookups[datasetId]![keyId] = createKeyLookup(datasetId, keyId, rows)
+    })
   })
 
   ;(Object.values(state.relationships) as ModelRelationshipDefinition[]).forEach((relationship) => {
@@ -303,14 +356,42 @@ function createDefinedDataModel<
           createMaterializationStartBuilder(id, definedModel),
         )
       },
+      chart(id, defineChart) {
+        return compileModelChart(definedModel, id, defineChart)
+      },
       validateData(data) {
-        validateModelRuntimeData(state, data)
+        try {
+          validateModelRuntimeData(state, data)
+        } catch (error) {
+          rewriteInferredRelationshipError(
+            getModelRuntimeMetadata(definedModel),
+            error,
+          )
+        }
       },
       build() {
         return definedModel
       },
       __dataModelBrand: 'data-model-definition',
     }
+
+    attachModelRuntimeMetadata(definedModel, {
+      inferredRelationships: new Map(
+        [...state.inferredRelationshipIds].map((relationshipId) => {
+          const relationship = state.relationships[relationshipId]!
+          return [
+            relationshipId,
+            {
+              id: relationshipId,
+              fromDataset: relationship.from.dataset,
+              fromKey: relationship.from.key,
+              toDataset: relationship.to.dataset,
+              toColumn: relationship.to.column,
+            },
+          ] as const
+        }),
+      ),
+    })
 
     cachedModel = definedModel
     return definedModel
@@ -330,6 +411,7 @@ function createDataModelBuilder<
     relationships: {} as TRelationships,
     associations: {} as TAssociations,
     attributes: {} as TAttributes,
+    inferredRelationshipIds: new Set(),
   },
 ): DataModelBuilder<TDatasets, TRelationships, TAssociations, TAttributes> {
   let cachedModel: DefinedDataModel<TDatasets, TRelationships, TAssociations, TAttributes> | undefined
@@ -449,6 +531,43 @@ function createDataModelBuilder<
           },
         },
       })
+    },
+    infer(options: any) {
+      const nextRelationships = options.relationships === true
+        ? inferModelRelationships(
+            state.datasets,
+            state.relationships,
+            new Set(options.exclude ?? []),
+          )
+        : {
+            relationships: state.relationships,
+            metadata: {
+              inferredRelationships: new Map(),
+            },
+          }
+      const nextAttributes = options.attributes === true
+        ? inferModelAttributes(
+            state.datasets,
+            nextRelationships.relationships,
+            state.attributes,
+          )
+        : state.attributes
+
+      return createDataModelBuilder({
+        ...state,
+        relationships: nextRelationships.relationships as TRelationships,
+        attributes: nextAttributes as TAttributes,
+        inferredRelationshipIds: new Set([
+          ...state.inferredRelationshipIds,
+          ...nextRelationships.metadata.inferredRelationships.keys(),
+        ]),
+      })
+    },
+    chart(id: any, defineChart: any) {
+      const model = cachedModel ?? createDefinedDataModel(state)
+      cachedModel = model
+
+      return compileModelChart(model, id, defineChart)
     },
     materialize(id: any, defineView: any) {
       const model = cachedModel ?? createDefinedDataModel(state)

@@ -307,5 +307,71 @@ function verifyModelTyping() {
   )
 }
 
+function verifyInferredModelChartTyping() {
+  const inferredModel = defineDataModel()
+    .dataset('jobs', defineDataset<JobRecord>()
+      .key('id')
+      .columns((c) => [
+        c.date('createdAt'),
+        c.number('salary'),
+      ]))
+    .dataset('owners', defineDataset<OwnerRecord>()
+      .key('id')
+      .columns((c) => [
+        c.category('name'),
+        c.category('region'),
+      ]))
+    .infer({
+      relationships: true,
+      attributes: true,
+    })
+
+  const jobsByOwner = inferredModel.chart('jobsByOwner', (chart) =>
+    chart
+      .from('jobs')
+      .xAxis((x) => x.allowed('createdAt', 'owner.name').default('owner.name'))
+      .filters((f) => f.allowed('owner.region'))
+      .metric((m) =>
+        m
+          .aggregate('salary', 'avg')
+          .defaultAggregate('salary', 'avg')),
+  )
+
+  const chart = useChart({
+    data: [] as Array<JobRecord & {ownerName: string | null; ownerRegion: string | null}>,
+    schema: jobsByOwner,
+  })
+
+  expectType<'createdAt' | 'ownerName' | null>(chart.xAxisId)
+  chart.setXAxis('ownerName')
+  chart.toggleFilter('ownerRegion', 'EMEA')
+
+  inferredModel.chart('jobsByRegion', (chart) =>
+    chart
+      .from('jobs')
+      .xAxis((x) => x.allowed('owner.region').default('owner.region'))
+      .metric((m) => m.count()),
+  )
+
+  inferredModel.chart('jobsByMissingOwnerField', (chart) =>
+    chart
+      .from('jobs')
+      .metric((m) => m.count())
+      .xAxis((x) =>
+        // @ts-expect-error unknown lookup fields should fail
+        x.allowed('owner.snapshot').default('owner.snapshot')),
+  )
+
+  inferredModel.chart('jobsBySkill', (chart) =>
+    chart
+      .from('jobs')
+      .metric((m) => m.count())
+      .xAxis((x) =>
+        // @ts-expect-error grain-changing association traversal must stay explicit
+        x.allowed('skill.name').default('skill.name')),
+  )
+}
+
 void verifyDatasetTyping
 void verifyModelTyping
+void verifyInferredModelChartTyping

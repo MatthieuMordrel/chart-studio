@@ -82,21 +82,21 @@ const SCENARIO_GROUPS: ReadonlyArray<ScenarioGroup> = [
     label: 'Dashboards',
     hook: 'useDashboard',
     scenarios: [
-{
+      {
         id: 'typed-inferred-dashboard' as const,
-        label: 'Typed + Inferred',
-        title: 'School Dashboard — Typed Datasets, Inferred Relationships',
+        label: 'Model-First',
+        title: 'School Dashboard — Model-First Inference',
         description:
-          'The recommended path: typed datasets for labels, formatting, and derived columns — relationships inferred automatically. ' +
-          'One shared teacher filter controls four charts across students and parent meetings without any manual model plumbing.'
+          'The recommended path: define datasets on a data model, infer safe relationships and shared-filter attributes there, ' +
+          'author charts on the model, then compose them with defineDashboard(model).'
       },
       {
         id: 'dataset-model' as const,
-        label: 'Explicit Dashboard',
-        title: 'Hiring Requisitions — Explicit Dashboard API',
+        label: 'Explicit Model',
+        title: 'Hiring Requisitions — Explicit Model + Dashboard',
         description:
-          'A realistic hiring planning dashboard built on the dashboard APIs: reusable dataset-owned columns, ' +
-          'multiple charts from one requisition dataset, and an explicit linked model for owners, skills, associations, and validation.'
+          'A realistic hiring planning dashboard with an explicit linked model for owners, skills, associations, validation, ' +
+          'and reusable materialized views when the chart grain must change.'
       },
     ],
   },

@@ -1,4 +1,5 @@
 import type {
+  DatasetChartDefinition,
   DatasetDefinition,
   DatasetRow,
   DefinedDataset,
@@ -9,6 +10,15 @@ import type {
   MaterializedViewDefinition,
   ModelMaterializationStartBuilder,
 } from './materialized-view.types.js'
+import type {
+  CompileModelChartDefinition,
+  ModelChartBuilder,
+  ModelChartStartBuilder,
+} from './model-chart.types.js'
+import type {
+  InferAttributesForModel,
+  InferRelationshipsForModel,
+} from './model-inference.types.js'
 import type {
   InferableFieldKey,
   ResolvedGroupByColumnIdFromSchema,
@@ -285,11 +295,26 @@ export type ModelDataInput<TDatasets extends ModelDatasets> = {
   readonly [TId in keyof TDatasets]: readonly DatasetRow<TDatasets[TId]>[]
 }
 
+export type ModelInferExcludeId<
+  TDatasets extends ModelDatasets,
+> = {
+  [TDatasetId in ModelDatasetId<TDatasets>]: `${TDatasetId}.${InferableFieldKey<DatasetRow<TDatasets[TDatasetId]>>}`
+}[ModelDatasetId<TDatasets>]
+
+export type ModelInferOptions<
+  TDatasets extends ModelDatasets,
+  TExclude extends readonly ModelInferExcludeId<TDatasets>[] | undefined = readonly ModelInferExcludeId<TDatasets>[] | undefined,
+> = {
+  readonly relationships?: boolean
+  readonly attributes?: boolean
+  readonly exclude?: TExclude
+}
+
 export type DefinedDataModel<
-  TDatasets extends ModelDatasets = {},
-  TRelationships extends Record<string, ModelRelationshipDefinition> = {},
-  TAssociations extends Record<string, ModelAssociationDefinition> = {},
-  TAttributes extends Record<string, ModelAttributeDefinition> = {},
+  TDatasets extends ModelDatasets = ModelDatasets,
+  TRelationships extends Record<string, ModelRelationshipDefinition> = Record<string, ModelRelationshipDefinition>,
+  TAssociations extends Record<string, ModelAssociationDefinition> = Record<string, ModelAssociationDefinition>,
+  TAttributes extends Record<string, ModelAttributeDefinition> = Record<string, ModelAttributeDefinition>,
 > = {
   readonly datasets: TDatasets
   readonly relationships: TRelationships
@@ -316,6 +341,15 @@ export type DefinedDataModel<
       >,
     ) => TMaterializedView,
   ): TMaterializedView
+  chart<
+    const TChartId extends string,
+    const TBuilder extends ModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>,
+  >(
+    id: TChartId,
+    defineChart: (
+      chart: ModelChartStartBuilder<TDatasets, TRelationships>,
+    ) => TBuilder,
+  ): CompileModelChartDefinition<TDatasets, TRelationships, TBuilder, TChartId>
   validateData(data: ModelDataInput<TDatasets>): void
   build(): DefinedDataModel<TDatasets, TRelationships, TAssociations, TAttributes>
   readonly __dataModelBrand: 'data-model-definition'
@@ -334,6 +368,24 @@ export type ResolvedDataModelFromDefinition<TModel> =
   TModel extends DataModelDefinition<any, any, any, any>
     ? ReturnType<TModel['build']>
     : never
+
+export type AnyDefinedDataModel = {
+  readonly datasets: ModelDatasets
+  readonly relationships: Record<string, ModelRelationshipDefinition>
+  readonly associations: Record<string, ModelAssociationDefinition>
+  readonly attributes: Record<string, ModelAttributeDefinition>
+  materialize: (
+    id: string,
+    defineView: (materialize: ModelMaterializationStartBuilder<any, any, any, any, string>) => MaterializedViewDefinition<any, any, any, any>,
+  ) => MaterializedViewDefinition<any, any, any, any>
+  chart: (
+    id: string,
+    defineChart: (chart: ModelChartStartBuilder<any, any>) => ModelChartBuilder<any, any, any, any, any, any, any, any, any, any>,
+  ) => DatasetChartDefinition<any, any, any, any, any, any, any, any, any, any>
+  validateData(data: ModelDataInput<ModelDatasets>): void
+  build(): AnyDefinedDataModel
+  readonly __dataModelBrand: 'data-model-definition'
+}
 
 export interface DataModelBuilder<
   TDatasets extends ModelDatasets = {},
@@ -450,6 +502,45 @@ export interface DataModelBuilder<
     TAssociations,
     TAttributes & Record<TId, ModelAttributeDefinition<TSourceDatasetId, TTargets>>
   >
+
+  infer<
+    const TOptions extends ModelInferOptions<TDatasets>,
+  >(
+    options: TOptions,
+  ): DataModelBuilder<
+    TDatasets,
+    TOptions['relationships'] extends true
+      ? InferRelationshipsForModel<
+          TDatasets,
+          TRelationships,
+          Extract<TOptions['exclude'], readonly string[] | undefined>
+        >
+      : TRelationships,
+    TAssociations,
+    TOptions['attributes'] extends true
+      ? InferAttributesForModel<
+          TDatasets,
+          TOptions['relationships'] extends true
+            ? InferRelationshipsForModel<
+                TDatasets,
+                TRelationships,
+                Extract<TOptions['exclude'], readonly string[] | undefined>
+              >
+            : TRelationships,
+          TAttributes
+        >
+      : TAttributes
+  >
+
+  chart<
+    const TChartId extends string,
+    const TBuilder extends ModelChartBuilder<TDatasets, TRelationships, any, any, any, any, any, any, any, any>,
+  >(
+    id: TChartId,
+    defineChart: (
+      chart: ModelChartStartBuilder<TDatasets, TRelationships>,
+    ) => TBuilder,
+  ): CompileModelChartDefinition<TDatasets, TRelationships, TBuilder, TChartId>
 
   /**
    * Define one reusable materialized view without collapsing model, chart, and
