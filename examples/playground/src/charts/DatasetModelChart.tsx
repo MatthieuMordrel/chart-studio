@@ -503,17 +503,14 @@ const projectPlansDataset = projectPlans.build()
 function SummaryMetric({
   label,
   value,
-  detail,
 }: {
   label: string
   value: string
-  detail: string
 }) {
   return (
-    <div className='rounded-2xl border border-border/60 bg-background/90 p-4 shadow-sm'>
-      <div className='text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'>{label}</div>
-      <div className='mt-2 text-2xl font-semibold text-foreground'>{value}</div>
-      <div className='mt-1 text-xs leading-5 text-muted-foreground'>{detail}</div>
+    <div className='rounded-xl border border-border bg-background px-3 py-2'>
+      <div className='text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'>{label}</div>
+      <div className='mt-1 text-lg font-semibold text-foreground'>{value}</div>
     </div>
   )
 }
@@ -525,14 +522,14 @@ function DashboardCard({
   children,
 }: {
   title: string
-  subtitle: string
+  subtitle?: string
   children: ReactNode
 }) {
   return (
-    <section className='overflow-hidden rounded-3xl border border-border/60 bg-background shadow-sm'>
-      <div className='border-b border-border/60 px-4 py-3'>
+    <section className='overflow-hidden rounded-xl border border-border bg-background'>
+      <div className='border-b border-border px-4 py-3'>
         <h3 className='text-sm font-semibold text-foreground'>{title}</h3>
-        <p className='mt-1 text-xs text-muted-foreground'>{subtitle}</p>
+        {subtitle && <p className='text-xs text-muted-foreground'>{subtitle}</p>}
       </div>
       <div className='p-4'>{children}</div>
     </section>
@@ -588,30 +585,27 @@ function topCapabilityDemand(
 
 /** Render one reusable select-style shared filter card. */
 function SharedSelectFilterCard({
-  description,
   filter,
 }: {
-  description: string
   filter: DashboardSharedSelectFilterRuntime
 }) {
   return (
-    <div className='rounded-2xl border border-border/60 bg-muted/10 p-3'>
-      <div className='flex items-start justify-between gap-3'>
-        <div>
-          <div className='text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground'>
-            {filter.label}
-          </div>
-          <p className='mt-1 text-xs leading-5 text-muted-foreground'>{description}</p>
+    <div className='space-y-1.5'>
+      <div className='flex items-center justify-between'>
+        <div className='text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'>
+          {filter.label}
         </div>
-        <button
-          type='button'
-          onClick={() => filter.clear()}
-          className='rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary'>
-          Clear
-        </button>
+        {filter.values.size > 0 && (
+          <button
+            type='button'
+            onClick={() => filter.clear()}
+            className='text-[10px] font-medium text-muted-foreground transition hover:text-primary'>
+            Clear
+          </button>
+        )}
       </div>
 
-      <div className='mt-3 flex max-h-40 flex-wrap gap-2 overflow-y-auto pr-1'>
+      <div className='flex max-h-32 flex-wrap gap-1.5 overflow-y-auto'>
         {filter.options.map((option) => {
           const isActive = filter.values.has(option.value)
 
@@ -620,13 +614,13 @@ function SharedSelectFilterCard({
               key={option.value}
               type='button'
               onClick={() => filter.toggleValue(option.value)}
-              className={`rounded-full border px-3 py-1.5 text-xs transition ${
+              className={`rounded-full border px-2 py-1 text-[11px] transition ${
                 isActive
                   ? 'border-primary/40 bg-primary/10 text-primary'
-                  : 'border-border/60 bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
               }`}>
               {option.label}
-              <span className='ml-1.5 text-[11px] opacity-75'>{integerFormatter.format(option.count)}</span>
+              <span className='ml-1 text-[10px] opacity-75'>{integerFormatter.format(option.count)}</span>
             </button>
           )
         })}
@@ -646,29 +640,24 @@ function SharedDateRangeCard({
   const customTo = selection.customFilter?.to ?? null
 
   return (
-    <div className='rounded-2xl border border-border/60 bg-muted/10 p-3'>
-      <div className='flex items-start justify-between gap-3'>
-        <div>
-          <div className='text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground'>
-            {filter.label}
-          </div>
-          <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-            Shared date scope applied before each chart&apos;s local filters and metrics.
-          </p>
+    <div className='space-y-1.5'>
+      <div className='flex items-center justify-between'>
+        <div className='text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'>
+          {filter.label}
         </div>
         <button
           type='button'
           onClick={() => filter.clear()}
-          className='rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary'>
+          className='text-[10px] font-medium text-muted-foreground transition hover:text-primary'>
           Reset
         </button>
       </div>
 
-      <div className='mt-3 flex flex-wrap gap-2'>
+      <div className='flex flex-wrap gap-1.5'>
         {[
-          {id: 'all-time', label: 'All Time'},
-          {id: 'last-30-days', label: 'Last 30 Days'},
-          {id: 'last-12-months', label: 'Last 12 Months'},
+          {id: 'all-time', label: 'All'},
+          {id: 'last-30-days', label: '30d'},
+          {id: 'last-12-months', label: '12m'},
         ].map((preset) => {
           const isActive = selection.preset === preset.id
 
@@ -677,10 +666,10 @@ function SharedDateRangeCard({
               key={preset.id}
               type='button'
               onClick={() => filter.setDateRangePreset(preset.id as 'all-time' | 'last-30-days' | 'last-12-months')}
-              className={`rounded-full border px-3 py-1.5 text-xs transition ${
+              className={`rounded-full border px-2 py-1 text-[11px] transition ${
                 isActive
                   ? 'border-primary/40 bg-primary/10 text-primary'
-                  : 'border-border/60 bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
               }`}>
               {preset.label}
             </button>
@@ -688,8 +677,8 @@ function SharedDateRangeCard({
         })}
       </div>
 
-      <div className='mt-3 grid gap-3 sm:grid-cols-2'>
-        <label className='space-y-1 text-xs text-muted-foreground'>
+      <div className='grid grid-cols-2 gap-2'>
+        <label className='space-y-0.5 text-[10px] text-muted-foreground'>
           <span>From</span>
           <input
             type='date'
@@ -700,11 +689,11 @@ function SharedDateRangeCard({
                 to: customTo,
               })
             }
-            className='w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-foreground outline-hidden transition focus:border-primary/40'
+            className='w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-hidden transition focus:border-primary/40'
           />
         </label>
 
-        <label className='space-y-1 text-xs text-muted-foreground'>
+        <label className='space-y-0.5 text-[10px] text-muted-foreground'>
           <span>To</span>
           <input
             type='date'
@@ -715,7 +704,7 @@ function SharedDateRangeCard({
                 to: fromDateInputValue(event.target.value),
               })
             }
-            className='w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-foreground outline-hidden transition focus:border-primary/40'
+            className='w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-hidden transition focus:border-primary/40'
           />
         </label>
       </div>
@@ -723,7 +712,7 @@ function SharedDateRangeCard({
   )
 }
 
-/** Panel explaining how model attributes and dashboard-local filters compose in the example. */
+/** Compact shared filters sidebar panel. */
 function SharedFiltersPanel() {
   const managerFilter = useDashboardSharedFilter('manager')
   const capabilityFilter = useDashboardSharedFilter('capability')
@@ -740,25 +729,13 @@ function SharedFiltersPanel() {
   }
 
   return (
-    <DashboardCard
-      title='Dashboard Shared Filters'
-      subtitle='Phase 6 explicitly coordinates model attributes, one-off dashboard filters, and a shared date range.'>
-      <div className='space-y-3'>
-        <SharedSelectFilterCard
-          filter={managerFilter}
-          description='Model attribute reused from managers.id -> projectPlans.managerId.'
-        />
-        <SharedSelectFilterCard
-          filter={capabilityFilter}
-          description='Model association filter using projectPlans.id <-> capabilities.id edges.'
-        />
-        <SharedSelectFilterCard
-          filter={statusFilter}
-          description='Dashboard-local one-off filter scoped directly to projectPlans.status.'
-        />
-        <SharedDateRangeCard filter={planningDateFilter} />
-      </div>
-    </DashboardCard>
+    <aside className='space-y-4 rounded-xl border border-border bg-background p-4'>
+      <h3 className='text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground'>Global Filters</h3>
+      <SharedSelectFilterCard filter={statusFilter} />
+      <SharedSelectFilterCard filter={managerFilter} />
+      <SharedSelectFilterCard filter={capabilityFilter} />
+      <SharedDateRangeCard filter={planningDateFilter} />
+    </aside>
   )
 }
 
@@ -798,37 +775,13 @@ function DashboardSummarySection() {
   }, [filteredProjectPlans])
 
   return (
-    <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-3'>
-      <SummaryMetric
-        label='Active Plans'
-        value={integerFormatter.format(dashboardSummary.activePlans)}
-        detail='Globally filtered planned and on-hold initiatives still in the active portfolio.'
-      />
-      <SummaryMetric
-        label='Completed In 90 Days'
-        value={integerFormatter.format(dashboardSummary.recentlyCompleted)}
-        detail='Recently completed initiatives after the shared dashboard slice is applied.'
-      />
-      <SummaryMetric
-        label='Avg Time To Complete'
-        value={`${integerFormatter.format(Math.round(dashboardSummary.avgDaysToComplete))} days`}
-        detail='Average days from planning to completion for the filtered cohort.'
-      />
-      <SummaryMetric
-        label='Active Budget'
-        value={currencyFormatter.format(dashboardSummary.totalActiveBudget)}
-        detail='Total midpoint budget on active project plans after global filtering.'
-      />
-      <SummaryMetric
-        label='Active Managers'
-        value={integerFormatter.format(dashboardSummary.activeManagers)}
-        detail='Distinct managers attached to the currently visible project portfolio.'
-      />
-      <SummaryMetric
-        label='Visible Plans'
-        value={integerFormatter.format(filteredProjectPlans.length)}
-        detail='This KPI card reads the same filtered slice as the charts.'
-      />
+    <div className='grid grid-cols-3 gap-2 xl:grid-cols-6'>
+      <SummaryMetric label='Active Plans' value={integerFormatter.format(dashboardSummary.activePlans)} />
+      <SummaryMetric label='Done (90d)' value={integerFormatter.format(dashboardSummary.recentlyCompleted)} />
+      <SummaryMetric label='Avg Days' value={integerFormatter.format(Math.round(dashboardSummary.avgDaysToComplete))} />
+      <SummaryMetric label='Budget' value={currencyFormatter.format(dashboardSummary.totalActiveBudget)} />
+      <SummaryMetric label='Managers' value={integerFormatter.format(dashboardSummary.activeManagers)} />
+      <SummaryMetric label='Total Plans' value={integerFormatter.format(filteredProjectPlans.length)} />
     </div>
   )
 }
@@ -838,13 +791,11 @@ function PlanningVolumeCard() {
   const chart = useDashboardChart('planningVolume')
 
   return (
-    <DashboardCard
-      title='Planning Volume'
-      subtitle='Project plans created over time by initiative, resolved from the dashboard chart registry.'>
+    <DashboardCard title='Planning Volume'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'timeBucket', 'filters']} hidden={['source']} />
-        <div className='mt-4'>
-          <ChartCanvas height={300} />
+        <div className='mt-3'>
+          <ChartCanvas height={260} />
         </div>
       </Chart>
     </DashboardCard>
@@ -873,13 +824,11 @@ function MaterializedManagerLoadCard() {
   })
 
   return (
-    <DashboardCard
-      title='Manager Load'
-      subtitle='Explicit materialized project-plan grain with manager columns projected from the linked model.'>
+    <DashboardCard title='Manager Load'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'filters']} hidden={['source', 'timeBucket']} />
-        <div className='mt-4'>
-          <ChartCanvas height={300} showDataLabels />
+        <div className='mt-3'>
+          <ChartCanvas height={260} showDataLabels />
         </div>
       </Chart>
     </DashboardCard>
@@ -906,13 +855,11 @@ function MaterializedCapabilityDemandCard() {
   })
 
   return (
-    <DashboardCard
-      title='Capability Demand'
-      subtitle='Explicit project-plan-capability grain derived through the model association and reused like a normal dataset.'>
+    <DashboardCard title='Capability Demand'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'filters']} hidden={['source', 'timeBucket']} />
-        <div className='mt-4'>
-          <ChartCanvas height={300} />
+        <div className='mt-3'>
+          <ChartCanvas height={260} />
         </div>
       </Chart>
     </DashboardCard>
@@ -924,13 +871,11 @@ function BudgetMixCard() {
   const chart = useDashboardChart('budgetMix')
 
   return (
-    <DashboardCard
-      title='Budget Mix'
-      subtitle='Average midpoint budget by delivery tier and region to compare the shape of the plan.'>
+    <DashboardCard title='Budget Mix'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'filters', 'metric']} hidden={['source', 'timeBucket']} />
-        <div className='mt-4'>
-          <ChartCanvas height={300} />
+        <div className='mt-3'>
+          <ChartCanvas height={260} />
         </div>
       </Chart>
     </DashboardCard>
@@ -942,13 +887,11 @@ function TimeToCompleteCard() {
   const chart = useDashboardChart('timeToComplete')
 
   return (
-    <DashboardCard
-      title='Time To Complete'
-      subtitle='Average completion time by initiative and region for projects that have already finished.'>
+    <DashboardCard title='Time To Complete'>
       <Chart chart={chart}>
         <ChartToolbar pinned={['groupBy', 'filters', 'metric']} hidden={['source', 'timeBucket']} />
-        <div className='mt-4'>
-          <ChartCanvas height={300} showDataLabels />
+        <div className='mt-3'>
+          <ChartCanvas height={260} showDataLabels />
         </div>
       </Chart>
     </DashboardCard>
@@ -979,27 +922,20 @@ function MetadataSection({validation}: {validation: string}) {
   )
 
   return (
-    <div className='grid gap-4 lg:grid-cols-3'>
-      <DashboardCard
-        title='Dataset Layer'
-        subtitle='Reusable dataset-owned columns still feed every project-planning chart in this tab.'>
-        <div className='space-y-3'>
+    <div className='grid gap-3 lg:grid-cols-3'>
+      <DashboardCard title='Dataset Layer'>
+        <div className='space-y-2'>
           <MetadataLine label='Project plan key' value={(projectPlansDataset.key ?? []).join(', ')} />
           <MetadataLine
             label='Column count'
             value={integerFormatter.format(Object.keys(projectPlansDataset.columns ?? {}).length)}
           />
           <MetadataLine label='Chart registry' value={Object.keys(deliveryPlanningDashboard.charts).join(', ')} />
-          <p className='text-xs leading-5 text-muted-foreground'>
-            `defineDataset(...).columns(...)` stays the reusable source of truth. The dashboard only registers charts by id and resolves them later.
-          </p>
         </div>
       </DashboardCard>
 
-      <DashboardCard
-        title='Dashboard Runtime'
-        subtitle='Phase 5 composes dataset-backed charts; Phase 6 coordinates shared filters explicitly.'>
-        <div className='space-y-3'>
+      <DashboardCard title='Dashboard Runtime'>
+        <div className='space-y-2'>
           <MetadataLine label='Shared filters' value={Object.keys(deliveryPlanningDashboard.sharedFilters).join(', ')} />
           <MetadataLine label='Model attributes' value={Object.keys(deliveryModel.attributes).join(', ')} />
           <MetadataLine
@@ -1007,34 +943,27 @@ function MetadataSection({validation}: {validation: string}) {
             value={[projectPlansWithManager.materialization.id, projectCapabilityView.materialization.id].join(', ')}
           />
           <MetadataLine label='Non-chart consumer' value='useDashboardDataset("projectPlans")' />
-          <p className='rounded-2xl border border-border/60 bg-muted/25 px-3 py-3 text-xs leading-5 text-muted-foreground'>
-            {validation === 'Validated'
-              ? 'Runtime validation passed: dataset keys are unique, manager foreign keys resolve, and every capability edge points at a registered capability. The cards below combine normalized dashboard slices with explicit materialized views instead of hidden joins.'
-              : validation}
-          </p>
+          {validation !== 'Validated' && (
+            <p className='rounded-lg border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs text-destructive'>{validation}</p>
+          )}
         </div>
       </DashboardCard>
 
-      <DashboardCard
-        title='Most Requested Capabilities'
-        subtitle='A non-chart consumer can still reuse an explicit materialized project-plan-capability view when that grain is the honest shape.'>
-        <div className='space-y-2'>
+      <DashboardCard title='Top Capabilities'>
+        <div className='space-y-1.5'>
           {hottestCapabilities.map((capability) => (
             <div
               key={capability.name}
-              className='flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-3 py-2'>
+              className='flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-1.5'>
               <div>
-                <div className='text-sm font-medium text-foreground'>{capability.name}</div>
-                <div className='text-xs text-muted-foreground'>{capability.domain}</div>
+                <div className='text-xs font-medium text-foreground'>{capability.name}</div>
+                <div className='text-[10px] text-muted-foreground'>{capability.domain}</div>
               </div>
-              <div className='rounded-full bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground'>
-                {integerFormatter.format(capability.count)} plans
+              <div className='text-[11px] font-semibold text-muted-foreground'>
+                {integerFormatter.format(capability.count)}
               </div>
             </div>
           ))}
-          <p className='pt-1 text-xs leading-5 text-muted-foreground'>
-            This list reads the shared project-plan slice first, then explicitly materializes `projectCapabilityView` to keep the many-to-many grain visible instead of rebuilding lookup maps by hand.
-          </p>
         </div>
       </DashboardCard>
     </div>
@@ -1044,42 +973,24 @@ function MetadataSection({validation}: {validation: string}) {
 /** Compose the full dataset/model/dashboard/materialized-view example into one screen. */
 function DatasetModelDashboard({validation}: {validation: string}) {
   return (
-    <div className='space-y-6'>
-      <div className='overflow-hidden rounded-[28px] border border-primary/20 bg-linear-to-br from-primary/8 via-background to-background shadow-sm'>
-        <div className='grid gap-6 px-5 py-5 xl:grid-cols-[1.2fr_0.8fr]'>
-          <div className='space-y-4'>
-            <div className='inline-flex rounded-full border border-primary/20 bg-background/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary'>
-              Dataset + Model + Dashboard
-            </div>
-            <div>
-              <h2 className='text-xl font-semibold text-foreground'>Global project planning dashboard</h2>
-              <p className='mt-2 max-w-3xl text-sm leading-6 text-muted-foreground'>
-                This scenario now uses the full additive stack: reusable dataset-owned columns, an explicit linked model for managers and capabilities, a typed dashboard chart registry,
-                shared dashboard filters that coordinate both charts and non-chart consumers, and explicit model-derived views for the cross-dataset grains that genuinely need them.
-              </p>
-            </div>
+    <div className='space-y-4'>
+      <DashboardSummarySection />
 
-            <DashboardSummarySection />
-          </div>
-
+      <div className='grid gap-4 xl:grid-cols-[280px_1fr]'>
+        <div className='xl:sticky xl:top-6 xl:self-start'>
           <SharedFiltersPanel />
+        </div>
+
+        <div className='grid gap-3 lg:grid-cols-2'>
+          <PlanningVolumeCard />
+          <BudgetMixCard />
+          <TimeToCompleteCard />
+          <MaterializedManagerLoadCard />
+          <MaterializedCapabilityDemandCard />
         </div>
       </div>
 
-      <div className='grid gap-4 xl:grid-cols-2'>
-        <PlanningVolumeCard />
-        <BudgetMixCard />
-        <TimeToCompleteCard />
-        <MaterializedManagerLoadCard />
-        <MaterializedCapabilityDemandCard />
-      </div>
-
       <MetadataSection validation={validation} />
-
-      <div className='rounded-3xl border border-border/60 bg-background px-5 py-4 text-xs leading-6 text-muted-foreground shadow-sm'>
-        The contract stays strict: dashboard charts still execute against one flat project-plan dataset, while cross-dataset charts come from explicit model-derived views with visible grains like `project-plan` and `project-plan-capability`.
-        The joins stay opt-in, the many-to-many expansion stays visible, and `useChart({'{'}data, schema{'}'})` remains the simple path underneath both examples.
-      </div>
     </div>
   )
 }

@@ -156,14 +156,6 @@ function DashboardPanel({ title, subtitle, children }: { title: string; subtitle
 export function DashboardChart() {
   return (
     <div className='space-y-4'>
-      <div className='rounded-lg border border-primary/20 bg-primary/5 px-4 py-3'>
-        <h2 className='text-sm font-semibold text-foreground'>Global Events Program — Performance Dashboard</h2>
-        <p className='mt-0.5 text-xs text-muted-foreground'>
-          Four focused charts from a single dataset. Each chart uses <code className='rounded bg-muted px-1 font-mono text-[11px]'>defineChartSchema</code> to
-          lock axes, chart types, and metrics — showing only the controls that matter for each view.
-        </p>
-      </div>
-
       <div className='grid gap-4 lg:grid-cols-2'>
         <RevenueTrendChart />
         <AttendanceByCityChart />

@@ -26,6 +26,7 @@ const SCENARIOS = [
   {
     id: 'kitchen-sink' as const,
     label: 'Kitchen Sink',
+    title: 'Chart Controls — Kitchen Sink Explorer',
     description:
       'Interactive ChartToolbar documentation inside the playground. Toggle each control between ' +
       'pinned, ellipsis, and hidden to understand the full API and the available controls.'
@@ -33,6 +34,7 @@ const SCENARIOS = [
   {
     id: 'single-source' as const,
     label: 'Single Source',
+    title: 'Single Source — Inference-First Mode',
     description:
       'Inference-first single-source mode. Pass raw data directly to useChart and add a schema only ' +
       'when you want explicit labels, derived columns, or tighter control restrictions.'
@@ -40,6 +42,7 @@ const SCENARIOS = [
   {
     id: 'dataset-model' as const,
     label: 'Dataset + Model',
+    title: 'Hiring Requisitions — Dataset + Model API',
     description:
       'A realistic hiring planning dashboard built on the new APIs: reusable dataset-owned columns, ' +
       'multiple charts from one requisition dataset, and an explicit linked model for owners, skills, associations, and validation.'
@@ -47,6 +50,7 @@ const SCENARIOS = [
   {
     id: 'minimal' as const,
     label: 'Minimal Embed',
+    title: 'Minimal Embed — Pinned Controls',
     description:
       'Single source passed directly to useChart. Uses ChartToolbar with three pinned controls ' +
       'so chart type, time bucket, and group by stay visible while the rest remain in overflow.'
@@ -54,6 +58,7 @@ const SCENARIOS = [
   {
     id: 'dashboard' as const,
     label: 'Dashboard',
+    title: 'Global Events Program — Performance Dashboard',
     description:
       'Four focused charts from a single dataset, each with its own schema restricting axes, chart types, ' +
       'and metrics. Shows how defineChartSchema locks down controls to convey a specific data story.'
@@ -61,11 +66,12 @@ const SCENARIOS = [
   {
     id: 'headless' as const,
     label: 'Headless Core',
+    title: 'Headless Core — Zero UI Imports',
     description:
       'Zero imports from /ui — only the core useChart hook. Native HTML controls drive ' +
       'fully-typed state; chart.transformedData is the pipeline output, ready for any renderer.'
   }
-] as const satisfies ReadonlyArray<{ id: ScenarioId; label: string; description: string }>
+] as const satisfies ReadonlyArray<{ id: ScenarioId; label: string; title: string; description: string }>
 
 /** Map each scenario id to its raw source string for the code panel. */
 const SCENARIO_SOURCE: Record<ScenarioId, string> = {
@@ -109,7 +115,10 @@ function App() {
             <ThemeToggle />
           </div>
 
-          <p className='text-sm text-muted-foreground'>{activeScenario.description}</p>
+          <div className='rounded-lg border border-primary/20 bg-primary/5 px-4 py-3'>
+            <h2 className='text-sm font-semibold text-foreground'>{activeScenario.title}</h2>
+            <p className='mt-0.5 text-xs text-muted-foreground'>{activeScenario.description}</p>
+          </div>
         </header>
 
         {scenarioId === 'kitchen-sink' && <KitchenSinkChart />}
