@@ -782,7 +782,7 @@ These methods restrict which options users can select. They apply identically wh
 | --- | --- | --- | --- |
 | `.xAxis(fn)` | Restrict available X-axis columns | Callback receiving a `SelectableControlBuilder` | Only date/category/boolean column IDs are offered |
 | `.groupBy(fn)` | Restrict available grouping columns | Callback receiving a `SelectableControlBuilder` | Only category/boolean column IDs are offered |
-| `.filters(fn)` | Restrict available filter columns | Callback receiving a `SelectableControlBuilder` (no `.default()`) | Only filterable column IDs are offered |
+| `.filters(fn)` | Restrict available filter columns | Callback receiving a `SelectableControlBuilder` (no `.default()`) | Only category/boolean column IDs are offered |
 | `.metric(fn)` | Restrict available metrics | Callback receiving a `MetricBuilder` (see below) | Only numeric column IDs are offered for aggregates |
 | `.chartType(fn)` | Restrict available chart types | Callback receiving a `SelectableControlBuilder` | Values narrowed to `'bar' \| 'grouped-bar' \| 'percent-bar' \| 'line' \| 'area' \| 'percent-area' \| 'pie' \| 'donut' \| 'table'` |
 | `.timeBucket(fn)` | Restrict available time bucket intervals | Callback receiving a `SelectableControlBuilder` | Values narrowed to `'year' \| 'quarter' \| 'month' \| 'week' \| 'day'` |
@@ -801,10 +801,10 @@ These methods restrict which options users can select. They apply identically wh
 
 | Method | What it does | Parameters | Type safety |
 | --- | --- | --- | --- |
-| `.count()` | Enable the row-count metric | — | — |
-| `.aggregate(col, ...aggs)` | Enable numeric aggregations | Column ID, one or more of `'sum' \| 'avg' \| 'min' \| 'max'` | Column must be a `number` column |
-| `.hideCount()` | Hide the count metric from the UI | — | Compile error if count was not added |
-| `.hideAggregate(col, ...aggs)` | Hide specific aggregations | Column ID, aggregation functions | Can only hide what was previously allowed |
+| `.count()` | Whitelist the row-count metric (without this or `.aggregate()`, all metrics are available by default) | — | — |
+| `.aggregate(col, ...aggs)` | Whitelist specific numeric aggregations | Column ID, one or more of `'sum' \| 'avg' \| 'min' \| 'max'` | Column must be a `number` column |
+| `.hideCount()` | Hide count from the default set without whitelisting | — | Compile error if count was explicitly whitelisted and then hidden |
+| `.hideAggregate(col, ...aggs)` | Hide specific aggregations from the default set without whitelisting | Column ID, aggregation functions | Can only hide metrics that are visible |
 | `.defaultCount()` | Set count as the fallback metric | — | Compile error if count is not visible |
 | `.defaultAggregate(col, agg)` | Set a specific aggregation as fallback | Column ID, single aggregation function | Must be visible (allowed and not hidden) |
 
@@ -827,9 +827,9 @@ These methods restrict which options users can select. They apply identically wh
 | Method | What it does | Parameters | Type safety |
 | --- | --- | --- | --- |
 | `.from(datasetId)` | Set the base dataset (determines the starting grain) | Dataset ID | Must be a registered dataset |
-| `.join(alias, config)` | Lookup join (preserves grain) | Alias string, `{ relationship }` | Relationship must exist in the model |
-| `.throughAssociation(alias, config)` | Expand rows through a many-to-many | Alias string, `{ association }` | Association must exist in the model |
-| `.columns(...)` | Project specific columns from a joined/expanded dataset | Column IDs | Only chart-visible columns from the target dataset |
+| `.join(alias, config)` | Lookup join (preserves grain) | Alias string, `{ relationship, columns? }` | Relationship must exist in the model; optional `columns` projects specific fields |
+| `.throughRelationship(alias, config)` | Expand rows through a one-to-many relationship | Alias string, `{ relationship, columns? }` | Relationship must exist in the model |
+| `.throughAssociation(alias, config)` | Expand rows through a many-to-many association | Alias string, `{ association, columns? }` | Association must exist in the model |
 | `.grain(id)` | Declare the output row grain | Grain identifier string | Required when the grain changes (e.g. after `.throughAssociation()`) |
 | `.chart(id?)` | Open the chart-control surface for the materialized view | Optional chart ID | Returns a standard `DatasetChartBuilder` over the flattened row type |
 | `.materialize(data)` | Execute the materialization and return flat rows | Object with all dataset arrays | Returns typed flat rows |
