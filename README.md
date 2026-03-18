@@ -5,8 +5,6 @@ Composable charting for React with two adoption paths:
 - use the **headless core** if you want chart state, filtering, grouping, and transformed data
 - use the **optional UI layer** if you also want ready-made controls and a Recharts canvas
 
-Package: `@matthieumordrel/chart-studio`
-
 ## Start Here
 
 Choose the path that matches your app:
@@ -746,6 +744,106 @@ Start with:
 If you are importing the package source directly in a local playground or monorepo, make sure Tailwind is scanning those source files too.
 
 If your app already uses shadcn-style tokens, also make sure tokens such as `background`, `foreground`, `muted`, `border`, `popover`, `primary`, `ring`, and optionally `chart-1` through `chart-5` are defined in your theme.
+
+## Builder API Reference
+
+All builders use immutable method chaining — each call returns a new builder so the chain is order-independent and composable.
+
+### Dataset definition — `defineDataset<Row>()`
+
+| Method | What it does | Parameters | Type safety |
+| --- | --- | --- | --- |
+| `.key(id)` | Declare the unique row identifier | Field ID or array of field IDs | Only accepts keys of `Row` |
+| `.columns(fn)` | Define column types, labels, formats, exclusions, and derived columns | Callback receiving a `ColumnHelper` (see below) | Duplicate column IDs are rejected at compile time |
+| `.chart(id?)` | Open the chart-control surface | Optional chart ID string | Returns a `DatasetChartBuilder` bound to the resolved columns |
+| `.build()` | Materialize into a plain schema object | — | — |
+| `.validateData(data)` | Runtime key-uniqueness and completeness check | `Row[]` | Throws on duplicate or missing keys |
+
+### Column helpers — inside `.columns((c) => [...])`
+
+| Method | What it does | Parameters | Type safety |
+| --- | --- | --- | --- |
+| `c.field(id, opts?)` | Declare or override a raw field | Field ID, optional `{ type?, label?, format? }` | ID must be a key of `Row` |
+| `c.date(id, opts?)` | Declare a date column | Field ID, optional `{ label?, format? }` | Only accepts fields whose value is `string \| number \| Date` |
+| `c.category(id, opts?)` | Declare a categorical column | Field ID, optional `{ label?, format? }` | Only accepts `string` fields |
+| `c.number(id, opts?)` | Declare a numeric column | Field ID, optional `{ label?, format? }` | Only accepts `number` fields |
+| `c.boolean(id, opts?)` | Declare a boolean column | Field ID, optional `{ trueLabel?, falseLabel? }` | Only accepts `boolean` fields |
+| `c.exclude(id)` | Remove a field from the chart contract | Field ID | ID must be a key of `Row` |
+| `c.derived.date(id, opts)` | Computed date column | New ID, `{ accessor, label?, format? }` | ID must not collide with raw fields |
+| `c.derived.category(id, opts)` | Computed categorical column | New ID, `{ accessor, label?, format? }` | Accessor receives `Row`, must return `string` |
+| `c.derived.number(id, opts)` | Computed numeric column | New ID, `{ accessor, label?, format? }` | Accessor receives `Row`, must return `number` |
+| `c.derived.boolean(id, opts)` | Computed boolean column | New ID, `{ accessor, label?, format? }` | Accessor receives `Row`, must return `boolean` |
+
+### Chart controls — after `.chart()`
+
+These methods restrict which options users can select. They apply identically whether you reach `.chart()` from a dataset, a model, or a materialized view.
+
+| Method | What it does | Parameters | Type safety |
+| --- | --- | --- | --- |
+| `.xAxis(fn)` | Restrict available X-axis columns | Callback receiving a `SelectableControlBuilder` | Only date/category/boolean column IDs are offered |
+| `.groupBy(fn)` | Restrict available grouping columns | Callback receiving a `SelectableControlBuilder` | Only category/boolean column IDs are offered |
+| `.filters(fn)` | Restrict available filter columns | Callback receiving a `SelectableControlBuilder` (no `.default()`) | Only filterable column IDs are offered |
+| `.metric(fn)` | Restrict available metrics | Callback receiving a `MetricBuilder` (see below) | Only numeric column IDs are offered for aggregates |
+| `.chartType(fn)` | Restrict available chart types | Callback receiving a `SelectableControlBuilder` | Values narrowed to `'bar' \| 'grouped-bar' \| 'percent-bar' \| 'line' \| 'area' \| 'percent-area' \| 'pie' \| 'donut' \| 'table'` |
+| `.timeBucket(fn)` | Restrict available time bucket intervals | Callback receiving a `SelectableControlBuilder` | Values narrowed to `'year' \| 'quarter' \| 'month' \| 'week' \| 'day'` |
+| `.connectNulls(bool)` | Connect lines across null values | `boolean` | — |
+| `.build()` | Materialize into a plain schema object | — | — |
+
+#### `SelectableControlBuilder` — inside `.xAxis()`, `.groupBy()`, `.filters()`, `.chartType()`, `.timeBucket()`
+
+| Method | What it does | Parameters | Type safety |
+| --- | --- | --- | --- |
+| `.allowed(...ids)` | Set which options are selectable | One or more option values | Narrows the option union to only the listed values |
+| `.hidden(...ids)` | Hide options from the UI | One or more option values | Must be within the allowed set |
+| `.default(id)` | Fallback when the current selection becomes invalid | Single option value | Must be allowed and not hidden; unavailable on `.filters()` |
+
+#### `MetricBuilder` — inside `.metric()`
+
+| Method | What it does | Parameters | Type safety |
+| --- | --- | --- | --- |
+| `.count()` | Enable the row-count metric | — | — |
+| `.aggregate(col, ...aggs)` | Enable numeric aggregations | Column ID, one or more of `'sum' \| 'avg' \| 'min' \| 'max'` | Column must be a `number` column |
+| `.hideCount()` | Hide the count metric from the UI | — | Compile error if count was not added |
+| `.hideAggregate(col, ...aggs)` | Hide specific aggregations | Column ID, aggregation functions | Can only hide what was previously allowed |
+| `.defaultCount()` | Set count as the fallback metric | — | Compile error if count is not visible |
+| `.defaultAggregate(col, agg)` | Set a specific aggregation as fallback | Column ID, single aggregation function | Must be visible (allowed and not hidden) |
+
+### Data model — `defineDataModel()`
+
+| Method | What it does | Parameters | Type safety |
+| --- | --- | --- | --- |
+| `.dataset(id, def)` | Register a dataset in the model | Dataset ID, `defineDataset<Row>()` result (must have `.key()`) | ID must be unique across all registered datasets |
+| `.relationship(id, config)` | Declare a one-to-many lookup | Relationship ID, `{ from: { dataset, key }, to: { dataset, column } }` | Dataset and column references validated against registered datasets |
+| `.association(id, config)` | Declare a many-to-many relationship | Association ID, explicit edge data or derived config | Validates both explicit and derived forms against registered datasets |
+| `.attribute(id, config)` | Define a reusable shared-filter attribute | Attribute ID, `{ kind, source, targets }` | — |
+| `.infer(opts?)` | Auto-discover relationships and attributes | `{ relationships?, attributes?, exclude? }` | Conservative: ambiguous candidates are skipped |
+| `.chart(id, fn)` | Create a model-aware chart with lookup-preserving fields | Chart ID, callback receiving a chart builder | Qualified field IDs like `'jobs.owner.name'` validated at compile time |
+| `.materialize(id, fn)` | Create a cross-dataset materialized view | View ID, callback receiving a materialization builder (see below) | — |
+| `.validateData(data)` | Runtime validation of all relationships and associations | Object with all dataset arrays | Throws on duplicate keys, orphan foreign keys, malformed edges |
+| `.build()` | Materialize into a plain model object | — | — |
+
+#### Materialization builder — inside `.materialize()`
+
+| Method | What it does | Parameters | Type safety |
+| --- | --- | --- | --- |
+| `.from(datasetId)` | Set the base dataset (determines the starting grain) | Dataset ID | Must be a registered dataset |
+| `.join(alias, config)` | Lookup join (preserves grain) | Alias string, `{ relationship }` | Relationship must exist in the model |
+| `.throughAssociation(alias, config)` | Expand rows through a many-to-many | Alias string, `{ association }` | Association must exist in the model |
+| `.columns(...)` | Project specific columns from a joined/expanded dataset | Column IDs | Only chart-visible columns from the target dataset |
+| `.grain(id)` | Declare the output row grain | Grain identifier string | Required when the grain changes (e.g. after `.throughAssociation()`) |
+| `.chart(id?)` | Open the chart-control surface for the materialized view | Optional chart ID | Returns a standard `DatasetChartBuilder` over the flattened row type |
+| `.materialize(data)` | Execute the materialization and return flat rows | Object with all dataset arrays | Returns typed flat rows |
+| `.build()` | Materialize into a plain view object | — | — |
+
+### Dashboard — `defineDashboard(model)`
+
+| Method | What it does | Parameters | Type safety |
+| --- | --- | --- | --- |
+| `.chart(id, chart)` | Register a chart for the dashboard | Chart ID, result from `dataset.chart()`, `model.chart()`, or `view.chart()` | Chart must carry builder metadata |
+| `.sharedFilter(id)` | Expose a model-level attribute as a shared filter | Attribute ID | Must match a model attribute (explicit or inferred) |
+| `.sharedFilter(id, config)` | Add a dashboard-local select filter | Filter ID, `{ kind: 'select', source: { dataset, column }, targets?, label? }` | Dataset and column references validated |
+| `.sharedFilter(id, config)` | Add a dashboard-local date-range filter | Filter ID, `{ kind: 'date-range', targets: [{ dataset, column }, ...], label? }` | Target dataset and column references validated |
+| `.build()` | Materialize into a plain dashboard object | — | — |
 
 ## On the Radar
 
