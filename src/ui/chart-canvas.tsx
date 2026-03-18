@@ -5,7 +5,7 @@
  * Automatically switches between chart types based on the chart instance state.
  */
 
-import {type ComponentType, type ReactNode, forwardRef, useEffect, useRef, useState} from 'react'
+import {type ComponentType, type ReactNode, useEffect, useRef, useState} from 'react'
 import {
   Area,
   AreaChart,
@@ -347,17 +347,18 @@ export function ChartCanvas({height = 300, className, showDataLabels = 'auto'}: 
 
   if (chartType === 'table') {
     return (
-      <TableRenderer
-        ref={ref}
-        data={transformedData}
-        series={series}
-        height={height}
-        className={className}
-        valueColumn={valueColumn}
-        valueRange={valueRange}
-        xColumn={xColumn}
-        timeBucket={timeBucket}
-      />
+      <div ref={ref}>
+        <TableRenderer
+          data={transformedData}
+          series={series}
+          height={height}
+          className={className}
+          valueColumn={valueColumn}
+          valueRange={valueRange}
+          xColumn={xColumn}
+          timeBucket={timeBucket}
+        />
+      </div>
     )
   }
 
@@ -1079,14 +1080,10 @@ type TableRendererProps = {
  * time-bucket labels, numbers use full-precision `table-cell` surface rules).
  * Scrolls both axes when the data overflows the configured height.
  */
-const TableRenderer = forwardRef<HTMLDivElement, TableRendererProps>(function TableRenderer(
-  {data, series, height, className, valueColumn, valueRange, xColumn, timeBucket},
-  ref,
-) {
+function TableRenderer({data, series, height, className, valueColumn, valueRange, xColumn, timeBucket}: TableRendererProps) {
   if (data.length === 0) {
     return (
       <div
-        ref={ref}
         className={`flex items-center justify-center text-sm text-muted-foreground ${className ?? ''}`}
         style={{height}}
       >
@@ -1097,7 +1094,6 @@ const TableRenderer = forwardRef<HTMLDivElement, TableRendererProps>(function Ta
 
   return (
     <div
-      ref={ref}
       className={`overflow-auto border border-border/50 rounded-md ${className ?? ''}`}
       style={{maxHeight: height}}
     >
@@ -1147,7 +1143,7 @@ const TableRenderer = forwardRef<HTMLDivElement, TableRendererProps>(function Ta
       </table>
     </div>
   )
-})
+}
 
 /**
  * Format the X-axis value for a table row using the same logic as the chart
