@@ -58,6 +58,11 @@ const CHART_TYPE_GROUPS: ChartTypeGroup[] = [
     label: 'Donut',
     variants: [],
   },
+  {
+    primary: 'table',
+    label: 'Table',
+    variants: [],
+  },
 ]
 
 // ---------------------------------------------------------------------------

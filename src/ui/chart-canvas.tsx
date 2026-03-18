@@ -5,7 +5,7 @@
  * Automatically switches between chart types based on the chart instance state.
  */
 
-import {type ComponentType, type ReactNode, useEffect, useRef, useState} from 'react'
+import {type ComponentType, type ReactNode, forwardRef, useEffect, useRef, useState} from 'react'
 import {
   Area,
   AreaChart,
@@ -27,6 +27,7 @@ import {
   formatChartValue,
   formatTimeBucketLabel,
   shouldAllowDecimalTicks,
+  type ChartValueSurface,
   type NumericRange,
 } from '../core/formatting.js'
 import {useChartContext} from './chart-context.js'
@@ -344,6 +345,22 @@ export function ChartCanvas({height = 300, className, showDataLabels = 'auto'}: 
     )
   }
 
+  if (chartType === 'table') {
+    return (
+      <TableRenderer
+        ref={ref}
+        data={transformedData}
+        series={series}
+        height={height}
+        className={className}
+        valueColumn={valueColumn}
+        valueRange={valueRange}
+        xColumn={xColumn}
+        timeBucket={timeBucket}
+      />
+    )
+  }
+
   return (
     <div ref={ref} className={`${RECHARTS_STYLES} ${className ?? ''}`} style={{height}}>
       {width > 0 &&
@@ -640,7 +657,7 @@ function formatXAxisValue(
   value: string | number,
   xColumn: ChartColumn<any> | null,
   timeBucket: RendererProps['timeBucket'],
-  surface: 'axis' | 'tooltip',
+  surface: ChartValueSurface,
 ): string {
   if (!xColumn) {
     return String(value)
@@ -1038,4 +1055,132 @@ function formatDataLabel(
  */
 function shouldHideDataLabel(value: unknown): boolean {
   return value == null || (typeof value === 'number' && value === 0)
+}
+
+// ---------------------------------------------------------------------------
+// Table renderer
+// ---------------------------------------------------------------------------
+
+type TableRendererProps = {
+  data: Record<string, string | number | null>[]
+  series: SeriesItem[]
+  height: number
+  className?: string
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format' | 'formatter'>
+  valueRange: NumericRange | null
+  xColumn: ChartColumn<any> | null
+  timeBucket?: 'day' | 'week' | 'month' | 'quarter' | 'year'
+}
+
+/**
+ * Table renderer — shows the pipeline output as an HTML table.
+ *
+ * Applies the same formatting pipeline as the chart renderers (dates respect
+ * time-bucket labels, numbers use full-precision `table-cell` surface rules).
+ * Scrolls both axes when the data overflows the configured height.
+ */
+const TableRenderer = forwardRef<HTMLDivElement, TableRendererProps>(function TableRenderer(
+  {data, series, height, className, valueColumn, valueRange, xColumn, timeBucket},
+  ref,
+) {
+  if (data.length === 0) {
+    return (
+      <div
+        ref={ref}
+        className={`flex items-center justify-center text-sm text-muted-foreground ${className ?? ''}`}
+        style={{height}}
+      >
+        No data available
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={`overflow-auto border border-border/50 rounded-md ${className ?? ''}`}
+      style={{maxHeight: height}}
+    >
+      <table className="w-full border-collapse text-sm">
+        <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+          <tr>
+            <th className="overflow-hidden text-ellipsis whitespace-nowrap px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+              {xColumn?.label ?? 'Category'}
+            </th>
+            {series.map((s) => (
+              <th
+                key={s.dataKey}
+                className="overflow-hidden text-ellipsis whitespace-nowrap px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+              >
+                <span className="inline-flex items-center justify-end gap-1.5">
+                  <span
+                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                    style={{backgroundColor: s.color}}
+                    aria-hidden
+                  />
+                  <span className="overflow-hidden text-ellipsis">{s.label}</span>
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((point, rowIndex) => (
+            <tr
+              key={rowIndex}
+              className="border-t border-border/30 transition-colors hover:bg-muted/30"
+            >
+              <td className="overflow-hidden text-ellipsis whitespace-nowrap px-3 py-1.5 font-medium text-foreground">
+                {formatTableXValue(point, xColumn, timeBucket)}
+              </td>
+              {series.map((s) => (
+                <td
+                  key={s.dataKey}
+                  className="overflow-hidden text-ellipsis whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-foreground"
+                >
+                  {formatTableCellValue(point[s.dataKey], valueColumn, valueRange)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+})
+
+/**
+ * Format the X-axis value for a table row using the same logic as the chart
+ * renderers: time-bucket-aware date labels, column formatters, etc.
+ */
+function formatTableXValue(
+  point: Record<string, string | number | null>,
+  xColumn: ChartColumn<any> | null,
+  timeBucket: TableRendererProps['timeBucket'],
+): string {
+  const rawValue = typeof point['xKey'] === 'string' || typeof point['xKey'] === 'number'
+    ? point['xKey']
+    : point['xLabel']
+
+  if (rawValue == null) return 'Unknown'
+
+  return formatXAxisValue(rawValue, xColumn, timeBucket, 'table-cell')
+}
+
+/**
+ * Format one metric cell value with full precision (matches tooltip depth).
+ */
+function formatTableCellValue(
+  value: string | number | null | undefined,
+  valueColumn: Pick<ChartColumn<any>, 'type' | 'format' | 'formatter'>,
+  valueRange: NumericRange | null,
+): string {
+  if (value == null) return '—'
+  if (typeof value !== 'number') return String(value)
+
+  return formatChartValue(value, {
+    column: valueColumn,
+    surface: 'table-cell',
+    numericRange: valueRange,
+  })
 }

@@ -1,7 +1,7 @@
 import type {ChartColumn, ColumnFormat, DurationColumnFormat, DurationInputUnit, TimeBucket} from './types.js'
 
 /** Formatting surfaces exposed by the chart UI. */
-export type ChartValueSurface = 'axis' | 'tooltip' | 'data-label' | 'raw'
+export type ChartValueSurface = 'axis' | 'tooltip' | 'data-label' | 'table-cell' | 'raw'
 
 /** Numeric extent used to choose sensible default precision. */
 export type NumericRange = {
@@ -131,7 +131,7 @@ export function formatTimeBucketLabel(
       return formatDateWithOptions(parseBucketDate(key), locale, getBucketDayOptions(surface))
     case 'week': {
       const date = parseBucketDate(key)
-      const prefix = surface === 'tooltip' ? 'Week of ' : 'Wk of '
+      const prefix = isFullPrecisionSurface(surface) ? 'Week of ' : 'Wk of '
       return `${prefix}${formatDateWithOptions(date, locale, getBucketWeekOptions(surface))}`
     }
     case 'month':
@@ -327,6 +327,13 @@ function formatDateWithOptions(
 /**
  * Decide which number family should power the current surface.
  */
+/**
+ * Surfaces that show full-precision values (not compacted).
+ */
+function isFullPrecisionSurface(surface: ChartValueSurface): boolean {
+  return surface === 'tooltip' || surface === 'table-cell'
+}
+
 function resolveNumberFormatMode(
   format: ColumnFormat | undefined,
   surface: ChartValueSurface,
@@ -336,7 +343,7 @@ function resolveNumberFormatMode(
   if (typeof format === 'string') {
     switch (format) {
       case 'currency':
-        return surface === 'tooltip' ? 'currency' : 'compact-currency'
+        return isFullPrecisionSurface(surface) ? 'currency' : 'compact-currency'
       case 'compact-number':
         return 'compact-number'
       case 'percent':
@@ -344,7 +351,7 @@ function resolveNumberFormatMode(
       case 'number':
       case 'date':
       case 'datetime':
-        return surface === 'tooltip'
+        return isFullPrecisionSurface(surface)
           ? 'number'
           : shouldUseCompactNumber(numericRange, value) ? 'compact-number' : 'number'
     }
@@ -354,7 +361,7 @@ function resolveNumberFormatMode(
     return 'percent'
   }
 
-  if (surface !== 'tooltip' && shouldUseCompactNumber(numericRange, value)) {
+  if (!isFullPrecisionSurface(surface) && shouldUseCompactNumber(numericRange, value)) {
     return 'compact-number'
   }
 
@@ -434,7 +441,7 @@ function getNumberFormatOptions(
     case 'percent':
       return {
         style: 'percent',
-        maximumFractionDigits: surface === 'tooltip' ? 2 : 1,
+        maximumFractionDigits: isFullPrecisionSurface(surface) ? 2 : 1,
       }
     case 'number':
       return {
@@ -453,7 +460,7 @@ function getStandardFractionDigits(
 ): number {
   const span = numericRange ? Math.abs(numericRange.max - numericRange.min) : Math.abs(value)
 
-  if (surface === 'tooltip') {
+  if (isFullPrecisionSurface(surface)) {
     if (span < 1) return 3
     if (span < 10) return 2
     if (span < 100) return 1
@@ -473,7 +480,7 @@ function getDateValueOptions(
   surface: ChartValueSurface,
 ): Intl.DateTimeFormatOptions {
   if (mode === 'datetime') {
-    return surface === 'tooltip'
+    return isFullPrecisionSurface(surface)
       ? {dateStyle: 'medium', timeStyle: 'short'}
       : {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}
   }
@@ -506,7 +513,7 @@ function getBucketDateOptions(
  * Keep day buckets short on axes and clearer in tooltips.
  */
 function getBucketDayOptions(surface: ChartValueSurface): Intl.DateTimeFormatOptions {
-  return surface === 'tooltip'
+  return isFullPrecisionSurface(surface)
     ? {month: 'short', day: 'numeric', year: '2-digit'}
     : {month: 'short', day: 'numeric'}
 }
@@ -515,7 +522,7 @@ function getBucketDayOptions(surface: ChartValueSurface): Intl.DateTimeFormatOpt
  * Keep week buckets short on axes and clearer in tooltips.
  */
 function getBucketWeekOptions(surface: ChartValueSurface): Intl.DateTimeFormatOptions {
-  return surface === 'tooltip'
+  return isFullPrecisionSurface(surface)
     ? {month: 'short', day: 'numeric', year: '2-digit'}
     : {month: 'short', day: 'numeric'}
 }

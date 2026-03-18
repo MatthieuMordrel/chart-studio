@@ -95,7 +95,7 @@ describe('useChart', () => {
     const {result} = renderHook(() => useChart({data: jobData}))
 
     expect(result.current.xAxisId).toBe('dateAdded')
-    expect(result.current.availableChartTypes).toEqual(['bar', 'grouped-bar', 'percent-bar', 'line', 'area', 'percent-area'])
+    expect(result.current.availableChartTypes).toEqual(['bar', 'grouped-bar', 'percent-bar', 'line', 'area', 'percent-area', 'table'])
     expect(result.current.chartType).toBe('bar')
 
     act(() => {
@@ -111,7 +111,7 @@ describe('useChart', () => {
 
     expect(result.current.xAxisId).toBe('ownerName')
     expect(result.current.groupById).toBeNull()
-    expect(result.current.availableChartTypes).toEqual(['bar', 'grouped-bar', 'percent-bar', 'pie', 'donut'])
+    expect(result.current.availableChartTypes).toEqual(['bar', 'grouped-bar', 'percent-bar', 'pie', 'donut', 'table'])
     expect(result.current.chartType).toBe('bar')
   })
 
@@ -123,7 +123,7 @@ describe('useChart', () => {
       result.current.setGroupBy('isOpen')
     })
 
-    expect(result.current.availableChartTypes).toEqual(['bar', 'grouped-bar', 'percent-bar'])
+    expect(result.current.availableChartTypes).toEqual(['bar', 'grouped-bar', 'percent-bar', 'table'])
 
     act(() => {
       result.current.setChartType('pie')
@@ -178,7 +178,7 @@ describe('useChart', () => {
       expect.objectContaining({xKey: 'Screen', value: 1}),
       expect.objectContaining({xKey: 'Interview', value: 1}),
     ])
-    expect(result.current.availableChartTypes).toEqual(['bar', 'grouped-bar', 'percent-bar', 'pie', 'donut'])
+    expect(result.current.availableChartTypes).toEqual(['bar', 'grouped-bar', 'percent-bar', 'pie', 'donut', 'table'])
     expect(result.current.availableDateColumns).toEqual([])
   })
 

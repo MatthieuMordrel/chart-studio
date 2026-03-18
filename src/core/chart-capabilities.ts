@@ -62,6 +62,11 @@ export const CHART_TYPE_CONFIG = {
     supportsGrouping: false,
     supportsTimeBucketing: false,
   },
+  table: {
+    supportedXAxisTypes: ['date', 'category', 'boolean'],
+    supportsGrouping: true,
+    supportsTimeBucketing: true,
+  },
 } as const satisfies Record<ChartType, ChartTypeCapabilities>
 
 type ChartTypeAvailability = {

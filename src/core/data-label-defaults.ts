@@ -56,6 +56,7 @@ export const DATA_LABEL_DEFAULTS = {
   'percent-area': {showByDefault: false, style: STYLE_TOP},
   pie:            {showByDefault: true, style: STYLE_TOP},
   donut:          {showByDefault: true, style: STYLE_TOP},
+  table:          {showByDefault: false, style: STYLE_TOP},
 } as const satisfies Record<ChartType, DataLabelDefaults>
 
 // ---------------------------------------------------------------------------
