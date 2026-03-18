@@ -1,4 +1,4 @@
-import {defineChartSchema} from '../core/define-chart-schema.js'
+import {defineDataset} from '../core/define-dataset.js'
 import {useChart} from '../core/use-chart.js'
 import {Chart, useTypedChartContext} from './chart-context.js'
 
@@ -10,7 +10,7 @@ type ExampleRecord = {
   internalId: string
 }
 
-const exampleSchema = defineChartSchema<ExampleRecord>()
+const exampleSchema = defineDataset<ExampleRecord>()
   .columns((c) => [
     c.date('createdAt', {label: 'Created'}),
     c.category('ownerName', {label: 'Owner'}),
@@ -18,6 +18,7 @@ const exampleSchema = defineChartSchema<ExampleRecord>()
     c.number('salary', {format: 'currency'}),
     c.exclude('internalId'),
   ])
+  .chart()
   .groupBy((g) => g.allowed('isOpen'))
   .metric((m) => m.aggregate('salary', 'sum'))
 

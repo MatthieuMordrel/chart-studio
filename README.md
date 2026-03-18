@@ -18,7 +18,7 @@ Use this if you already have your own design system or chart renderer.
 You get:
 
 - `useChart`
-- optional `schema` via `defineChartSchema`
+- optional `schema` via `defineDataset(...).chart(...)`
 - transformed chart data
 - filtering, grouping, metrics, and time bucketing logic
 
@@ -98,7 +98,7 @@ export function JobsChart() {
 ## How It Works
 
 1. Pass your raw data to `useChart()`.
-2. Add an optional `schema` with either `defineChartSchema<Row>()...` or `defineDataset<Row>().chart(...)` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
+2. Add an optional `schema` with `defineDataset<Row>().chart(...)` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
 3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
 
 ## Stable Single-Chart Contract
@@ -107,7 +107,7 @@ For the simple case, the public contract is:
 
 - `useChart({ data })` stays the zero-config path
 - `useChart({ data, schema })` is the explicit single-chart path
-- `defineChartSchema<Row>()` is the chart-first shortcut for that path
+- `defineDataset<Row>().chart(...)` is the single explicit way to build that schema
 - `.columns(...)` is the authoring entry point: override raw fields, exclude fields, and add derived columns
 - raw fields you do not mention in `.columns(...)` still infer normally unless you exclude them
 - `xAxis`, `groupBy`, `filters`, `metric`, `chartType`, `timeBucket`, and `connectNulls` restrict that one chart's public controls
@@ -126,7 +126,7 @@ one screen renders several unrelated charts.
 Use:
 
 - `useChart({ data })` for zero-config charts
-- `defineChartSchema<Row>()` when one chart owns its own explicit contract
+- `defineDataset<Row>().chart(...)` when one chart owns its own explicit contract
 - `defineDataset<Row>()` when several charts should reuse one row contract
 - `useChart({ sources: [...] })` only for source-switching inside one chart
 
@@ -152,25 +152,27 @@ Recommended path for new dashboard work:
 
 ## Authoring Layers
 
-### 1. Chart-first shortcut
+### 1. Single-chart explicit path
 
-Use `defineChartSchema<Row>()` when one chart owns its own explicit contract:
+Use `defineDataset<Row>().chart(...)` when one chart owns its own explicit contract:
 
 ```tsx
-const schema = defineChartSchema<Job>()
+const schema = defineDataset<Job>()
   .columns((c) => [
     c.date('createdAt'),
     c.category('ownerName'),
     c.number('salary')
   ])
+  .chart()
   .xAxis((x) => x.allowed('createdAt'))
   .metric((m) => m.aggregate('salary', 'sum'))
 
 const chart = useChart({ data: jobs, schema })
 ```
 
-This remains the simplest explicit path. Conceptually, it is the chart-first
-shortcut over an anonymous one-off dataset.
+This is the single explicit path for declaring a chart schema. The dataset
+owns the column contract, and `.chart(...)` layers chart-specific control
+restrictions on top.
 
 ### 2. Dataset-first reuse
 
@@ -205,7 +207,7 @@ const chart = useChart({ data: jobsData, schema: jobsByMonth })
 Rules for the dataset-first path:
 
 - dataset `.columns(...)` is the canonical reusable meaning of columns
-- `dataset.chart(...)` reuses the same chart-definition surface as `defineChartSchema(...)`
+- `dataset.chart(...)` provides the chart-definition surface for control restrictions
 - `dataset.chart(...)` inherits dataset columns, so charts do not reopen `.columns(...)`
 - declared dataset keys can be validated at runtime with `dataset.validateData(data)` or `validateDatasetData(dataset, data)`
 
@@ -386,7 +388,7 @@ function HiringChart() {
 Rules for dashboard composition:
 
 - `defineDashboard(model)` is intentionally thin: chart registration, shared-filter selection, and optional dashboard-local shared filters
-- dashboard charts may come from `defineDataset<Row>().chart(...)`, `model.chart(...)`, or `model.materialize(...).chart(...)`
+- dashboard charts may come from `dataset.chart(...)`, `model.chart(...)`, or `model.materialize(...).chart(...)`
 - chart registration is explicit by id
 - `useDashboard(...)` is the runtime boundary; it resolves model-aware charts and explicit materialized views against real data
 - pass the explicit dashboard runtime into dashboard hooks, or inside a matching `DashboardProvider` pass the dashboard definition
@@ -445,20 +447,21 @@ Rules for shared dashboard filters:
 
 ## Declarative Schema and Control Restrictions
 
-If you want to expose only a subset of groupings, metrics, chart types, or axes, use the fluent `defineChartSchema<Row>()` builder:
+If you want to expose only a subset of groupings, metrics, chart types, or axes, use the fluent `defineDataset<Row>().chart(...)` builder:
 
 ```tsx
-import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
+import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
 
 type Row = { periodEnd: string; segment: string; revenue: number; netIncome: number }
 
-const schema = defineChartSchema<Row>()
+const schema = defineDataset<Row>()
   .columns((c) => [
     c.date('periodEnd', { label: 'Period End' }),
     c.category('segment'),
     c.number('revenue'),
     c.number('netIncome')
   ])
+  .chart()
   .xAxis((x) => x.allowed('periodEnd'))
   .groupBy((g) => g.allowed('segment'))
   .metric((m) =>
@@ -486,7 +489,7 @@ Why this pattern:
 If you want to render your own UI or your own charting library, use only the core state:
 
 ```tsx
-import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
+import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
 
 type Job = {
   dateAdded: string
@@ -494,12 +497,13 @@ type Job = {
   salary: number
 }
 
-const jobSchema = defineChartSchema<Job>()
+const jobSchema = defineDataset<Job>()
   .columns((c) => [
     c.date('dateAdded', { label: 'Date Added' }),
     c.category('ownerName', { label: 'Consultant' }),
     c.number('salary', { label: 'Salary' })
   ])
+  .chart()
 
 export function JobsChartHeadless({ data }: { data: Job[] }) {
   const chart = useChart({ data, schema: jobSchema })
@@ -671,7 +675,7 @@ If you are starting fresh with a dashboard, use the model-first path:
 `defineDashboard(...)`, and `useDashboard(...)`.
 
 ```tsx
-import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
+import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
 
 const chart = useChart({
   sources: [
@@ -679,17 +683,18 @@ const chart = useChart({
       id: 'jobs',
       label: 'Jobs',
       data: jobs,
-      schema: defineChartSchema<Job>()
+      schema: defineDataset<Job>()
         .columns((c) => [c.date('dateAdded', { label: 'Date Added' })])
+        .chart()
     },
     { id: 'candidates', label: 'Candidates', data: candidates }
   ]
 })
 ```
 
-Each source may use either `defineChartSchema<Row>()` or
-`defineDataset<Row>().chart(...)`. The chart still reads one active source at a
-time, so this is not dashboard composition and not cross-dataset execution.
+Each source may use `defineDataset<Row>().chart(...)`. The chart still reads one
+active source at a time, so this is not dashboard composition and not
+cross-dataset execution.
 
 ### Can outside state drive one chart's filters or date range?
 
@@ -768,10 +773,10 @@ execution, automatic denormalization, and linked metrics are not yet supported.
 
 ### Schema Builder Ergonomics
 
-`defineChartSchema<Row>()` remains the simple chart-first shortcut, while
-`defineDataset<Row>()` now owns the reusable `.columns(...)` contract. Both feed
-the same chart-definition surface that you pass directly to `useChart(...)` or
-`inferColumnsFromData(...)`.
+`defineDataset<Row>()` owns the reusable `.columns(...)` contract, and
+`defineDataset<Row>().chart(...)` is the single explicit path for declaring a
+chart schema. Both feed the same chart-definition surface that you pass directly
+to `useChart(...)` or `inferColumnsFromData(...)`.
 
 ## Release
 

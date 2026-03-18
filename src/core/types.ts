@@ -812,7 +812,7 @@ type ChartSchemaValidationTarget<
   timeBucket?: TimeBucketConfig
 }
 
-/** Strict schema object returned by `defineChartSchema(...)`. */
+/** Strict schema object returned by a chart schema builder. */
 export type ValidatedChartSchema<
   T,
   TSchema,
@@ -822,7 +822,7 @@ export type ValidatedChartSchema<
     & ValidateChartSchemaLiterals<T, TSchema>
   : TSchema
 
-/** Strict schema object returned by `defineChartSchema(...)`. */
+/** Strict schema object returned by a chart schema builder. */
 export type DefinedChartSchema<
   T,
   TSchema extends ChartSchema<T, any> = ChartSchema<T, any>,
@@ -834,13 +834,11 @@ export type DefinedChartSchema<
  * In the simple single-chart case this is the contract for
  * `useChart({data, schema})`.
  *
- * Most callers use either:
- * - the fluent builder returned by `defineChartSchema<Row>()`
- * - or a reusable dataset-backed chart builder from
- *   `defineDataset<Row>().chart(...)`
+ * Most callers use the dataset-backed chart builder from
+ * `defineDataset<Row>().chart(...)`.
  *
- * Both can be passed directly. Plain schema objects are also accepted at the
- * runtime boundary.
+ * Builders can be passed directly. Plain schema objects are also accepted at
+ * the runtime boundary.
  */
 export type ChartSchemaDefinition<
   T,

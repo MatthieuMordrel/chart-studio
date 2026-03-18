@@ -111,7 +111,7 @@ function createAvailableFilterValueMap<TColumnId extends string>(
  *   - and optional `inputs` when filters/reference-date/date-range state is
  *     driven externally
  *   Any explicit single-source or per-source schema is usually authored with
- *   either `defineChartSchema<Row>()...` or `defineDataset<Row>().chart(...)`.
+ *   `defineDataset<Row>().chart(...)`.
  *   Builders can be passed directly; plain schema objects are also accepted.
  *
  * @returns {ChartInstance}

@@ -1,6 +1,5 @@
 import type {
   BuilderSchemaState,
-  ChartSchemaBuilder,
   ColumnHelper,
   ColumnsFromEntries,
   MetricBuilder,
@@ -416,24 +415,3 @@ export interface DatasetBuilder<
   build(): DefinedDataset<TRow, TColumns, TKey>
 }
 
-export type ChartSchemaShortcutBuilder<
-  TRow,
-  TColumns extends Record<string, unknown> | undefined = undefined,
-  TXAxis extends XAxisConfig<any> | undefined = undefined,
-  TGroupBy extends GroupByConfig<any> | undefined = undefined,
-  TFilters extends FiltersConfig<any> | undefined = undefined,
-  TMetric extends MetricConfig<any> | undefined = undefined,
-  TChartType extends ChartTypeConfig | undefined = undefined,
-  TTimeBucket extends TimeBucketConfig | undefined = undefined,
-  TConnectNulls extends boolean | undefined = undefined,
-> = ChartSchemaBuilder<
-  TRow,
-  TColumns,
-  TXAxis,
-  TGroupBy,
-  TFilters,
-  TMetric,
-  TChartType,
-  TTimeBucket,
-  TConnectNulls
->

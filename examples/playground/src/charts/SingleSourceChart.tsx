@@ -1,8 +1,8 @@
-import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
+import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
 import { quarterlyFinancialData, type QuarterlyFinancialRecord } from '../mock-data'
 
-const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()
+const quarterlyFinancials = defineDataset<QuarterlyFinancialRecord>()
   .columns((c) => [
     c.date('periodEnd', {label: 'Period End'}),
     c.category('segment'),
@@ -60,6 +60,9 @@ const singleSourceChartSchema = defineChartSchema<QuarterlyFinancialRecord>()
       accessor: (record) => record.netIncome > 0,
     }),
   ])
+
+const singleSourceChartSchema = quarterlyFinancials
+  .chart('quarterlyFinancials')
   .xAxis((x) => x.allowed('periodEnd'))
   .chartType((t) => t.allowed('bar', 'line'))
   .timeBucket((tb) => tb.allowed('year', 'quarter', 'month').default('quarter'))

@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {defineChartSchema} from './define-chart-schema.js'
+import {defineDataset} from './define-dataset.js'
 import {inferColumnsFromData} from './infer-columns.js'
 import {extractAvailableFilters, runPipeline} from './pipeline.js'
 import type {FilterState, Metric} from './types.js'
@@ -116,7 +116,7 @@ describe('runPipeline', () => {
       {team: 'B', region: 'South'},
     ]
 
-    const schema = defineChartSchema<TeamRecord>()
+    const schema = defineDataset<TeamRecord>()
       .columns((c) => [
         c.field('team', {
           label: 'Team',
@@ -124,6 +124,7 @@ describe('runPipeline', () => {
             `${item?.region ?? 'Unknown'}: ${value ?? 'Unknown'}`,
         }),
       ])
+      .chart()
       .build()
     const chartColumns = inferColumnsFromData(data, schema)
 

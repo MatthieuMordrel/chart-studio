@@ -1,9 +1,7 @@
 import type {
   BaseColumnHint,
-  ChartType,
   ChartTypeConfig,
   CountMetric,
-  DefinedChartSchema,
   DerivedBooleanColumnSchema,
   DerivedCategoryColumnSchema,
   DerivedDateColumnSchema,
@@ -15,11 +13,6 @@ import type {
   MetricConfig,
   NumericAggregateFunction,
   RawColumnSchemaFor,
-  ResolvedFilterColumnIdFromSchema,
-  ResolvedGroupByColumnIdFromSchema,
-  ResolvedMetricColumnIdFromSchema,
-  ResolvedXAxisColumnIdFromSchema,
-  TimeBucket,
   TimeBucketConfig,
   XAxisConfig,
 } from './types.js'
@@ -49,11 +42,6 @@ type ReplaceConfigValue<TConfig, TKey extends PropertyKey, TValue> = Simplify<
     [TProperty in TKey]: TValue
   }
 >
-
-type SchemaColumnsContext<TColumns extends Record<string, unknown> | undefined> =
-  [TColumns] extends [undefined]
-    ? undefined
-    : {columns?: TColumns}
 
 type AppendConfigValue<TConfig, TKey extends PropertyKey, TValue> = Simplify<
   Omit<TConfig, TKey> & {
@@ -646,216 +634,6 @@ export type SchemaFromBuilder<
   chartType?: Extract<TChartType, ChartTypeConfig | undefined>
   timeBucket?: Extract<TTimeBucket, TimeBucketConfig | undefined>
   connectNulls?: Extract<TConnectNulls, boolean | undefined>
-}
-
-export type ChartSchemaBuilder<
-  TRow,
-  TColumns extends Record<string, unknown> | undefined = undefined,
-  TXAxis extends XAxisConfig<any> | undefined = undefined,
-  TGroupBy extends GroupByConfig<any> | undefined = undefined,
-  TFilters extends FiltersConfig<any> | undefined = undefined,
-  TMetric extends MetricConfig<any> | undefined = undefined,
-  TChartType extends ChartTypeConfig | undefined = undefined,
-  TTimeBucket extends TimeBucketConfig | undefined = undefined,
-  TConnectNulls extends boolean | undefined = undefined,
-> = {
-  /**
-   * Declare explicit raw and derived columns for this schema.
-   *
-   * Place this early in the chain so later sections can narrow against the
-   * final column ids and roles.
-   */
-  columns: TColumns extends undefined
-    ? <const TEntries extends readonly SchemaColumnEntry<TRow>[]>(
-        defineColumns: (columns: ColumnHelper<TRow>) => TEntries & ValidateColumnEntries<TEntries>,
-      ) => ChartSchemaBuilder<
-        TRow,
-        ColumnsFromEntries<TRow, TEntries>,
-        TXAxis,
-        TGroupBy,
-        TFilters,
-        TMetric,
-        TChartType,
-        TTimeBucket,
-        TConnectNulls
-      >
-    : never
-
-  /**
-   * Configure which columns may appear on the X-axis.
-   */
-  xAxis<const TBuilder extends SelectableControlBuilder<
-    ResolvedXAxisColumnIdFromSchema<TRow, SchemaColumnsContext<TColumns>>,
-    true
-  >>(
-    defineXAxis: (
-      xAxis: SelectableControlBuilder<
-        ResolvedXAxisColumnIdFromSchema<TRow, SchemaColumnsContext<TColumns>>,
-        true
-      >,
-    ) => TBuilder,
-  ): ChartSchemaBuilder<
-    TRow,
-    TColumns,
-    SelectableControlBuilderConfig<TBuilder>,
-    TGroupBy,
-    TFilters,
-    TMetric,
-    TChartType,
-    TTimeBucket,
-    TConnectNulls
-  >
-
-  /**
-   * Configure which columns may split the chart into series.
-   */
-  groupBy<const TBuilder extends SelectableControlBuilder<
-    ResolvedGroupByColumnIdFromSchema<TRow, SchemaColumnsContext<TColumns>>,
-    true
-  >>(
-    defineGroupBy: (
-      groupBy: SelectableControlBuilder<
-        ResolvedGroupByColumnIdFromSchema<TRow, SchemaColumnsContext<TColumns>>,
-        true
-      >,
-    ) => TBuilder,
-  ): ChartSchemaBuilder<
-    TRow,
-    TColumns,
-    TXAxis,
-    SelectableControlBuilderConfig<TBuilder>,
-    TFilters,
-    TMetric,
-    TChartType,
-    TTimeBucket,
-    TConnectNulls
-  >
-
-  /**
-   * Configure which columns may appear in the filters UI.
-   */
-  filters<const TBuilder extends SelectableControlBuilder<
-    ResolvedFilterColumnIdFromSchema<TRow, SchemaColumnsContext<TColumns>>,
-    false
-  >>(
-    defineFilters: (
-      filters: SelectableControlBuilder<
-        ResolvedFilterColumnIdFromSchema<TRow, SchemaColumnsContext<TColumns>>,
-        false
-      >,
-    ) => TBuilder,
-  ): ChartSchemaBuilder<
-    TRow,
-    TColumns,
-    TXAxis,
-    TGroupBy,
-    SelectableControlBuilderConfig<TBuilder>,
-    TMetric,
-    TChartType,
-    TTimeBucket,
-    TConnectNulls
-  >
-
-  /**
-   * Configure the public metric surface.
-   */
-  metric<const TBuilder extends MetricBuilder<
-    ResolvedMetricColumnIdFromSchema<TRow, SchemaColumnsContext<TColumns>>,
-    any,
-    any,
-    any
-  >>(
-    defineMetric: (
-      metric: MetricBuilder<
-        ResolvedMetricColumnIdFromSchema<TRow, SchemaColumnsContext<TColumns>>
-      >,
-    ) => TBuilder,
-  ): ChartSchemaBuilder<
-    TRow,
-    TColumns,
-    TXAxis,
-    TGroupBy,
-    TFilters,
-    MetricBuilderConfig<TBuilder>,
-    TChartType,
-    TTimeBucket,
-    TConnectNulls
-  >
-
-  /**
-   * Restrict which chart renderers are exposed to users.
-   */
-  chartType<const TBuilder extends SelectableControlBuilder<ChartType, true>>(
-    defineChartType: (
-      chartType: SelectableControlBuilder<ChartType, true>,
-    ) => TBuilder,
-  ): ChartSchemaBuilder<
-    TRow,
-    TColumns,
-    TXAxis,
-    TGroupBy,
-    TFilters,
-    TMetric,
-    SelectableControlBuilderConfig<TBuilder>,
-    TTimeBucket,
-    TConnectNulls
-  >
-
-  /**
-   * Restrict which time buckets are exposed for date X-axes.
-   */
-  timeBucket<const TBuilder extends SelectableControlBuilder<TimeBucket, true>>(
-    defineTimeBucket: (
-      timeBucket: SelectableControlBuilder<TimeBucket, true>,
-    ) => TBuilder,
-  ): ChartSchemaBuilder<
-    TRow,
-    TColumns,
-    TXAxis,
-    TGroupBy,
-    TFilters,
-    TMetric,
-    TChartType,
-    SelectableControlBuilderConfig<TBuilder>,
-    TConnectNulls
-  >
-
-  /**
-   * Control whether line and area charts visually bridge null gaps.
-   *
-   * `true` keeps the line connected across missing buckets. `false` shows a
-   * visible gap.
-   */
-  connectNulls<const TValue extends boolean>(
-    value: TValue,
-  ): ChartSchemaBuilder<
-    TRow,
-    TColumns,
-    TXAxis,
-    TGroupBy,
-    TFilters,
-    TMetric,
-    TChartType,
-    TTimeBucket,
-    TValue
-  >
-
-  /**
-   * Finalize the schema into the runtime object consumed by `useChart(...)`.
-   */
-  build(): DefinedChartSchema<
-    TRow,
-    SchemaFromBuilder<
-      TColumns,
-      TXAxis,
-      TGroupBy,
-      TFilters,
-      TMetric,
-      TChartType,
-      TTimeBucket,
-      TConnectNulls
-    >
-  >
 }
 
 export type BuilderSchemaState<

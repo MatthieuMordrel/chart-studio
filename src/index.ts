@@ -2,25 +2,26 @@
  * chart-studio — TanStack Table for charts.
  *
  * A headless, composable charting library built on top of Recharts.
- * Pass raw data for the zero-config path, or add an explicit `schema` when you
- * want full control over inference overrides, derived columns, and selectable
- * chart controls.
+ * Pass raw data for the zero-config path, or add an explicit dataset and
+ * chart schema when you want full control over inference overrides, derived
+ * columns, and selectable chart controls.
  *
  * @example
  * ```tsx
- * import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
+ * import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
  * import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
  *
+ * const dataset = defineDataset<Row>()
+ *   .columns((c) => [
+ *     c.date('dateAdded', { label: 'Date Added' }),
+ *     c.category('ownerName', { label: 'Consultant' }),
+ *     c.number('salary', { format: 'currency' }),
+ *   ])
+ *
+ * const schema = dataset.chart('myChart')
+ *
  * function MyChart({ data }) {
- *   const chart = useChart({
- *     data,
- *     schema: defineChartSchema<typeof data[number]>()
- *       .columns((c) => [
- *         c.date('dateAdded', { label: 'Date Added' }),
- *         c.category('ownerName', { label: 'Consultant' }),
- *         c.number('salary', { format: 'currency' }),
- *       ])
- *   })
+ *   const chart = useChart({ data, schema })
  *   return (
  *     <Chart chart={chart}>
  *       <ChartToolbar />
@@ -37,7 +38,6 @@ export {
   defineDataModel,
   defineDashboard,
   defineDataset,
-  defineChartSchema,
   inferColumnsFromData,
   useChart,
   useDashboard,

@@ -1,7 +1,6 @@
 import {renderHook, act} from '@testing-library/react'
 import type {ReactNode} from 'react'
 import {describe, expect, it} from 'vitest'
-import {defineChartSchema} from './define-chart-schema.js'
 import {defineDashboard} from './define-dashboard.js'
 import {defineDataModel} from './define-data-model.js'
 import {defineDataset} from './define-dataset.js'
@@ -132,12 +131,15 @@ const candidateRows: CandidateRow[] = [
 
 describe('dashboard composition', () => {
   it('rejects standalone chart definitions during dashboard registration', () => {
+    const standaloneSchema = {
+      columns: {createdAt: {type: 'date'}},
+      __chartSchemaBrand: 'chart-schema-definition',
+    }
+
     expect(() =>
       defineDashboard(hiringModel).chart(
         'standalone',
-        defineChartSchema<JobRow>()
-          .columns((c) => [c.date('createdAt')])
-          .xAxis((x) => x.allowed('createdAt')) as any,
+        standaloneSchema as any,
       ),
     ).toThrow('must come from defineDataset(...).chart(...)')
   })

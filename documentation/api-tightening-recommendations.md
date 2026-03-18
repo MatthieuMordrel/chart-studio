@@ -12,11 +12,11 @@ surface, docs, tests, type tests, and playground examples.
 - provider-based dashboard ergonomics were restored through
   definition-anchored hooks such as
   `useDashboardChart(myDashboard, 'chartId')`
+- `defineChartSchema(...)` has been removed entirely;
+  `defineDataset(...).chart(...)` is now the single explicit path
 
 ### Still Open
 
-- `defineChartSchema(...)` still needs a firmer public position and a docs pass
-  that stops treating it as a co-equal upgrade path
 - model inference still needs stricter key prerequisites
 - `model.chart(...)` still needs better explanation around compiled lookup ids
   and debugging
@@ -25,7 +25,9 @@ surface, docs, tests, type tests, and playground examples.
 
 ### Priority Order
 
-1. tighten the `defineChartSchema(...)` story and docs
+1. ~~tighten the `defineChartSchema(...)` story and docs~~ — completed:
+   `defineChartSchema(...)` was removed entirely;
+   `defineDataset(...).chart(...)` is now the single explicit path
 2. require explicit keys before relationship/attribute inference
 3. improve `model.chart(...)` / `model.materialize(...)` debugging clarity
 4. revisit explicit materialized-view alias typing only if it proves costly in
@@ -105,58 +107,15 @@ surface.
 
 ## Near-Term Follow-Ups
 
-### 4. Demote `defineChartSchema(...)` to standalone-only sugar
+### 4. Removed `defineChartSchema(...)` entirely
 
-`defineChartSchema(...)` is useful, but it should not be presented as the main
-explicit path once reuse, dashboard composition, or shared semantics matter.
-It lacks the dataset identity that dashboards and linked models need.
+`defineChartSchema(...)` has been removed from the public API surface.
+`defineDataset(...).chart(...)` is now the single explicit path for any chart
+that needs a declared schema.
 
-Recommendation:
-
-- keep `defineChartSchema(...)` as isolated-chart sugar
-- stop presenting it as a co-equal peer to `defineDataset(...).chart(...)`
-- make `defineDataset(...).chart(...)` the canonical explicit path for any chart
-  contract that may be reused, validated, or moved into a dashboard
-- do not make `defineChartSchema(...)` secretly dashboard-compatible through
-  hidden datasets or implicit promotion
-- do not try to recover composition semantics from a chart-first builder that
-  has no dataset identity
-
-Why:
-
-- dashboards need a real dataset/model anchor, not just a row schema
-- hidden anonymous datasets would make the API feel simpler while actually
-  making the mental model less honest
-- auto-promotion would still be a poor match for shared filters and linked-data
-  semantics because the chart-first schema has no reusable dataset identity
-- the current builder is not just a schema anyway; it also constrains chart
-  controls, so pretending it is a reusable data contract blurs two different
-  concerns
-
-Practical way to tackle it:
-
-1. Change the docs first.
-   - `useChart({data})` stays the no-ceremony start
-   - `defineChartSchema(...)` becomes the explicit one-off chart option
-   - `defineDataset(...).chart(...)` becomes the default recommendation as soon
-     as a chart is intended to live beyond one isolated call site
-   - all dashboard examples start from dataset/model definitions, never from
-     `defineChartSchema(...)`
-2. Tighten wording around the boundary.
-   - say plainly that `defineChartSchema(...)` is not an upgrade path into
-     dashboards
-   - keep the existing runtime rejection when someone tries to register a
-     standalone chart schema in `defineDashboard(...)`
-3. If the naming still causes confusion after the docs cleanup, consider a
-   future rename or alias such as `defineStandaloneChart(...)` or
-   `defineChart(...)`.
-   - this is secondary to the docs fix
-   - do not churn the public surface unless confusion remains high after
-     demotion
-4. Only if upgrade friction remains a real user problem, add an explicit bridge.
-   - that bridge should bind a chart definition to a named dataset on purpose
-   - it should not invent anonymous datasets or silently promote chart-first
-     definitions
+This resolves the earlier concern about `defineChartSchema(...)` being presented
+as a co-equal upgrade path. There is no longer a parallel entry point that lacks
+dataset identity.
 
 ### 5. Tighten model inference prerequisites
 
@@ -188,27 +147,19 @@ Recommendation:
 For new users, the docs should say this plainly:
 
 - single chart: start with `useChart`
-- reusable single-dataset charts: move to `defineDataset(...).chart(...)`
+- explicit single-dataset charts: move to `defineDataset(...).chart(...)`
 - linked data: move to `defineDataModel(...)`
 - dashboards: always use `defineDashboard(...)`
 - grain changes: use `model.materialize(...)`
 - do not use `createDashboard(...)`
 
-More explicit wording for `defineChartSchema(...)`:
-
-- `defineChartSchema(...)` is the lightest explicit schema for one isolated
-  chart
-- it is not the recommended path for reusable chart contracts
-- it is not the path into dashboards
-- if a chart might later be reused, start with `defineDataset(...).chart(...)`
-  instead of `defineChartSchema(...)`
-
 ## Concrete Next Pass
 
 The next documentation/API pass should focus on these concrete changes:
 
-1. Rewrite README positioning so `defineChartSchema(...)` is clearly the
-   standalone-only option, not the main explicit progression.
+1. ~~Rewrite README positioning so `defineChartSchema(...)` is clearly the
+   standalone-only option~~ — completed: `defineChartSchema(...)` was removed;
+   `defineDataset(...).chart(...)` is the single explicit path.
 2. Make `defineDataset(...).chart(...)` the first-class explicit example for
    anything reusable.
 3. Tighten `infer(...)` so undeclared keys do not silently participate in
@@ -220,5 +171,7 @@ The next documentation/API pass should focus on these concrete changes:
 
 The API does not need more concepts. It needs fewer overlapping entry points,
 clearer public progression, and more honesty about where composition actually
-starts. `defineChartSchema(...)` can stay, but only as the small standalone
-entry point rather than as a parallel path into the broader system.
+starts. `defineChartSchema(...)` has been removed entirely.
+`defineDataset(...).chart(...)` is now the single explicit path for any chart
+that needs a declared schema, removing the parallel entry point that previously
+cut across the progression.

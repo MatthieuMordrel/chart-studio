@@ -11,9 +11,7 @@ import type {
   BooleanColumnOptions,
   BuilderSchemaState,
   CategoryColumnOptions,
-  ChartSchemaBuilder,
   ColumnHelper,
-  ColumnsFromEntries,
   DateColumnOptions,
   NumberColumnOptions,
   SchemaColumnEntry,
@@ -152,7 +150,7 @@ export function buildColumnsMap<TRow>(
 
 export function assertColumnEntries<TRow>(
   entries: readonly SchemaColumnEntry<TRow>[],
-  owner = 'defineChartSchema',
+  owner = 'defineDataset',
 ): void {
   if (!Array.isArray(entries)) {
     throw new TypeError(`${owner}().columns(...) must return an array of column entries.`)
@@ -176,7 +174,7 @@ export function resolveChartSchemaDefinition<
   return schema as ResolvedChartSchemaFromDefinition<TSchema>
 }
 
-function createChartDefinitionBuilder<
+export function createDatasetChartBuilder<
   TRow,
   TColumns extends Record<string, unknown> | undefined = undefined,
   TXAxis extends XAxisConfig<any> | undefined = undefined,
@@ -186,7 +184,6 @@ function createChartDefinitionBuilder<
   TChartType extends ChartTypeConfig | undefined = undefined,
   TTimeBucket extends TimeBucketConfig | undefined = undefined,
   TConnectNulls extends boolean | undefined = undefined,
-  TAllowColumns extends boolean = true,
   TChartId extends string | undefined = undefined,
   TOwner = unknown,
 >(
@@ -200,37 +197,20 @@ function createChartDefinitionBuilder<
     TTimeBucket,
     TConnectNulls
   > = {},
-  options: {
-    allowColumns: TAllowColumns
-    datasetChartMetadata?: DatasetChartMetadata<TChartId, TOwner>
-  },
-): (
-  TAllowColumns extends true
-    ? ChartSchemaBuilder<
-        TRow,
-        TColumns,
-        TXAxis,
-        TGroupBy,
-        TFilters,
-        TMetric,
-        TChartType,
-        TTimeBucket,
-        TConnectNulls
-      >
-    : DatasetChartBuilder<
-        TRow,
-        TColumns,
-        TXAxis,
-        TGroupBy,
-        TFilters,
-        TMetric,
-        TChartType,
-        TTimeBucket,
-        TConnectNulls,
-        TChartId,
-        TOwner
-      >
-) {
+  metadata?: DatasetChartMetadata<TChartId, TOwner>,
+): DatasetChartBuilder<
+  TRow,
+  TColumns,
+  TXAxis,
+  TGroupBy,
+  TFilters,
+  TMetric,
+  TChartType,
+  TTimeBucket,
+  TConnectNulls,
+  TChartId,
+  TOwner
+> {
   let cachedSchema: unknown
 
   const createNext = <
@@ -253,7 +233,7 @@ function createChartDefinitionBuilder<
       TNextTimeBucket,
       TNextConnectNulls
     >,
-  ) => createChartDefinitionBuilder<
+  ) => createDatasetChartBuilder<
     TRow,
     TNextColumns,
     TNextXAxis,
@@ -263,10 +243,9 @@ function createChartDefinitionBuilder<
     TNextChartType,
     TNextTimeBucket,
     TNextConnectNulls,
-    TAllowColumns,
     TChartId,
     TOwner
-  >(nextState, options)
+  >(nextState, metadata)
 
   const builder: Record<string, unknown> = {
     xAxis(defineXAxis: any) {
@@ -326,33 +305,19 @@ function createChartDefinitionBuilder<
     build() {
       if (cachedSchema) {
         return cachedSchema as ReturnType<
-          (
-            TAllowColumns extends true
-              ? ChartSchemaBuilder<
-                  TRow,
-                  TColumns,
-                  TXAxis,
-                  TGroupBy,
-                  TFilters,
-                  TMetric,
-                  TChartType,
-                  TTimeBucket,
-                  TConnectNulls
-                >
-              : DatasetChartBuilder<
-                  TRow,
-                  TColumns,
-                  TXAxis,
-                  TGroupBy,
-                  TFilters,
-                  TMetric,
-                  TChartType,
-                  TTimeBucket,
-                  TConnectNulls,
-                  TChartId,
-                  TOwner
-                >
-          )['build']
+          DatasetChartBuilder<
+            TRow,
+            TColumns,
+            TXAxis,
+            TGroupBy,
+            TFilters,
+            TMetric,
+            TChartType,
+            TTimeBucket,
+            TConnectNulls,
+            TChartId,
+            TOwner
+          >['build']
         >
       }
 
@@ -368,9 +333,9 @@ function createChartDefinitionBuilder<
         __chartSchemaBrand: 'chart-schema-definition',
       }
 
-      if (options.datasetChartMetadata) {
+      if (metadata) {
         Object.defineProperty(cachedSchema as object, DATASET_CHART_METADATA, {
-          value: options.datasetChartMetadata,
+          value: metadata,
           enumerable: false,
           configurable: false,
           writable: false,
@@ -378,81 +343,7 @@ function createChartDefinitionBuilder<
       }
 
       return cachedSchema as ReturnType<
-        (
-          TAllowColumns extends true
-            ? ChartSchemaBuilder<
-                TRow,
-                TColumns,
-                TXAxis,
-                TGroupBy,
-                TFilters,
-                TMetric,
-                TChartType,
-                TTimeBucket,
-                TConnectNulls
-              >
-            : DatasetChartBuilder<
-                TRow,
-                TColumns,
-                TXAxis,
-                TGroupBy,
-                TFilters,
-                TMetric,
-                TChartType,
-                TTimeBucket,
-                TConnectNulls,
-                TChartId,
-                TOwner
-              >
-        )['build']
-      >
-    },
-  }
-
-  if (options.datasetChartMetadata) {
-    Object.defineProperty(builder, DATASET_CHART_METADATA, {
-      value: options.datasetChartMetadata,
-      enumerable: false,
-      configurable: false,
-      writable: false,
-    })
-  }
-
-  if (options.allowColumns) {
-    builder['columns'] = (defineColumns: (columns: ColumnHelper<TRow>) => readonly SchemaColumnEntry<TRow>[]) => {
-      const entries = defineColumns(COLUMN_HELPER as ColumnHelper<TRow>)
-      assertColumnEntries(entries)
-
-      return createNext<
-        ColumnsFromEntries<TRow, typeof entries>,
-        TXAxis,
-        TGroupBy,
-        TFilters,
-        TMetric,
-        TChartType,
-        TTimeBucket,
-        TConnectNulls
-      >({
-        ...state,
-        columns: buildColumnsMap(entries) as ColumnsFromEntries<TRow, typeof entries>,
-      })
-    }
-  }
-
-  return builder as (
-    TAllowColumns extends true
-      ? ChartSchemaBuilder<
-          TRow,
-          TColumns,
-          TXAxis,
-          TGroupBy,
-          TFilters,
-          TMetric,
-          TChartType,
-          TTimeBucket,
-          TConnectNulls
-        >
-      : DatasetChartBuilder<
+        DatasetChartBuilder<
           TRow,
           TColumns,
           TXAxis,
@@ -464,22 +355,22 @@ function createChartDefinitionBuilder<
           TConnectNulls,
           TChartId,
           TOwner
-        >
-  )
-}
+        >['build']
+      >
+    },
+  }
 
-export function createChartSchemaBuilder<
-  TRow,
-  TColumns extends Record<string, unknown> | undefined = undefined,
-  TXAxis extends XAxisConfig<any> | undefined = undefined,
-  TGroupBy extends GroupByConfig<any> | undefined = undefined,
-  TFilters extends FiltersConfig<any> | undefined = undefined,
-  TMetric extends MetricConfig<any> | undefined = undefined,
-  TChartType extends ChartTypeConfig | undefined = undefined,
-  TTimeBucket extends TimeBucketConfig | undefined = undefined,
-  TConnectNulls extends boolean | undefined = undefined,
->(
-  state: BuilderSchemaState<
+  if (metadata) {
+    Object.defineProperty(builder, DATASET_CHART_METADATA, {
+      value: metadata,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    })
+  }
+
+  return builder as DatasetChartBuilder<
+    TRow,
     TColumns,
     TXAxis,
     TGroupBy,
@@ -487,61 +378,8 @@ export function createChartSchemaBuilder<
     TMetric,
     TChartType,
     TTimeBucket,
-    TConnectNulls
-  > = {},
-): ChartSchemaBuilder<
-  TRow,
-  TColumns,
-  TXAxis,
-  TGroupBy,
-  TFilters,
-  TMetric,
-  TChartType,
-  TTimeBucket,
-  TConnectNulls
-> {
-  return createChartDefinitionBuilder(state, {allowColumns: true})
-}
-
-export function createDatasetChartBuilder<
-  TRow,
-  TColumns extends Record<string, unknown> | undefined = undefined,
-  TXAxis extends XAxisConfig<any> | undefined = undefined,
-  TGroupBy extends GroupByConfig<any> | undefined = undefined,
-  TFilters extends FiltersConfig<any> | undefined = undefined,
-  TMetric extends MetricConfig<any> | undefined = undefined,
-  TChartType extends ChartTypeConfig | undefined = undefined,
-  TTimeBucket extends TimeBucketConfig | undefined = undefined,
-  TConnectNulls extends boolean | undefined = undefined,
-  TChartId extends string | undefined = undefined,
-  TOwner = unknown,
->(
-  state: BuilderSchemaState<
-    TColumns,
-    TXAxis,
-    TGroupBy,
-    TFilters,
-    TMetric,
-    TChartType,
-    TTimeBucket,
-    TConnectNulls
-  > = {},
-  metadata?: DatasetChartMetadata<TChartId, TOwner>,
-): DatasetChartBuilder<
-  TRow,
-  TColumns,
-  TXAxis,
-  TGroupBy,
-  TFilters,
-  TMetric,
-  TChartType,
-  TTimeBucket,
-  TConnectNulls,
-  TChartId,
-  TOwner
-> {
-  return createChartDefinitionBuilder(state, {
-    allowColumns: false,
-    datasetChartMetadata: metadata,
-  })
+    TConnectNulls,
+    TChartId,
+    TOwner
+  >
 }

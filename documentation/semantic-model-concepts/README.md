@@ -133,15 +133,16 @@ That includes:
 
 ### What breaks without it
 
-Without datasets, every chart has to redefine the same meaning:
+Without datasets, every chart has to redefine the same meaning inline:
 
 ```ts
-defineChartSchema<ProjectPlan>()
+defineDataset<ProjectPlan>()
   .columns((c) => [
     c.category('initiativeType'),
     c.number('budgetMidpoint', { format: 'currency' }),
     c.derived.category('statusBucket', { accessor: ... }),
   ])
+  .chart()
 ```
 
 That is manageable once. It becomes noise when many charts need the same row
@@ -535,7 +536,7 @@ semantics once users cross dataset boundaries.
 
 The intended long-term mental model is:
 
-- `defineChartSchema<Row>()` for one chart
+- `defineDataset<Row>().chart(...)` for one explicit chart contract
 - `defineDataset<Row>()` for one reusable row shape
 - `defineDataModel(...)` for linked semantics
 - `model.materialize(...)` for one explicit cross-dataset flat grain

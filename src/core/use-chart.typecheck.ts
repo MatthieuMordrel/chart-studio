@@ -1,4 +1,4 @@
-import {defineChartSchema} from './define-chart-schema.js'
+import {defineDataset} from './define-dataset.js'
 import {useChart} from './use-chart.js'
 
 type ExampleRecord = {
@@ -9,7 +9,7 @@ type ExampleRecord = {
   internalId: string
 }
 
-const exampleSchemaBuilder = defineChartSchema<ExampleRecord>()
+const exampleSchemaBuilder = defineDataset<ExampleRecord>()
   .columns((c) => [
     c.date('createdAt', {label: 'Created'}),
     c.category('ownerName', {label: 'Owner'}),
@@ -41,9 +41,10 @@ const exampleSchemaBuilder = defineChartSchema<ExampleRecord>()
     }),
   ])
 
-const exampleSchema = exampleSchemaBuilder
+const exampleSchema = exampleSchemaBuilder.chart()
 
 const restrictedSchema = exampleSchemaBuilder
+  .chart()
   .groupBy((g) => g.allowed('ownerName', 'isOpen', 'marginBucket'))
   .metric((m) => m.count().aggregate('salary', 'sum', 'avg'))
   .build()
@@ -54,20 +55,21 @@ const restrictedSchema = exampleSchemaBuilder
 function expectType<T>(_value: T): void {}
 
 function verifyBuilderTyping() {
-  defineChartSchema<ExampleRecord>()
+  defineDataset<ExampleRecord>()
     .columns((c) => [
       c.field('ownerName', {label: 'Owner'}),
       c.date('createdAt'),
       c.number('salary'),
       c.boolean('isOpen'),
     ])
+    .chart()
     .xAxis((x) => x.allowed('createdAt', 'ownerName').default('createdAt'))
     .groupBy((g) => g.allowed('ownerName', 'isOpen').default('ownerName'))
     .filters((f) => f.allowed('ownerName', 'isOpen'))
     .metric((m) => m.count().aggregate('salary', 'sum').defaultAggregate('salary', 'sum'))
     .build()
 
-  defineChartSchema<ExampleRecord>().columns((c) => [
+  defineDataset<ExampleRecord>().columns((c) => [
     c.derived.number('netSalary', {
       label: 'Net Salary',
       accessor: (row) => {
@@ -78,35 +80,35 @@ function verifyBuilderTyping() {
     }),
   ])
 
-  defineChartSchema<ExampleRecord>()
+  defineDataset<ExampleRecord>()
     .columns((c) => [
       c.exclude('internalId'),
     ])
+    .chart()
     // @ts-expect-error excluded raw ids should disappear from later sections
     .xAxis((x) => x.allowed('internalId'))
 
-  defineChartSchema<ExampleRecord>()
+  defineDataset<ExampleRecord>()
     // @ts-expect-error duplicate column ids should fail
     .columns((c) => [
       c.date('createdAt'),
       c.field('createdAt', {label: 'Created Again'}),
     ])
 
-  const singleUseColumnsBuilder = defineChartSchema<ExampleRecord>()
-    .columns((c) => [
-      c.date('createdAt'),
-    ])
+  const datasetChartBuilder = defineDataset<ExampleRecord>()
+    .columns((c) => [c.date('createdAt')])
+    .chart()
 
-  // @ts-expect-error .columns(...) is the single authoring entry point
-  singleUseColumnsBuilder.columns((c) => [c.category('ownerName')])
+  // @ts-expect-error dataset-backed chart builders should not redefine columns
+  datasetChartBuilder.columns((c: any) => [c.category('ownerName')])
 
-  defineChartSchema<ExampleRecord>()
+  defineDataset<ExampleRecord>()
     .columns((c) => [
       // @ts-expect-error number helper should only accept numeric raw fields
       c.number('ownerName'),
     ])
 
-  defineChartSchema<ExampleRecord>()
+  defineDataset<ExampleRecord>()
     .columns((c) => [
       // @ts-expect-error existing raw ids cannot be reused for derived columns
       c.derived.category('ownerName', {
@@ -115,7 +117,7 @@ function verifyBuilderTyping() {
       }),
     ])
 
-  defineChartSchema<ExampleRecord>()
+  defineDataset<ExampleRecord>()
     .columns((c) => [
       c.derived.number('derivedMetric', {
         label: 'Derived Metric',
@@ -125,7 +127,7 @@ function verifyBuilderTyping() {
       }),
     ])
 
-  defineChartSchema<ExampleRecord>()
+  defineDataset<ExampleRecord>()
     .columns((c) => [
       // @ts-expect-error derived columns require a label
       c.derived.category('missingLabel', {
@@ -133,17 +135,18 @@ function verifyBuilderTyping() {
       }),
     ])
 
-  defineChartSchema<ExampleRecord>()
+  defineDataset<ExampleRecord>()
     .columns((c) => [
       c.date('createdAt'),
     ])
+    .chart()
     .xAxis((x) =>
       // @ts-expect-error hidden options cannot also be the default
       x.allowed('createdAt').hidden('createdAt').default('createdAt')
     )
 
   // @ts-expect-error unknown top-level builder methods should fail
-  defineChartSchema<ExampleRecord>().grouping((g: {allowed: (...values: string[]) => unknown}) => g.allowed('ownerName'))
+  defineDataset<ExampleRecord>().chart().grouping((g: {allowed: (...values: string[]) => unknown}) => g.allowed('ownerName'))
 }
 
 function verifyUseChartColumnIds() {
@@ -214,6 +217,7 @@ function verifyToolRestrictionsTyping() {
 
 function verifyGeneralizedSchemaTyping() {
   const generalizedSchema = exampleSchemaBuilder
+    .chart()
     .xAxis((x) => x.allowed('createdAt', 'ownerName', 'marginBucket').hidden('ownerName').default('createdAt'))
     .groupBy((g) => g.allowed('ownerName', 'isOpen', 'marginBucket').hidden('ownerName').default('isOpen'))
     .filters((f) => f.allowed('ownerName', 'isOpen', 'marginBucket').hidden('isOpen'))
@@ -268,7 +272,8 @@ function verifyInferenceOnlyTypingStaysBroadWithoutExplicitSchema() {
 
   const restrictedChart = useChart({
     data: [] as ExampleRecord[],
-    schema: defineChartSchema<ExampleRecord>()
+    schema: defineDataset<ExampleRecord>()
+      .chart()
       .groupBy((g) => g.allowed('ownerName'))
       .metric((m) => m.count()),
   })

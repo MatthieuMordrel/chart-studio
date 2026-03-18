@@ -1,21 +1,27 @@
-import { defineChartSchema, useChart } from '@matthieumordrel/chart-studio'
+import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartCanvas, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
 import { eventProgramData, type EventProgramRecord } from '../mock-data'
+
+// ─── Shared dataset ─────────────────────────────────────────────────────────
+// One dataset contract for all four dashboard charts.
+
+const eventProgram = defineDataset<EventProgramRecord>()
+  .columns((c) => [
+    c.date('eventDate', { label: 'Event Date' }),
+    c.category('city', { label: 'City' }),
+    c.category('format', { label: 'Format' }),
+    c.category('audience', { label: 'Audience' }),
+    c.boolean('isSoldOut', { label: 'Inventory', trueLabel: 'Sold Out', falseLabel: 'Available' }),
+    c.number('attendees', { label: 'Attendees' }),
+    c.number('ticketRevenue', { label: 'Ticket Revenue', format: 'currency' }),
+  ])
 
 // ─── Chart 1: Revenue Trend Over Time ───────────────────────────────────────
 // Line chart showing ticket revenue by quarter, grouped by format.
 // Tells the story: "How is our event revenue evolving?"
 
-const revenueTrendSchema = defineChartSchema<EventProgramRecord>()
-  .columns((c) => [
-    c.date('eventDate', { label: 'Event Date' }),
-    c.category('format'),
-    c.number('ticketRevenue', { label: 'Ticket Revenue', format: 'currency' }),
-    c.number('attendees', { label: 'Attendees' }),
-    c.exclude('city'),
-    c.exclude('audience'),
-    c.exclude('isSoldOut'),
-  ])
+const revenueTrendSchema = eventProgram
+  .chart('revenueTrend')
   .xAxis((x) => x.allowed('eventDate').default('eventDate'))
   .chartType((t) => t.allowed('line', 'area').default('area'))
   .timeBucket((tb) => tb.allowed('quarter', 'month').default('quarter'))
@@ -41,16 +47,8 @@ function RevenueTrendChart() {
 // Bar chart showing total attendees per city.
 // Tells the story: "Which cities attract the most attendees?"
 
-const attendanceByCitySchema = defineChartSchema<EventProgramRecord>()
-  .columns((c) => [
-    c.date('eventDate', { label: 'Event Date' }),
-    c.category('city', { label: 'City' }),
-    c.number('attendees', { label: 'Attendees' }),
-    c.exclude('format'),
-    c.exclude('audience'),
-    c.exclude('isSoldOut'),
-    c.exclude('ticketRevenue'),
-  ])
+const attendanceByCitySchema = eventProgram
+  .chart('attendanceByCity')
   .xAxis((x) => x.allowed('city').default('city'))
   .chartType((t) => t.allowed('bar').default('bar'))
   .metric((m) => m.aggregate('attendees', 'sum').defaultAggregate('attendees', 'sum'))
@@ -74,16 +72,8 @@ function AttendanceByCityChart() {
 // Donut chart showing count of events per format.
 // Tells the story: "What's our event format distribution?"
 
-const formatMixSchema = defineChartSchema<EventProgramRecord>()
-  .columns((c) => [
-    c.date('eventDate', { label: 'Event Date' }),
-    c.category('format', { label: 'Format' }),
-    c.number('attendees', { label: 'Attendees' }),
-    c.exclude('city'),
-    c.exclude('audience'),
-    c.exclude('isSoldOut'),
-    c.exclude('ticketRevenue'),
-  ])
+const formatMixSchema = eventProgram
+  .chart('formatMix')
   .xAxis((x) => x.allowed('format').default('format'))
   .chartType((t) => t.allowed('donut', 'pie').default('donut'))
   .metric((m) => m.aggregate('attendees', 'sum').defaultAggregate('attendees', 'sum'))
@@ -107,16 +97,8 @@ function FormatMixChart() {
 // Grouped bar chart showing avg ticket revenue by audience, grouped by sold-out status.
 // Tells the story: "Which audiences generate the most revenue, and how does sell-out affect it?"
 
-const audienceRevenueSchema = defineChartSchema<EventProgramRecord>()
-  .columns((c) => [
-    c.date('eventDate', { label: 'Event Date' }),
-    c.category('audience', { label: 'Audience' }),
-    c.boolean('isSoldOut', { label: 'Inventory', trueLabel: 'Sold Out', falseLabel: 'Available' }),
-    c.number('ticketRevenue', { label: 'Avg Revenue', format: 'currency' }),
-    c.exclude('city'),
-    c.exclude('format'),
-    c.exclude('attendees'),
-  ])
+const audienceRevenueSchema = eventProgram
+  .chart('audienceRevenue')
   .xAxis((x) => x.allowed('audience').default('audience'))
   .chartType((t) => t.allowed('grouped-bar', 'bar').default('grouped-bar'))
   .groupBy((g) => g.allowed('isSoldOut').default('isSoldOut'))

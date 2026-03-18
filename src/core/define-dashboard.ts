@@ -166,7 +166,7 @@ function createDashboardBuilder<
       const metadata = getDatasetChartMetadata(chart)
       if (!metadata) {
         throw new Error(
-          `Dashboard chart "${id}" must come from defineDataset(...).chart(...). Standalone defineChartSchema(...) definitions stay single-chart only.`,
+          `Dashboard chart "${id}" must come from defineDataset(...).chart(...).`,
         )
       }
 

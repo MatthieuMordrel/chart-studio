@@ -1,4 +1,3 @@
-import {defineChartSchema} from './define-chart-schema.js'
 import {defineDashboard} from './define-dashboard.js'
 import {defineDataModel} from './define-data-model.js'
 import {defineDataset} from './define-dataset.js'
@@ -112,14 +111,6 @@ function verifyDashboardTyping() {
 
   // @ts-expect-error dashboard-owned date controls are removed from the chart-local contract
   chart.setReferenceDateId('createdAt')
-
-  defineDashboard(model).chart(
-    'quick',
-    // @ts-expect-error dashboard charts must be dataset-backed definitions
-    defineChartSchema<JobRecord>()
-      .columns((c) => [c.date('createdAt')])
-      .xAxis((x) => x.allowed('createdAt')),
-  )
 
   // @ts-expect-error unknown model attributes need an explicit local sharedFilter config
   defineDashboard(model).sharedFilter('missing')

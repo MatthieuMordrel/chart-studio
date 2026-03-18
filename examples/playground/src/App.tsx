@@ -58,7 +58,7 @@ const SCENARIO_GROUPS: ReadonlyArray<ScenarioGroup> = [
         title: 'Global Events Program — Schema-Restricted Charts',
         description:
           'Four focused charts from a single dataset, each with its own schema restricting axes, chart types, ' +
-          'and metrics. Shows how defineChartSchema locks down controls to convey a specific data story.'
+          'and metrics. Shows how defineDataset chart schemas lock down controls to convey a specific data story.'
       },
       {
         id: 'minimal' as const,

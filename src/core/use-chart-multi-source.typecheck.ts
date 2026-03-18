@@ -1,4 +1,3 @@
-import {defineChartSchema} from './define-chart-schema.js'
 import {defineDataset} from './define-dataset.js'
 import {useChart} from './use-chart.js'
 
@@ -16,23 +15,25 @@ type UserRecord = {
   city: string | null
 }
 
-const salesSchema = defineChartSchema<SalesRecord>()
+const salesSchema = defineDataset<SalesRecord>()
   .columns((c) => [
     c.date('createdAt', {label: 'Created'}),
     c.category('region'),
     c.number('revenue', {format: 'currency'}),
     c.exclude('internalId'),
   ])
+  .chart()
   .groupBy((g) => g.allowed('region'))
   .metric((m) => m.aggregate('revenue', 'sum'))
 
-const userSchema = defineChartSchema<UserRecord>()
+const userSchema = defineDataset<UserRecord>()
   .columns((c) => [
     c.date('signedUpAt', {label: 'Signed Up'}),
     c.category('plan'),
     c.boolean('isActive'),
     c.exclude('city'),
   ])
+  .chart()
   .groupBy((g) => g.allowed('plan', 'isActive'))
 
 const salesDataset = defineDataset<SalesRecord>()

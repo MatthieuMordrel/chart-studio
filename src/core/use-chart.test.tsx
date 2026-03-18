@@ -1,21 +1,21 @@
 import {act, renderHook} from '@testing-library/react'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {candidateData, jobData, type CandidateRecord, type JobRecord} from '../test/chart-test-fixtures.js'
-import {defineChartSchema} from './define-chart-schema.js'
 import {defineDataset} from './define-dataset.js'
 import {useChart} from './use-chart.js'
 
-const jobSchemaBuilder = defineChartSchema<JobRecord>()
+const jobSchemaBuilder = defineDataset<JobRecord>()
   .columns((c) => [
     c.date('dateAdded'),
     c.category('ownerName'),
     c.boolean('isOpen'),
     c.number('salary'),
   ])
+  .chart()
 
 const configuredJobSchema = jobSchemaBuilder.build()
 
-const derivedJobSchema = defineChartSchema<JobRecord>()
+const derivedJobSchema = defineDataset<JobRecord>()
   .columns((c) => [
     c.date('dateAdded'),
     c.category('ownerName'),
@@ -41,20 +41,23 @@ const derivedJobSchema = defineChartSchema<JobRecord>()
       accessor: (row) => row.salary,
     }),
   ])
+  .chart()
   .build()
 
-const jobDisplaySchema = defineChartSchema<JobRecord>()
+const jobDisplaySchema = defineDataset<JobRecord>()
   .columns((c) => [
     c.field('ownerName', {label: 'Owner'}),
     c.field('salary', {format: 'currency'}),
   ])
+  .chart()
   .build()
 
-const candidateDisplaySchema = defineChartSchema<(typeof candidateData)[number]>()
+const candidateDisplaySchema = defineDataset<(typeof candidateData)[number]>()
   .columns((c) => [
     c.field('stage', {label: 'Hiring Stage'}),
     c.exclude('city'),
   ])
+  .chart()
   .build()
 
 const restrictedJobSchema = jobSchemaBuilder
@@ -263,12 +266,13 @@ describe('useChart', () => {
       {bookedAt: '2026-01-03', region: 'APAC', revenue: 30},
       {bookedAt: '2026-01-04', region: 'US', revenue: 40},
     ]
-    const schema = defineChartSchema<(typeof regionalSales)[number]>()
+    const schema = defineDataset<(typeof regionalSales)[number]>()
       .columns((c) => [
         c.date('bookedAt'),
         c.category('region'),
         c.number('revenue'),
       ])
+      .chart()
       .xAxis((x) => x.allowed('region').default('region'))
       .filters((f) => f.allowed('region'))
       .build()
@@ -504,12 +508,13 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data: jobData,
-        schema: defineChartSchema<(typeof jobData)[number]>()
+        schema: defineDataset<(typeof jobData)[number]>()
           .columns((c) => [
             c.field('ownerName', {label: 'Owner'}),
             c.field('salary', {format: 'currency'}),
             c.exclude('isOpen'),
           ])
+          .chart()
           .build(),
       }),
     )
@@ -518,8 +523,8 @@ describe('useChart', () => {
     expect(result.current.columns.find((column) => column.id === 'ownerName')?.label).toBe('Owner')
   })
 
-  it('treats defineChartSchema as the direct single-chart shortcut', () => {
-    const schemaBuilder = defineChartSchema<JobRecord>()
+  it('treats defineDataset chart builder as the explicit chart path', () => {
+    const schemaBuilder = defineDataset<JobRecord>()
       .columns((c) => [
         c.date('dateAdded', {label: 'Date Added'}),
         c.category('ownerName', {label: 'Owner'}),
@@ -530,6 +535,7 @@ describe('useChart', () => {
           accessor: (row) => (row.salary != null && row.salary >= 100 ? 'High' : 'Low'),
         }),
       ])
+      .chart()
       .xAxis((x) => x.allowed('dateAdded').default('dateAdded'))
       .groupBy((g) => g.allowed('salaryBand').default('salaryBand'))
       .filters((f) => f.allowed('ownerName', 'salaryBand'))
@@ -815,11 +821,12 @@ describe('useChart', () => {
     const {result} = renderHook(() =>
       useChart({
         data,
-        schema: defineChartSchema<(typeof data)[number]>()
+        schema: defineDataset<(typeof data)[number]>()
           .columns((c) => [
             c.field('revenue', {label: 'Revenue'}),
             c.exclude('internalId'),
           ])
+          .chart()
           .build(),
       }),
     )
