@@ -250,7 +250,7 @@ export function TypedInferredDashboardChart() {
           <button
             type='button'
             onClick={() => teacherFilter.clear()}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
               teacherFilter.values.size === 0
                 ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-border bg-background text-foreground hover:border-primary/40'
@@ -266,7 +266,7 @@ export function TypedInferredDashboardChart() {
                 key={option.value}
                 type='button'
                 onClick={() => teacherFilter.toggleValue(option.value)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
                   isActive
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border bg-background text-foreground hover:border-primary/40'

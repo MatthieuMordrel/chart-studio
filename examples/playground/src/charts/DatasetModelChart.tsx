@@ -614,10 +614,10 @@ function SharedSelectFilterCard({
               key={option.value}
               type='button'
               onClick={() => filter.toggleValue(option.value)}
-              className={`rounded-full border px-2 py-1 text-[11px] transition ${
+              className={`rounded-lg border px-2 py-1 text-[11px] transition ${
                 isActive
                   ? 'border-primary/40 bg-primary/10 text-primary'
-                  : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                  : 'border-border/50 bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
               }`}>
               {option.label}
               <span className='ml-1 text-[10px] opacity-75'>{integerFormatter.format(option.count)}</span>
@@ -666,10 +666,10 @@ function SharedDateRangeCard({
               key={preset.id}
               type='button'
               onClick={() => filter.setDateRangePreset(preset.id as 'all-time' | 'last-30-days' | 'last-12-months')}
-              className={`rounded-full border px-2 py-1 text-[11px] transition ${
+              className={`rounded-lg border px-2 py-1 text-[11px] transition ${
                 isActive
                   ? 'border-primary/40 bg-primary/10 text-primary'
-                  : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                  : 'border-border/50 bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
               }`}>
               {preset.label}
             </button>
@@ -689,7 +689,7 @@ function SharedDateRangeCard({
                 to: customTo,
               })
             }
-            className='w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-hidden transition focus:border-primary/40'
+            className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-hidden transition focus:border-primary/40 focus:ring-1 focus:ring-ring/20'
           />
         </label>
 
@@ -704,7 +704,7 @@ function SharedDateRangeCard({
                 to: fromDateInputValue(event.target.value),
               })
             }
-            className='w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-hidden transition focus:border-primary/40'
+            className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-hidden transition focus:border-primary/40 focus:ring-1 focus:ring-ring/20'
           />
         </label>
       </div>

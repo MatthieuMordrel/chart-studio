@@ -14,10 +14,10 @@
   --color-border: var(--cs-border);
   --color-input: var(--cs-input);
   --color-ring: var(--cs-ring);
-  --radius-sm: calc(var(--cs-radius) - 4px);
-  --radius-md: calc(var(--cs-radius) - 2px);
+  --radius-sm: max(0px, calc(var(--cs-radius) - 4px));
+  --radius-md: max(0px, calc(var(--cs-radius) - 2px));
   --radius-lg: var(--cs-radius);
-  --radius-xl: calc(var(--cs-radius) + 4px);
+  --radius-xl: calc(var(--cs-radius) + clamp(0px, var(--cs-radius), 4px));
 }
 
 :root {
