@@ -26,6 +26,7 @@ export type {
   DataModelDefinition,
   DataModelBuilder,
   DefinedDataModel,
+  KeyedDatasetDefinition,
   ModelAssociationDefinition,
   ModelAttributeDefinition,
   ModelDataInput,

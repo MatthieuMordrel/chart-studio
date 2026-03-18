@@ -1,6 +1,7 @@
 import type {
   DatasetChartDefinition,
   DatasetDefinition,
+  DatasetKey,
   DatasetRow,
   DefinedDataset,
   ResolvedDatasetFromDefinition,
@@ -31,6 +32,12 @@ type UniqueId<TId extends string, TExisting extends string> =
   TId extends TExisting
     ? never
     : TId
+
+export type KeyedDatasetDefinition<
+  TRow = any,
+  TColumns extends Record<string, unknown> | undefined = any,
+  TKey extends DatasetKey<TRow> = DatasetKey<TRow>,
+> = DatasetDefinition<TRow, TColumns, TKey>
 
 export type ModelDatasets = Record<string, DefinedDataset<any, any, any>>
 
@@ -405,7 +412,7 @@ export interface DataModelBuilder<
 > extends DataModelDefinition<TDatasets, TRelationships, TAssociations, TAttributes> {
   dataset<
     const TId extends string,
-    const TDataset extends DatasetDefinition<any, any, any>,
+    const TDataset extends KeyedDatasetDefinition,
   >(
     id: UniqueId<TId, ModelDatasetId<TDatasets>>,
     dataset: TDataset,

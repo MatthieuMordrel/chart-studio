@@ -140,6 +140,15 @@ function verifyModelTyping() {
   // @ts-expect-error duplicate dataset ids should fail at compile time for literal ids
   defineDataModel().dataset('jobs', jobs).dataset('jobs', jobs)
 
+  // @ts-expect-error datasets added to a model must declare a .key()
+  defineDataModel().dataset('keyless', defineDataset<JobRecord>().columns((c) => [
+    c.date('createdAt'),
+    c.number('salary'),
+  ]))
+
+  // @ts-expect-error bare datasets without .key() must also fail
+  defineDataModel().dataset('bare', defineDataset<JobRecord>())
+
   defineDataModel()
     .dataset('jobs', jobs)
     .dataset('owners', owners)

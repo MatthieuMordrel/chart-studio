@@ -66,7 +66,7 @@ function resolveRelationshipSourceKeyId(
     return dataset.key[0]
   }
 
-  return 'id'
+  return undefined
 }
 
 function buildInferredForeignKeyColumnId(

@@ -62,6 +62,7 @@ export type {
   DataModelBuilder,
   DefinedDataModel,
   DefinedMaterializedView,
+  KeyedDatasetDefinition,
   MaterializedProjectableColumnId,
   MaterializedViewDefinition,
   MaterializedViewMetadata,

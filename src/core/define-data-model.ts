@@ -421,6 +421,10 @@ function createDataModelBuilder<
       assertUniqueId(state.datasets, 'dataset', id)
       const resolvedDataset = resolveDatasetDefinition(dataset)
 
+      if (!resolvedDataset.key || resolvedDataset.key.length === 0) {
+        throw new Error(`Dataset "${id}" must declare a .key() before being added to a data model.`)
+      }
+
       return createDataModelBuilder({
         ...state,
         datasets: {

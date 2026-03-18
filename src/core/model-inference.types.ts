@@ -56,9 +56,7 @@ type ExcludedFieldPairUnion<TExclude> =
 type SafeRelationshipKeyId<TDataset> =
   SingleDatasetKeyId<TDataset> extends infer TKeyId extends string
     ? TKeyId
-    : 'id' extends InferableFieldKey<DatasetRow<TDataset>>
-      ? 'id'
-      : never
+    : never
 
 type InferredForeignKeyColumnId<
   TDatasetId extends string,
