@@ -8,6 +8,8 @@ High-level description of what we want to build, what developers should see, and
 - Support **debugging** joins, filters, materialization, and chart binding without digging through logs or ad-hoc `console.log` of the model.
 - Keep **production bundles clean**: no devtools in shipped code, same spirit as TanStack Query / Router devtools.
 - Prefer **runtime introspection** (the `DefinedDataModel` and the data the dashboard already uses)—not parsing TypeScript or following `tsconfig` in a separate process for v1.
+- Deliver a **polished experience**: the panel should feel **visually refined**, **easy to scan**, and **obvious** even to someone new to Chart Studio—not a raw debug dump.
+- Reflect the model **in real time** as the app updates (HMR, data refresh, or provider state changes), so what you see always matches what the charts are using.
 
 ## What we want to see
 
@@ -23,11 +25,43 @@ High-level description of what we want to build, what developers should see, and
 4. **Chart implementation context**  
    Surface enough of the **active chart / materialized view** (ids, grain, steps) so a developer can see *why* a slice of data looks a certain way—not only the raw rows.
 
+_Note for v1:_ the “graph” can be a **structured list or tree** first; a full canvas layout is not required on day one (see UX section).
+
+## How to show it (UX shell)
+
+### Experience bar (applies to every version)
+
+- **Look and feel:** intentional typography, spacing, and color—**attractive** devtools that teams are happy to leave open, not a utilitarian afterthought.
+- **Understandability:** plain-language labels, sensible grouping, and **progressive disclosure** so beginners see the whole picture and experts can drill in.
+- **Live model:** wire the UI to the **current** model and data (via context or `getSnapshot` on a **short interval** / **subscription** when the host supports it) so edits in code or data **show up immediately** without manual refresh.
+
+### v1: keep the scope small, not the quality
+
+The first version should limit **surface area** (fewer panels and modes), not **care** in design. Concretely:
+
+- **One shell:** a **fixed-position panel** (e.g. bottom or side) **or** a minimal **floating bar + expandable panel**—no requirement for drag-and-drop, `localStorage` layout persistence, or a second window.
+- **Open / close:** a single **toggle** (FAB or header button). Avoid a blocking centered modal as the *only* option; a slide-up / docked panel is enough.
+- **Navigation inside:** simple **tabs** (*Model*, *Data*, *Chart*—or fewer if some merge into one screen). **No resizable split panes in v1** unless they come almost for free from a library.
+- **Model view:** prefer a **clear list / tree** of datasets, relationships, and associations with readable labels (from → to, key / column). Defer a **full graph canvas** if it is not quick to ship.
+- **Data view:** **JSON first** is acceptable for v1; a basic **scrollable** table or object explorer for one dataset at a time is enough. **Virtualization and heavy TanStack Table** polish can follow once the shell proves useful.
+- **Room to grow:** use `max-height` + **internal scroll** so a big model does not break the layout; an optional **“Larger”** control that increases height to ~80–90% of the viewport covers most “almost full screen” needs in v1 without fullscreen APIs or pop-out.
+
+That keeps v1 **focused and shippable** while still meeting the experience bar above; richer layout modes come later.
+
+### Later (v2+): richer layout
+
+When the core is useful, add the ergonomics that matter for huge models and dual-monitor workflows:
+
+- **Draggable / resizable** panel, **near full-screen** and optional **browser fullscreen**.
+- **Pop-out window** with **`BroadcastChannel` / `postMessage`** so the app stays in one window and devtools in another.
+- **Split panes** inside the shell (e.g. model outline | detail), **virtualized** tables, and optional **force-directed or ELK** graph layouts.
+- **Persist** size / position / pop-out in `localStorage`; **disconnected** state when the pop-out closes.
+
 ## Recommendation
 
 ### Default: dev-only package + snapshot API
 
-- Publish something like **`@chart-studio/devtools`** (exact name TBD) that renders a **floating panel** or a **dedicated window** (optional), gated entirely behind **development** imports.
+- Publish something like **`@chart-studio/devtools`** (exact name TBD) with the **v1 UX** above (simple docked / expandable panel + tabs), gated entirely behind **development** imports.
 - The host app provides a **snapshot function** (or stable refs) so devtools always read the **same** model and data the charts use—no second source of truth.
 - **Do not** rely on parsing project TypeScript for v1; the model is already constructed at runtime when the app runs.
 
@@ -71,8 +105,13 @@ import { ChartStudioDevtools } from '@chart-studio/devtools/react'
 
 For teams that do not want *any* devtools import in application source, a **Vite plugin + small local server** (Vitest UI–style) can forward **serialized snapshots** over WebSocket/`postMessage`. That is more moving parts; treat it as phase 2 after the in-process devtools are proven.
 
+## Implementation approach (high level)
+
+Devtools should read the **same built data model** (and row payloads) the app passes into Chart Studio—**no TypeScript analysis**. At a high level: **datasets** give you the “nodes,” **relationships** and **associations** give you the “edges” and bridge semantics; optional runtime metadata distinguishes **inferred** links. The UI maps that structure to lists or a graph. Be mindful that some fields are **functions** or **large arrays**, so remote or serialized views may need **summaries** rather than full dumps.
+
 ## Success criteria
 
 - **Minutes to adopt:** install package, one dev-only line (or one component + optional `getSnapshot`).
 - **No production leakage:** tree-shaking / dev-only imports are documented and easy to verify.
 - **Ground truth:** everything shown is derived from the live **defined model** and **runtime data**, not from static analysis of source files.
+- **Pleasant and live:** the interface stays **readable and appealing**, and updates **as the model or data changes** in development.
