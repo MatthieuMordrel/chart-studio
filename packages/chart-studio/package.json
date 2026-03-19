@@ -1,0 +1,51 @@
+{
+  "name": "@matthieumordrel/chart-studio",
+  "version": "0.5.0",
+  "description": "Alpha: headless, composable charting for React. Not production-ready.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./_internal": {
+      "types": "./dist/_internal.d.mts",
+      "import": "./dist/_internal.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MatthieuMordrel/chart-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MatthieuMordrel/chart-studio/issues"
+  },
+  "homepage": "https://github.com/MatthieuMordrel/chart-studio#readme",
+  "author": "Matthieu Mordrel",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "charts",
+    "headless",
+    "dashboard",
+    "visualization"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "bunx tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "react": ">=18.2.0 <20"
+  }
+}
