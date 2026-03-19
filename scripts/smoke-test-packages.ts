@@ -23,6 +23,7 @@ const smokeFixtures: readonly SmokeFixture[] = [
 ] as const
 
 function packWorkspacePackage(workspacePackage: WorkspacePackage): string {
+  console.log(`Packing ${workspacePackage.name}...`)
   const result = runCommand('bun', ['pm', 'pack'], {
     cwd: workspacePackage.dir,
     stdio: 'pipe',
@@ -75,11 +76,13 @@ try {
     cpSync(fixture.dir, fixtureDir, {recursive: true, force: true})
     rewriteFixturePackageManifest(fixtureDir, tarballs)
 
-    runCommand('bun', ['install'], {
+    console.log(`[smoke:${fixture.name}] bun install --no-progress`)
+    runCommand('bun', ['install', '--no-progress'], {
       cwd: fixtureDir,
       env: {TMPDIR: tempDir},
     })
 
+    console.log(`[smoke:${fixture.name}] ${fixture.command.join(' ')}`)
     runCommand(fixture.command[0]!, fixture.command.slice(1), {
       cwd: fixtureDir,
       env: {TMPDIR: tempDir},
