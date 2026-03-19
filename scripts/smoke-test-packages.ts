@@ -1,7 +1,105 @@
+import {spawnSync} from 'node:child_process'
 import {cpSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {repoRoot, runCommand, workspacePackages, type WorkspacePackage} from './workspace-utils.js'
+
+/**
+ * npm major used with `bunx` when there is no system `npm`. npm's resolver is used for
+ * installs instead of Bun's, which avoids indefinite "Resolving" stalls on some
+ * networks (IPv6/DNS, VPN/tun, large peer graphs).
+ */
+const BUNX_NPM_VERSION = 'npm@10'
+
+/**
+ * How to install smoke-fixture dependencies. `auto` never uses `bun install` by
+ * default—only system `npm` or `bunx npm@10`. Use `bun` only if you intentionally
+ * want to exercise Bun's installer.
+ */
+type SmokeInstallTool = 'auto' | 'bun' | 'npm'
+
+/**
+ * Returns whether `npm` can be executed in this environment.
+ */
+function isNpmOnPath(env: NodeJS.ProcessEnv): boolean {
+  return spawnSync('npm', ['-v'], {encoding: 'utf8', env, stdio: ['pipe', 'pipe', 'pipe']}).status === 0
+}
+
+/**
+ * Reads `SMOKE_INSTALL_TOOL` or defaults to `auto`.
+ */
+function smokeInstallTool(): SmokeInstallTool {
+  const raw = process.env['SMOKE_INSTALL_TOOL']?.toLowerCase()
+  if (raw === 'bun' || raw === 'npm') {
+    return raw
+  }
+  return 'auto'
+}
+
+const npmInstallFlags = ['install', '--no-audit', '--no-fund', '--ignore-scripts'] as const
+
+/**
+ * Installs dependencies for a copied smoke fixture.
+ */
+function installSmokeFixtureDependencies(fixtureDir: string, env: NodeJS.ProcessEnv) {
+  const mergedEnv = {...process.env, ...env}
+  const tool = smokeInstallTool()
+
+  if (tool === 'bun') {
+    runBunInstall(fixtureDir, mergedEnv)
+    return
+  }
+
+  if (tool === 'npm') {
+    if (!isNpmOnPath(mergedEnv)) {
+      throw new Error('SMOKE_INSTALL_TOOL=npm but `npm` is not available on PATH.')
+    }
+    console.log('[smoke] npm install (SMOKE_INSTALL_TOOL=npm)')
+    runCommand('npm', [...npmInstallFlags], {
+      cwd: fixtureDir,
+      env: mergedEnv,
+    })
+    return
+  }
+
+  if (isNpmOnPath(mergedEnv)) {
+    console.log('[smoke] npm install (npm on PATH)')
+    runCommand('npm', [...npmInstallFlags], {
+      cwd: fixtureDir,
+      env: mergedEnv,
+    })
+    return
+  }
+
+  console.log(
+    `[smoke] ${BUNX_NPM_VERSION} via bunx (no system npm — avoids Bun install resolver stalls; set SMOKE_INSTALL_TOOL=bun to force bun install)`,
+  )
+  runCommand('bunx', [BUNX_NPM_VERSION, ...npmInstallFlags], {
+    cwd: fixtureDir,
+    env: mergedEnv,
+  })
+}
+
+/**
+ * Runs `bun install` with DNS and flags that sometimes avoid resolver stalls. Only used
+ * when `SMOKE_INSTALL_TOOL=bun`.
+ */
+function runBunInstall(fixtureDir: string, env: NodeJS.ProcessEnv) {
+  runCommand(
+    'bun',
+    [
+      '--dns-result-order=ipv4first',
+      'install',
+      '--no-progress',
+      '--ignore-scripts',
+      '--registry=https://registry.npmjs.org/',
+    ],
+    {
+      cwd: fixtureDir,
+      env,
+    },
+  )
+}
 
 type SmokeFixture = {
   command: string[]
@@ -76,11 +174,8 @@ try {
     cpSync(fixture.dir, fixtureDir, {recursive: true, force: true})
     rewriteFixturePackageManifest(fixtureDir, tarballs)
 
-    console.log(`[smoke:${fixture.name}] bun install --no-progress`)
-    runCommand('bun', ['install', '--no-progress'], {
-      cwd: fixtureDir,
-      env: {TMPDIR: tempDir},
-    })
+    console.log(`[smoke:${fixture.name}] install dependencies`)
+    installSmokeFixtureDependencies(fixtureDir, {TMPDIR: tempDir})
 
     console.log(`[smoke:${fixture.name}] ${fixture.command.join(' ')}`)
     runCommand(fixture.command[0]!, fixture.command.slice(1), {
