@@ -29,6 +29,12 @@ Requirements:
 Install:
 
 ```bash
+bun add @matthieumordrel/chart-studio react
+```
+
+To install from the `alpha` dist-tag instead (when you publish prereleases there):
+
+```bash
 bun add @matthieumordrel/chart-studio@alpha react
 ```
 
@@ -66,10 +72,10 @@ Requirements:
 Install:
 
 ```bash
-bun add @matthieumordrel/chart-studio@alpha @matthieumordrel/chart-studio-ui@alpha react react-dom recharts lucide-react tailwindcss
+bun add @matthieumordrel/chart-studio @matthieumordrel/chart-studio-ui react react-dom recharts lucide-react tailwindcss
 ```
 
-Current prereleases are published under the `alpha` dist-tag on npm.
+Prereleases published under the `alpha` dist-tag: add `@alpha` to both package names. Default npm installs use `latest`.
 
 Then import the package theme once in your app stylesheet:
 
@@ -901,13 +907,12 @@ to `useChart(...)` or `inferColumnsFromData(...)`.
 - `bun run release:check`
 - `bun run release -- --bump patch`
 - `bun run release -- --bump minor`
-- `bun run release:publish` publishes under the `alpha` npm dist-tag by default
-- `bun run release:publish -- --tag=latest` should only be used when you explicitly want to promote a stable release
+- `bun run release:publish` → npm dist-tag `latest` (default)
+- `bun run release:publish:alpha` or `... -- --tag alpha` → `alpha`
 - release tags are shared across both published packages
 
 ## Acknowledgements
 
-Special thanks to the teams behind TanStack Table and Recharts.
+This library draws heavy inspiration from [TanStack Table](https://tanstack.com/table/latest) and [Elysia](https://elysiajs.com/). I want to thank both teams for the incredible path they have paved that makes a project like this possible.
 
-- TanStack Table helped set the bar for clear, composable headless APIs.
-- Recharts made it much easier to explore and ship the optional chart rendering layer.
+I also want to thank [Recharts](https://recharts.org/) for an excellent charting library that our entire UI package builds on as a lower layer.

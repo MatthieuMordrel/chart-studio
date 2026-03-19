@@ -13,7 +13,8 @@
     "smoke:test": "bun run ./scripts/smoke-test-packages.ts",
     "release": "bun run ./scripts/release-packages.ts",
     "release:check": "bun run ./scripts/release-packages.ts --dry-run",
-    "release:publish": "bun run ./scripts/release-packages.ts --publish"
+    "release:publish": "bun run ./scripts/release-packages.ts --publish",
+    "release:publish:alpha": "bun run ./scripts/release-packages.ts --publish --tag alpha"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

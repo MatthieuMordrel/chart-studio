@@ -13,16 +13,16 @@ Important expectation-setting:
 
 - this is an early alpha
 - it is not recommended for production use yet
-- npm releases are currently published under the `alpha` dist-tag
+- npm releases default to the `latest` dist-tag; optional `alpha` channel for prereleases
 
-Special thanks to the teams behind TanStack Table and Recharts.
+Full acknowledgements (TanStack Table, Elysia, Recharts) are in the repository README.
 
 Install:
 
 ```bash
-bun add @matthieumordrel/chart-studio@alpha @matthieumordrel/chart-studio-ui@alpha react react-dom recharts lucide-react tailwindcss
+bun add @matthieumordrel/chart-studio @matthieumordrel/chart-studio-ui react react-dom recharts lucide-react tailwindcss
 ```
 
 Short version for a post:
 
-`chart-studio` is publicly available as an early alpha: a headless charting core for React with an optional UI package on top. It is still in active development and not recommended for production use yet. Current npm installs use the `alpha` dist-tag.
+`chart-studio` is publicly available as an early alpha: a headless charting core for React with an optional UI package on top. It is still in active development and not recommended for production use yet. Default npm installs use `latest`; use `@alpha` when publishing or consuming the prerelease dist-tag.

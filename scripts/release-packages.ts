@@ -86,11 +86,12 @@ function releasePackages() {
 }
 
 function parseReleaseOptions(args: string[]): ReleaseOptions {
+  // Default npm dist-tag is `latest`. Use `--tag alpha` for a prerelease channel.
   const options: ReleaseOptions = {
     dryRun: false,
     provenance: false,
     publish: false,
-    tag: 'alpha',
+    tag: 'latest',
   }
 
   for (let index = 0; index < args.length; index += 1) {

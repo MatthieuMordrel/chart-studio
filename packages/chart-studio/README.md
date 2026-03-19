@@ -9,10 +9,10 @@ Use this package when you want chart state, filtering, grouping, metrics, time b
 Install:
 
 ```bash
-bun add @matthieumordrel/chart-studio@alpha react
+bun add @matthieumordrel/chart-studio react
 ```
 
-Current prereleases are published under the `alpha` dist-tag on npm.
+Use `@alpha` on the package name if you publish prereleases to the `alpha` dist-tag only.
 
 Import from:
 
@@ -21,7 +21,5 @@ import {defineDataset, useChart} from '@matthieumordrel/chart-studio'
 ```
 
 If you also want the optional ready-made React UI, install `@matthieumordrel/chart-studio-ui` alongside this package.
-
-Special thanks to the teams behind TanStack Table and Recharts.
 
 Full documentation: <https://github.com/MatthieuMordrel/chart-studio#readme>

@@ -11,10 +11,10 @@ Your app still needs a normal Tailwind CSS v4 integration such as `@tailwindcss/
 Install:
 
 ```bash
-bun add @matthieumordrel/chart-studio@alpha @matthieumordrel/chart-studio-ui@alpha react react-dom recharts lucide-react tailwindcss
+bun add @matthieumordrel/chart-studio @matthieumordrel/chart-studio-ui react react-dom recharts lucide-react tailwindcss
 ```
 
-Current prereleases are published under the `alpha` dist-tag on npm.
+Use `@alpha` on both names if you install from the `alpha` dist-tag only.
 
 Import from:
 
@@ -29,7 +29,5 @@ Theme import:
 @import 'tailwindcss';
 @import '@matthieumordrel/chart-studio-ui/theme.css';
 ```
-
-Special thanks to the teams behind TanStack Table and Recharts.
 
 Full documentation: <https://github.com/MatthieuMordrel/chart-studio#readme>
