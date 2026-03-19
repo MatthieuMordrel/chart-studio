@@ -7,7 +7,7 @@ import {
   useDashboardDataset,
   useDashboardSharedFilter,
 } from '@matthieumordrel/chart-studio'
-import {Chart, ChartCanvas} from '@matthieumordrel/chart-studio/ui'
+import {Chart, ChartCanvas} from '@matthieumordrel/chart-studio-ui'
 import type {ReactNode} from 'react'
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { useChart, type ChartType } from '@matthieumordrel/chart-studio'
-// No import from '@matthieumordrel/chart-studio/ui' — this scenario uses only the core package.
+// No import from '@matthieumordrel/chart-studio-ui' — this scenario uses only the core package.
 import { recipeLogData } from '../mock-data'
 
 /**

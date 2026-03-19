@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "@matthieumordrel/chart-studio-ui/theme.css";
+
+body {
+  margin: 0;
+}

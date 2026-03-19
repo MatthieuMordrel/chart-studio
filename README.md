@@ -1,5 +1,7 @@
 # chart-studio
 
+> Early alpha. `chart-studio` and `chart-studio-ui` are active work-in-progress packages. APIs, package structure, and behavior may change without much notice. They are not recommended for production use yet.
+
 Composable charting for React with two adoption paths:
 
 - use the **headless core** if you want chart state, filtering, grouping, and transformed data
@@ -27,7 +29,7 @@ Requirements:
 Install:
 
 ```bash
-bun add @matthieumordrel/chart-studio react
+bun add @matthieumordrel/chart-studio@alpha react
 ```
 
 Import from:
@@ -40,45 +42,54 @@ import { useChart } from '@matthieumordrel/chart-studio'
 
 Use this if you want the package to render the controls and chart for you.
 
+This path now uses two packages:
+
+- `@matthieumordrel/chart-studio` for the headless runtime
+- `@matthieumordrel/chart-studio-ui` for the optional React UI layer
+
 You get:
 
 - everything from the headless core
 - `<Chart>`
 - `<ChartToolbar>`
 - `<ChartCanvas>`
-- granular UI controls from `@matthieumordrel/chart-studio/ui`
+- granular UI controls from `@matthieumordrel/chart-studio-ui`
 
 Requirements:
 
 - `react` >= 18.2.0
+- `react-dom` >= 18.2.0
 - `recharts` >= 3.0.0 (v2 is **not** supported)
-- `lucide-react` >= 0.577.0 (optional, for toolbar icons)
+- `lucide-react` >= 0.577.0
+- `tailwindcss` >= 4.0.0
 
 Install:
 
 ```bash
-bun add @matthieumordrel/chart-studio react recharts lucide-react
+bun add @matthieumordrel/chart-studio@alpha @matthieumordrel/chart-studio-ui@alpha react react-dom recharts lucide-react tailwindcss
 ```
+
+Current prereleases are published under the `alpha` dist-tag on npm.
 
 Then import the package theme once in your app stylesheet:
 
 ```css
 @import 'tailwindcss';
-@import '@matthieumordrel/chart-studio/ui/theme.css';
+@import '@matthieumordrel/chart-studio-ui/theme.css';
 ```
 
 Import from:
 
 ```tsx
 import { useChart } from '@matthieumordrel/chart-studio'
-import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
+import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio-ui'
 ```
 
 ## Smallest Working Example (Single Source)
 
 ```tsx
 import { useChart } from '@matthieumordrel/chart-studio'
-import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio/ui'
+import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio-ui'
 import { data } from './data.json'
 
 export function JobsChart() {
@@ -97,7 +108,7 @@ export function JobsChart() {
 
 1. Pass your raw data to `useChart()`.
 2. Add an optional `schema` with `defineDataset<Row>().chart(...)` when you need labels, type overrides, derived columns, or control restrictions (allowed metrics, groupings, chart types, etc.).
-3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio/ui`.
+3. Either render your own UI from the returned state, or use the components from `@matthieumordrel/chart-studio-ui`.
 
 ## Stable Single-Chart Contract
 
@@ -520,7 +531,7 @@ export function JobsChartHeadless({ data }: { data: Job[] }) {
 
 The headless core has no styling requirements.
 
-The `ui` layer is Tailwind-based and uses semantic classes such as:
+`@matthieumordrel/chart-studio-ui` is Tailwind CSS v4 based and uses semantic classes such as:
 
 - `bg-background`
 - `text-foreground`
@@ -528,9 +539,9 @@ The `ui` layer is Tailwind-based and uses semantic classes such as:
 - `bg-popover`
 - `text-muted-foreground`
 
-For those classes to render correctly, Tailwind needs real values behind tokens like `background`, `foreground`, `border`, and `popover`.
+For those classes to render correctly, your app needs Tailwind CSS v4 wired into its build and real values behind tokens like `background`, `foreground`, `border`, and `popover`.
 
-You can use `ui` in two ways:
+You can use the UI package in two ways:
 
 ### 1. Recommended: import the built-in theme
 
@@ -538,7 +549,7 @@ This is the easiest setup:
 
 ```css
 @import 'tailwindcss';
-@import '@matthieumordrel/chart-studio/ui/theme.css';
+@import '@matthieumordrel/chart-studio-ui/theme.css';
 ```
 
 This does three things for you:
@@ -547,6 +558,8 @@ This does three things for you:
 - automatic scanning of the package UI classes
 - default fallback values for all semantic UI tokens
 - built-in light and dark default themes
+
+Because `theme.css` is Tailwind source, your app still needs a normal Tailwind CSS v4 integration such as `@tailwindcss/vite`, the PostCSS plugin, or the Tailwind CLI.
 
 If your app already defines matching shadcn-style variables, those values take over automatically. If not, the built-in defaults are used.
 
@@ -557,15 +570,15 @@ The shipped theme supports dark mode through either:
 
 ### 2. Advanced: define everything yourself
 
-If you do not want to import `@matthieumordrel/chart-studio/ui/theme.css`, you can provide all the required semantic tokens yourself in your app theme.
+If you do not want to import `@matthieumordrel/chart-studio-ui/theme.css`, you must still ensure Tailwind CSS v4 scans the package UI classes and you can provide all the required semantic tokens yourself in your app theme.
 
 If neither of those is true, use the headless core and render your own controls.
 
 ### Minimum UI theme contract
 
-You do not need shadcn itself to use `@matthieumordrel/chart-studio/ui`.
+You do not need shadcn itself to use `@matthieumordrel/chart-studio-ui`.
 
-If you import `@matthieumordrel/chart-studio/ui/theme.css`, every token below gets a built-in fallback automatically.
+If you import `@matthieumordrel/chart-studio-ui/theme.css`, every token below gets a built-in fallback automatically.
 
 If your app already defines some of these variables, your values override the defaults for those specific tokens only. Missing ones still fall back to the package defaults.
 
@@ -588,25 +601,25 @@ Minimal example:
 
 ```css
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --border: 214.3 31.8% 91.4%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --ring: 221.2 83.2% 53.3%;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --border: oklch(0.922 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.708 0 0);
 }
 ```
 
 How this works in practice:
 
-- import `ui/theme.css` and do nothing else: the package uses its own defaults
+- import `@matthieumordrel/chart-studio-ui/theme.css` and do nothing else: the package uses its own defaults
 - toggle dark mode with either `.dark` or `[data-theme="dark"]`: the package uses its built-in dark defaults
-- import `ui/theme.css` and define only a few variables: your values win for those variables, defaults cover the rest
-- skip `ui/theme.css`: you must define the whole token contract yourself
+- import `@matthieumordrel/chart-studio-ui/theme.css` and define only a few variables: your values win for those variables, defaults cover the rest
+- skip `@matthieumordrel/chart-studio-ui/theme.css`: you must define the whole token contract yourself and make sure Tailwind still sees the package classes
 
 That makes the package usable out of the box while still being easy to theme.
 
@@ -622,7 +635,7 @@ Chart series colors also support shadcn-style chart variables:
 | `chart-4` | fourth series color |
 | `chart-5` | fifth series color  |
 
-These are also optional when you import `ui/theme.css`.
+These are also optional when you import `@matthieumordrel/chart-studio-ui/theme.css`.
 
 If your app defines `--chart-1` through `--chart-5`, those colors are used automatically.
 
@@ -632,11 +645,11 @@ Minimal example:
 
 ```css
 :root {
-  --chart-1: 221.2 83.2% 53.3%;
-  --chart-2: 262.1 83.3% 57.8%;
-  --chart-3: 24.6 95% 53.1%;
-  --chart-4: 142.1 76.2% 36.3%;
-  --chart-5: 346.8 77.2% 49.8%;
+  --chart-1: oklch(0.62 0.19 260);
+  --chart-2: oklch(0.58 0.2 20);
+  --chart-3: oklch(0.7 0.18 145);
+  --chart-4: oklch(0.68 0.16 80);
+  --chart-5: oklch(0.6 0.15 320);
 }
 ```
 
@@ -645,7 +658,11 @@ Minimal example:
 ### Which import path should I use?
 
 - Use `@matthieumordrel/chart-studio` for the headless core.
-- Use `@matthieumordrel/chart-studio/ui` for the optional UI components.
+- Use `@matthieumordrel/chart-studio-ui` for the optional UI components.
+
+### Is this production-ready?
+
+No. This is still an early alpha, under active development, and not recommended for production use yet.
 
 ### Do I need Recharts?
 
@@ -653,7 +670,7 @@ Only for the UI layer. The headless core works without it.
 
 ### Do I need Tailwind?
 
-Only for the UI layer. The headless core does not require it.
+Only for `@matthieumordrel/chart-studio-ui`, and the current UI package expects Tailwind CSS v4. The headless core does not require it.
 
 ### Can I use multiple datasets?
 
@@ -738,8 +755,10 @@ Start with:
 
 ```css
 @import 'tailwindcss';
-@import '@matthieumordrel/chart-studio/ui/theme.css';
+@import '@matthieumordrel/chart-studio-ui/theme.css';
 ```
+
+Also make sure your app has Tailwind CSS v4 actually running in the build. For Vite that usually means `@tailwindcss/vite`; other setups should use the equivalent Tailwind integration.
 
 If you are importing the package source directly in a local playground or monorepo, make sure Tailwind is scanning those source files too.
 
@@ -878,6 +897,17 @@ to `useChart(...)` or `inferColumnsFromData(...)`.
 
 ## Release
 
+- release from a clean, fully committed worktree only
 - `bun run release:check`
-- `bun run release:publish -- --tag=latest`
-- `npm publish` runs `prepublishOnly`, which calls `bun run release:check`
+- `bun run release -- --bump patch`
+- `bun run release -- --bump minor`
+- `bun run release:publish` publishes under the `alpha` npm dist-tag by default
+- `bun run release:publish -- --tag=latest` should only be used when you explicitly want to promote a stable release
+- release tags are shared across both published packages
+
+## Acknowledgements
+
+Special thanks to the teams behind TanStack Table and Recharts.
+
+- TanStack Table helped set the bar for clear, composable headless APIs.
+- Recharts made it much easier to explore and ship the optional chart rendering layer.

@@ -12,7 +12,7 @@ import {
   type DashboardSharedDateRangeFilterRuntime,
   type DashboardSharedSelectFilterRuntime,
 } from '@matthieumordrel/chart-studio'
-import {Chart, ChartCanvas, ChartToolbar} from '@matthieumordrel/chart-studio/ui'
+import {Chart, ChartCanvas, ChartToolbar} from '@matthieumordrel/chart-studio-ui'
 import {
   hiringNetworkData as projectPlanningSeedData,
 } from '../mock-data'

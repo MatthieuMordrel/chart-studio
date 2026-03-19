@@ -25,8 +25,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@matthieumordrel/chart-studio": ["../../src/index.ts"],
-      "@matthieumordrel/chart-studio/ui": ["../../src/ui/index.ts"]
+      "@matthieumordrel/chart-studio": ["../../packages/chart-studio/src/index.ts"],
+      "@matthieumordrel/chart-studio/_internal": ["../../packages/chart-studio/src/_internal.ts"],
+      "@matthieumordrel/chart-studio-ui": ["../../packages/chart-studio-ui/src/index.ts"]
     }
   },
   "include": ["src"]

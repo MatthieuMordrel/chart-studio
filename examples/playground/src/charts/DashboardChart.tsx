@@ -1,5 +1,5 @@
 import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
-import { Chart, ChartCanvas, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
+import { Chart, ChartCanvas, ChartToolbar } from '@matthieumordrel/chart-studio-ui'
 import { eventProgramData, type EventProgramRecord } from '../mock-data'
 
 // ─── Shared dataset ─────────────────────────────────────────────────────────

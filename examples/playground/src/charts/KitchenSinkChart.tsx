@@ -1,5 +1,5 @@
 import { useChart } from '@matthieumordrel/chart-studio'
-import { Chart, ChartCanvas, ChartDebug, ChartToolbar, type ControlId } from '@matthieumordrel/chart-studio/ui'
+import { Chart, ChartCanvas, ChartDebug, ChartToolbar, type ControlId } from '@matthieumordrel/chart-studio-ui'
 import { useMemo, useState } from 'react'
 import { playgroundSources } from '../mock-data'
 

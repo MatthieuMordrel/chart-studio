@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@matthieumordrel/chart-studio": [
+        "./packages/chart-studio/src/index.ts"
+      ],
+      "@matthieumordrel/chart-studio/_internal": [
+        "./packages/chart-studio/src/_internal.ts"
+      ],
+      "@matthieumordrel/chart-studio-ui": [
+        "./packages/chart-studio-ui/src/index.ts"
+      ]
+    }
+  }
+}

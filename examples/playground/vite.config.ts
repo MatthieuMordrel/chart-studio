@@ -7,14 +7,15 @@ import type {Plugin} from 'vite'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('.', import.meta.url))
-const librarySrc = path.resolve(repoRoot, 'src')
+const coreSrc = path.resolve(repoRoot, 'packages/chart-studio/src')
+const uiSrc = path.resolve(repoRoot, 'packages/chart-studio-ui/src')
 
-/** Explicitly watch the library source directory so HMR works for files outside the Vite root. */
+/** Explicitly watch the library source directories so HMR works for files outside the Vite root. */
 function watchLibrarySource(): Plugin {
   return {
     name: 'watch-library-source',
     configureServer(server) {
-      server.watcher.add(librarySrc)
+      server.watcher.add([coreSrc, uiSrc])
     },
   }
 }
@@ -52,19 +53,27 @@ export default defineConfig({
         replacement: fileURLToPath(new URL('./node_modules/react-dom/client.js', import.meta.url)),
       },
       {
-        find: '@matthieumordrel/chart-studio/ui',
-        replacement: fileURLToPath(new URL('../../src/ui/index.ts', import.meta.url)),
+        find: /^@matthieumordrel\/chart-studio\/_internal$/,
+        replacement: fileURLToPath(new URL('../../packages/chart-studio/src/_internal.ts', import.meta.url)),
       },
       {
-        find: '@matthieumordrel/chart-studio',
-        replacement: fileURLToPath(new URL('../../src/index.ts', import.meta.url)),
+        find: /^@matthieumordrel\/chart-studio-ui$/,
+        replacement: fileURLToPath(new URL('../../packages/chart-studio-ui/src/index.ts', import.meta.url)),
+      },
+      {
+        find: /^@matthieumordrel\/chart-studio$/,
+        replacement: fileURLToPath(new URL('../../packages/chart-studio/src/index.ts', import.meta.url)),
       },
     ],
   },
   optimizeDeps: {
     // Exclude the library source from pre-bundling so Vite always serves
     // the latest files and HMR propagates correctly.
-    exclude: ['@matthieumordrel/chart-studio', '@matthieumordrel/chart-studio/ui'],
+    exclude: [
+      '@matthieumordrel/chart-studio',
+      '@matthieumordrel/chart-studio/_internal',
+      '@matthieumordrel/chart-studio-ui',
+    ],
   },
   server: {
     fs: {

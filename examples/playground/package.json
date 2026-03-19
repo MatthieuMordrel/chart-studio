@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@matthieumordrel/chart-studio": "workspace:*",
+    "@matthieumordrel/chart-studio-ui": "workspace:*",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

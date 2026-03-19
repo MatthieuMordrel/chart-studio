@@ -1,29 +1,9 @@
 {
-  "compilerOptions": {
-    "target": "ES2023",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "jsx": "react-jsx",
-    "lib": [
-      "ES2023",
-      "DOM"
-    ],
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "esModuleInterop": true,
-    "verbatimModuleSyntax": true,
-    "noEmit": true
-  },
+  "extends": "./tsconfig.base.json",
   "include": [
-    "src",
+    "packages/*/src",
     "scripts",
+    "test-support",
     "vitest.config.ts"
   ]
 }

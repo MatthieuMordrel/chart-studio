@@ -1,12 +1,12 @@
 import {defineConfig} from 'vitest/config'
 
 /**
- * Vitest configuration for the standalone chart-studio package.
+ * Vitest configuration for the chart-studio workspace.
  */
 export default defineConfig({
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.{ts,tsx}'],
-    setupFiles: ['./src/test/setup-tests.ts'],
+    include: ['packages/*/src/**/*.test.{ts,tsx}'],
+    setupFiles: ['./test-support/setup-tests.ts'],
   },
 })

@@ -1,5 +1,5 @@
 import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
-import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
+import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio-ui'
 import { quarterlyFinancialData, type QuarterlyFinancialRecord } from '../mock-data'
 
 const quarterlyFinancials = defineDataset<QuarterlyFinancialRecord>()

@@ -418,7 +418,7 @@ const CS_DEFAULTS: ThemeVars = {
 function buildThemeTooltip(preset: ThemePreset, mode: Mode): string {
   if (!preset.vars) {
     const vars = mode === 'dark' ? CS_DEFAULTS.dark : CS_DEFAULTS.light
-    const lines = [preset.label, 'Built-in theme from @matthieumordrel/chart-studio/ui/theme.css:']
+    const lines = [preset.label, 'Built-in theme from @matthieumordrel/chart-studio-ui/theme.css:']
     for (const key of [...CHROME_VARS, ...CHART_VARS]) {
       if (vars[key]) lines.push(`--${key}: ${vars[key]}`)
     }
@@ -450,7 +450,7 @@ function buildCssPreview(themeName: string, mode: Mode, radius: number): string 
       if (vars[key]) lines.push(`--${key}: ${vars[key]};`)
     }
   } else {
-    preamble.push('@import "@matthieumordrel/chart-studio/ui/theme.css";')
+    preamble.push('@import "@matthieumordrel/chart-studio-ui/theme.css";')
     preamble.push('')
   }
 

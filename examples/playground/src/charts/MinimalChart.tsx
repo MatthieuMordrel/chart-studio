@@ -1,5 +1,5 @@
 import { useChart } from '@matthieumordrel/chart-studio'
-import { Chart, ChartCanvas, ChartToolbar } from '@matthieumordrel/chart-studio/ui'
+import { Chart, ChartCanvas, ChartToolbar } from '@matthieumordrel/chart-studio-ui'
 import { recipeLogData } from '../mock-data'
 
 /**
