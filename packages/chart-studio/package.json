@@ -1,6 +1,6 @@
 {
   "name": "@matthieumordrel/chart-studio",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Alpha: headless, composable charting for React. Not production-ready.",
   "type": "module",
   "sideEffects": false,
