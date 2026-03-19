@@ -1,15 +1,14 @@
 # Chart Studio devtools (planned)
 
-High-level description of what we want to build, what developers should see, and how we recommend wiring it so setup stays trivial.
+High-level plan: what we want to build, how it should feel, what appears in the UI, and how we recommend wiring it so setup stays trivial.
 
-## Goals
+## What we want to do
 
-- Make the **data model visible** while implementing charts on real apps (internal tools, marketing sites, etc.).
-- Support **debugging** joins, filters, materialization, and chart binding without digging through logs or ad-hoc `console.log` of the model.
-- Keep **production bundles clean**: no devtools in shipped code, same spirit as TanStack Query / Router devtools.
-- Prefer **runtime introspection** (the `DefinedDataModel` and the data the dashboard already uses)—not parsing TypeScript or following `tsconfig` in a separate process for v1.
-- Deliver a **polished experience**: the panel should feel **visually refined**, **easy to scan**, and **obvious** even to someone new to Chart Studio—not a raw debug dump.
-- Reflect the model **in real time** as the app updates (HMR, data refresh, or provider state changes), so what you see always matches what the charts are using.
+We want a **pretty, approachable interface** that explains how Chart Studio is being used in an app—not another log viewer or code-shaped dump. The focus is the **data model**: **relationships** between datasets, **bridge / many-to-many** structures that the API creates or carries, **which links were inferred** versus declared, and **keys and foreign-key columns** called out clearly so joins are obvious at a glance.
+
+The point is to make understanding the model and the library’s behavior feel **effortless**, including when **AI-generated code** is changing the project. Authors and reviewers should get **immediate visual feedback** about what the model *is* after each change—datasets, edges, inference, bridges—**without opening and reading source** to reconstruct mental joins. The devtools should update **in step with the running app** (reload, HMR, data refresh) so the UI is the source of “what did we just build?”
+
+**Engineering constraints** (how we ship it, not the product story): dev-only by default—no devtools in production bundles (TanStack-style); v1 reads the **built model at runtime**, not the TypeScript project on disk.
 
 ## What we want to see
 
