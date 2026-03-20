@@ -17,21 +17,135 @@ export type FlowNodePosition = {
   y: number
 }
 
+function hasSamePosition(
+  left: FlowNodePosition | undefined,
+  right: FlowNodePosition | undefined,
+): boolean {
+  if (!left || !right) {
+    return left === right
+  }
+
+  return left.x === right.x && left.y === right.y
+}
+
 export function buildFlowNodes(
   source: NormalizedSourceVm,
   positions: Readonly<Record<string, FlowNodePosition>>,
   selectedNodeId: string | null,
+  previousNodes: readonly FlowNode[] = [],
 ): FlowNode[] {
-  return source.nodes.map((node) => ({
-    id: node.id,
-    type: 'semantic-node',
-    position: positions[node.id] ?? {x: 0, y: 0},
-    draggable: true,
-    selectable: true,
-    selected: node.id === selectedNodeId,
-    data: {nodeId: node.id},
-    width: DEVTOOLS_NODE_WIDTH,
-  }))
+  const previousNodesById = new Map(previousNodes.map((node) => [node.id, node]))
+  let changed = previousNodes.length !== source.nodes.length
+
+  const nextNodes = source.nodes.map((node, index) => {
+    const position = positions[node.id] ?? {x: 0, y: 0}
+    const selected = node.id === selectedNodeId
+    const previousNode = previousNodesById.get(node.id)
+
+    if (
+      previousNode
+      && previousNode.type === 'semantic-node'
+      && previousNode.position.x === position.x
+      && previousNode.position.y === position.y
+      && previousNode.draggable
+      && previousNode.selectable
+      && previousNode.selected === selected
+      && previousNode.data.nodeId === node.id
+      && previousNode.width === DEVTOOLS_NODE_WIDTH
+    ) {
+      if (previousNodes[index] !== previousNode) {
+        changed = true
+      }
+
+      return previousNode
+    }
+
+    changed = true
+
+    return {
+      id: node.id,
+      type: 'semantic-node' as const,
+      position,
+      draggable: true,
+      selectable: true,
+      selected,
+      data: {nodeId: node.id},
+      width: DEVTOOLS_NODE_WIDTH,
+    }
+  })
+
+  return changed ? nextNodes : (previousNodes as FlowNode[])
+}
+
+export function extractFlowNodePositions(
+  nodes: readonly FlowNode[],
+): Record<string, FlowNodePosition> {
+  return nodes.reduce<Record<string, FlowNodePosition>>((positions, node) => {
+    positions[node.id] = {
+      x: node.position.x,
+      y: node.position.y,
+    }
+
+    return positions
+  }, {})
+}
+
+/**
+ * Reconciles externally-derived flow nodes into local canvas state.
+ *
+ * React Flow performs best when drag updates stay local. This merge keeps any in-flight local
+ * position changes unless the external positions actually changed (for example after relayout or
+ * when a drag result is committed).
+ */
+export function syncFlowNodesWithExternalState(
+  currentNodes: readonly FlowNode[],
+  externalNodes: readonly FlowNode[],
+  previousExternalPositions: Readonly<Record<string, FlowNodePosition>>,
+): FlowNode[] {
+  const currentNodesById = new Map(currentNodes.map((node) => [node.id, node]))
+  let changed = currentNodes.length !== externalNodes.length
+
+  const nextNodes = externalNodes.map((externalNode, index) => {
+    const currentNode = currentNodesById.get(externalNode.id)
+
+    if (!currentNode) {
+      changed = true
+      return externalNode
+    }
+
+    const externalPositionChanged = !hasSamePosition(
+      previousExternalPositions[externalNode.id],
+      externalNode.position,
+    )
+    const position = externalPositionChanged ? externalNode.position : currentNode.position
+
+    if (
+      currentNode.type === externalNode.type
+      && currentNode.position.x === position.x
+      && currentNode.position.y === position.y
+      && currentNode.draggable === externalNode.draggable
+      && currentNode.selectable === externalNode.selectable
+      && currentNode.selected === externalNode.selected
+      && currentNode.data.nodeId === externalNode.data.nodeId
+      && currentNode.width === externalNode.width
+    ) {
+      if (currentNodes[index] !== currentNode) {
+        changed = true
+      }
+
+      return currentNode
+    }
+
+    changed = true
+
+    return {
+      ...currentNode,
+      ...externalNode,
+      position,
+    }
+  })
+
+  return changed ? nextNodes : (currentNodes as FlowNode[])
 }
 
 /**
@@ -70,34 +184,106 @@ function computeParallelEdgeMeta(
 export function buildFlowEdges(
   source: NormalizedSourceVm,
   selectedEdgeId: string | null,
+  previousEdges: readonly FlowEdge[] = [],
 ): FlowEdge[] {
   const parallelMeta = computeParallelEdgeMeta(source)
+  const previousEdgesById = new Map(previousEdges.map((edge) => [edge.id, edge]))
+  let changed = previousEdges.length !== source.edges.length
 
-  return source.edges.map((edge) => {
+  const nextEdges = source.edges.map((edge, index) => {
     const bundle = parallelMeta.get(edge.id) ?? {parallelIndex: 0, parallelCount: 1}
+    const selected = edge.id === selectedEdgeId
+    const markerStart = edge.kind === 'association' ? 'url(#csdt-marker-many)' : undefined
+    const markerEnd = edge.kind === 'association'
+      ? 'url(#csdt-marker-many)'
+      : edge.kind === 'materialization'
+        ? 'url(#csdt-marker-lineage)'
+        : 'url(#csdt-marker-many)'
+    const previousEdge = previousEdgesById.get(edge.id)
+
+    if (
+      previousEdge
+      && previousEdge.type === 'semantic-edge'
+      && previousEdge.source === edge.sourceNodeId
+      && previousEdge.target === edge.targetNodeId
+      && previousEdge.sourceHandle === edge.sourceHandleId
+      && previousEdge.targetHandle === edge.targetHandleId
+      && previousEdge.selectable
+      && previousEdge.selected === selected
+      && previousEdge.data?.edgeId === edge.id
+      && previousEdge.data.parallelIndex === bundle.parallelIndex
+      && previousEdge.data.parallelCount === bundle.parallelCount
+      && previousEdge.markerStart === markerStart
+      && previousEdge.markerEnd === markerEnd
+    ) {
+      if (previousEdges[index] !== previousEdge) {
+        changed = true
+      }
+
+      return previousEdge
+    }
+
+    changed = true
 
     return {
       id: edge.id,
-      type: 'semantic-edge',
+      type: 'semantic-edge' as const,
       source: edge.sourceNodeId,
       target: edge.targetNodeId,
       sourceHandle: edge.sourceHandleId,
       targetHandle: edge.targetHandleId,
       selectable: true,
-      selected: edge.id === selectedEdgeId,
+      selected,
       data: {
         edgeId: edge.id,
         parallelIndex: bundle.parallelIndex,
         parallelCount: bundle.parallelCount,
       },
-      markerStart: edge.kind === 'association' ? 'url(#csdt-marker-many)' : undefined,
-      markerEnd: edge.kind === 'association'
-        ? 'url(#csdt-marker-many)'
-        : edge.kind === 'materialization'
-          ? 'url(#csdt-marker-lineage)'
-          : 'url(#csdt-marker-many)',
+      markerStart,
+      markerEnd,
     }
   })
+
+  return changed ? nextEdges : (previousEdges as FlowEdge[])
+}
+
+/**
+ * Persists the current visible node positions back into the devtools store while preserving
+ * positions for nodes that are temporarily hidden from the canvas.
+ */
+export function mergeFlowNodePositions(
+  currentPositions: Record<string, FlowNodePosition>,
+  nodes: readonly FlowNode[],
+  source: NormalizedSourceVm,
+): Record<string, FlowNodePosition> {
+  const visibleNodeIds = new Set(source.nodes.map((node) => node.id))
+  const nodesById = new Map(nodes.map((node) => [node.id, node]))
+  let nextPositions: Record<string, FlowNodePosition> | null = null
+
+  for (const nodeId of visibleNodeIds) {
+    const node = nodesById.get(nodeId)
+
+    if (!node) {
+      continue
+    }
+
+    const nextPosition = {
+      x: node.position.x,
+      y: node.position.y,
+    }
+
+    if (hasSamePosition(currentPositions[nodeId], nextPosition)) {
+      continue
+    }
+
+    if (!nextPositions) {
+      nextPositions = {...currentPositions}
+    }
+
+    nextPositions[nodeId] = nextPosition
+  }
+
+  return nextPositions ?? currentPositions
 }
 
 /**
@@ -120,7 +306,7 @@ export function applyFlowNodePositionChanges(
 
     const previous = currentPositions[change.id]
 
-    if (previous?.x === change.position.x && previous?.y === change.position.y) {
+    if (hasSamePosition(previous, change.position)) {
       continue
     }
 

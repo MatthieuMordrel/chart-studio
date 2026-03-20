@@ -12,6 +12,9 @@ import {
   applyFlowNodePositionChanges,
   buildFlowEdges,
   buildFlowNodes,
+  extractFlowNodePositions,
+  mergeFlowNodePositions,
+  syncFlowNodesWithExternalState,
   type FlowNode,
 } from './graph-state.js'
 import {
@@ -118,6 +121,99 @@ describe('graph-state', () => {
     expect(nextPositions).toEqual({
       owners: {x: 220, y: 140},
       jobs: {x: 30, y: 40},
+    })
+  })
+
+  it('reuses unchanged flow nodes and edges across position-only updates', () => {
+    const source = createNormalizedGraph()
+    const initialPositions = {
+      owners: {x: 10, y: 20},
+      jobs: {x: 30, y: 40},
+      jobsWithOwner: {x: 50, y: 60},
+    }
+    const initialNodes = buildFlowNodes(source, initialPositions, null)
+    const initialEdges = buildFlowEdges(source, null)
+
+    const nextNodes = buildFlowNodes(
+      source,
+      {
+        ...initialPositions,
+        owners: {x: 110, y: 120},
+      },
+      null,
+      initialNodes,
+    )
+    const nextEdges = buildFlowEdges(source, null, initialEdges)
+
+    expect(nextNodes).not.toBe(initialNodes)
+    expect(nextNodes.find((node) => node.id === 'owners')).not.toBe(initialNodes.find((node) => node.id === 'owners'))
+    expect(nextNodes.find((node) => node.id === 'jobs')).toBe(initialNodes.find((node) => node.id === 'jobs'))
+    expect(nextNodes.find((node) => node.id === 'jobsWithOwner')).toBe(initialNodes.find((node) => node.id === 'jobsWithOwner'))
+    expect(nextEdges).toBe(initialEdges)
+    expect(nextEdges[0]).toBe(initialEdges[0])
+  })
+
+  it('keeps a local drag position when external node metadata changes without a new layout', () => {
+    const source = createNormalizedGraph()
+    const initialPositions = {
+      owners: {x: 10, y: 20},
+      jobs: {x: 30, y: 40},
+      jobsWithOwner: {x: 50, y: 60},
+    }
+    const externalNodes = buildFlowNodes(source, initialPositions, null)
+    const draggedNodes = buildFlowNodes(
+      source,
+      {
+        ...initialPositions,
+        owners: {x: 210, y: 220},
+      },
+      null,
+      externalNodes,
+    )
+    const selectedExternalNodes = buildFlowNodes(
+      source,
+      initialPositions,
+      'owners',
+      externalNodes,
+    )
+
+    const syncedNodes = syncFlowNodesWithExternalState(
+      draggedNodes,
+      selectedExternalNodes,
+      extractFlowNodePositions(externalNodes),
+    )
+
+    expect(syncedNodes.find((node) => node.id === 'owners')?.position).toEqual({x: 210, y: 220})
+    expect(syncedNodes.find((node) => node.id === 'owners')?.selected).toBe(true)
+    expect(syncedNodes.find((node) => node.id === 'jobs')).toBe(draggedNodes.find((node) => node.id === 'jobs'))
+  })
+
+  it('merges visible drag positions back into persisted layout state', () => {
+    const source = createNormalizedGraph()
+    const hiddenSource = filterGraphVisibleSource(source, false)
+    const draggedVisibleNodes = buildFlowNodes(
+      hiddenSource,
+      {
+        owners: {x: 120, y: 130},
+        jobs: {x: 220, y: 230},
+      },
+      null,
+    )
+
+    const nextPositions = mergeFlowNodePositions(
+      {
+        owners: {x: 10, y: 20},
+        jobs: {x: 30, y: 40},
+        jobsWithOwner: {x: 999, y: 1000},
+      },
+      draggedVisibleNodes,
+      hiddenSource,
+    )
+
+    expect(nextPositions).toEqual({
+      owners: {x: 120, y: 130},
+      jobs: {x: 220, y: 230},
+      jobsWithOwner: {x: 999, y: 1000},
     })
   })
 })

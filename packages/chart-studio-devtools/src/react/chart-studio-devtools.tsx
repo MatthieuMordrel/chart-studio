@@ -1,12 +1,7 @@
 import '@xyflow/react/dist/base.css'
+import {useDocumentEvent} from '@matthieumordrel/chart-studio/_internal'
 import {
-  useDocumentEvent,
-  type ChartStudioDevtoolsContextSnapshot,
-} from '@matthieumordrel/chart-studio/_internal'
-import {
-  createContext,
   startTransition,
-  useContext,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -14,31 +9,15 @@ import {
   useState,
 } from 'react'
 import type {CSSProperties} from 'react'
-import {
-  Background,
-  BackgroundVariant,
-  BaseEdge,
-  EdgeLabelRenderer,
-  Handle,
-  Position,
-  ReactFlow,
-  ReactFlowProvider,
-  getSmoothStepPath,
-  type EdgeProps,
-  type NodeProps,
-  type ReactFlowInstance,
-} from '@xyflow/react'
+import type {ReactFlowInstance} from '@xyflow/react'
 import {ElkLayoutPanel} from './devtools-elk-layout-panel.js'
 import {
-  applyFlowNodePositionChanges,
-  buildFlowEdges,
-  buildFlowNodes,
+  type FlowNodePosition,
   type FlowEdge,
   type FlowNode,
 } from './graph-state.js'
 import {
   getCollapsedVisibleFields,
-  getMaterializedViewJoinProjectedFields,
   isMaterializedViewJoinOrKeyField,
   isMaterializedViewJoinProjectedField,
 } from './graph-field-visibility.js'
@@ -54,36 +33,18 @@ import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
 import {lockDocumentScroll} from './scroll-lock.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
-import {ArrowUpRight, ChevronDown, ChevronUp} from 'lucide-react'
-import {ColumnTypeIcon} from './column-type-icon.js'
 import {useDevtoolsSources} from './use-devtools-sources.js'
+import {SelectionPanel, getNodeRows} from './devtools-details.js'
+import {computeEdgeFieldHighlights, findFocusSets} from './selection-utils.js'
 import {
-  FieldRoleBadges,
-  SelectionPanel,
-  formatBytes,
-  getNodeRows,
-} from './devtools-details.js'
-import {
-  computeEdgeFieldHighlights,
-  findFocusSets,
-} from './selection-utils.js'
+  DevtoolsGraphCanvas,
+  FIT_VIEW_PADDING,
+  type CanvasContextValue,
+} from './devtools-graph-canvas.js'
 import type {
   ChartStudioDevtoolsProps,
-  NormalizedEdgeVm,
-  NormalizedSourceVm,
   SearchItemVm,
 } from './types.js'
-
-/** Base `getSmoothStepPath` offset (matches previous single-edge default). */
-const SMOOTH_STEP_OFFSET_BASE = 14
-/** Extra offset per additional edge between the same two nodes (staggered paths). */
-const SMOOTH_STEP_OFFSET_STRIDE = 12
-
-/**
- * Viewport margin when fitting the graph (React Flow `fitView` padding). Lower = tighter fit /
- * larger default zoom; was 0.22 and left noticeable empty bands on wide layouts.
- */
-const FIT_VIEW_PADDING = 0.06
 
 type ViewerState = {
   nodeId: string
@@ -91,27 +52,6 @@ type ViewerState = {
   dataView: 'table' | 'explore' | 'json'
   scope: 'raw' | 'effective'
 }
-
-type CanvasContextValue = {
-  activeContext: ChartStudioDevtoolsContextSnapshot | null
-  edgeHighlightFieldIdsByNodeId: ReadonlyMap<string, ReadonlySet<string>>
-  expandedNodeIds: ReadonlySet<string>
-  focusedEdgeIds: ReadonlySet<string>
-  focusedFieldId: string | null
-  focusedNodeIds: ReadonlySet<string>
-  issuesByTargetId: ReadonlyMap<string, readonly string[]>
-  /** Manual ∪ auto: MV join/key overflow is visible (beyond the first cap of join/key rows). */
-  mvJoinKeyOverflowRevealedIds: ReadonlySet<string>
-  onInspectNode(nodeId: string): void
-  onSelectEdge(edgeId: string): void
-  onSelectNode(nodeId: string, fieldId?: string): void
-  onToggleNodeExpand(nodeId: string): void
-  selectedEdgeId: string | null
-  selectedNodeId: string | null
-  source: NormalizedSourceVm
-}
-
-const CanvasContext = createContext<CanvasContextValue | null>(null)
 
 const SHOW_MATERIALIZED_VIEWS_STORAGE_KEY = 'chart-studio-devtools:show-materialized-views-v1'
 
@@ -149,250 +89,6 @@ function persistShowMaterializedViews(show: boolean): void {
   } catch {
     // ignore quota / private mode
   }
-}
-
-function useCanvasContext(): CanvasContextValue {
-  const value = useContext(CanvasContext)
-
-  if (!value) {
-    throw new Error('ChartStudioDevtools canvas context is missing.')
-  }
-
-  return value
-}
-
-function getEdgeBadge(edge: NormalizedEdgeVm, selected: boolean): string {
-  if (selected) {
-    return edge.label
-  }
-
-  if (edge.kind === 'association') {
-    return 'N:N'
-  }
-
-  if (edge.kind === 'materialization') {
-    return 'MV'
-  }
-
-  return edge.inferred ? '1:N*' : '1:N'
-}
-
-function SemanticNode({
-  data,
-}: NodeProps<FlowNode>) {
-  const ctx = useCanvasContext()
-  const node = ctx.source.nodeMap.get(data.nodeId)
-
-  if (!node) {
-    return null
-  }
-
-  const expanded = ctx.expandedNodeIds.has(node.id)
-  const collapsedFields = getCollapsedVisibleFields(node, ctx.source, {
-    mvJoinKeyOverflowRevealed: ctx.mvJoinKeyOverflowRevealedIds.has(node.id),
-  })
-  const visibleFields = expanded ? node.fields : collapsedFields
-  const issueMessages = ctx.issuesByTargetId.get(node.id) ?? []
-  const isSelected = ctx.selectedNodeId === node.id
-  const isFocused = ctx.focusedNodeIds.has(node.id)
-  const isDimmed = ctx.focusedNodeIds.size > 0 && !isFocused
-  const edgeHighlightFieldIds = ctx.edgeHighlightFieldIdsByNodeId.get(node.id)
-
-  return (
-    <div
-      className={[
-        'csdt-node',
-        node.kind === 'materialized-view' ? 'is-materialized' : undefined,
-        isSelected ? 'is-selected' : undefined,
-        isFocused ? 'is-focused' : undefined,
-        isDimmed ? 'is-dimmed' : undefined,
-      ].filter(Boolean).join(' ')}>
-      <div className='csdt-node__hero'>
-        <div className='csdt-node__header-row'>
-          <h3>{node.label}</h3>
-          <div className='csdt-node__meta'>
-            <span className='csdt-node__type'>
-              {node.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}
-            </span>
-            {issueMessages.length > 0 && (
-              <span className='csdt-node__issue-count'>{issueMessages.length}</span>
-            )}
-            <button
-              type='button'
-              className='csdt-node__inspect nodrag'
-              title='Open data viewer'
-              onClick={(event) => {
-                event.stopPropagation()
-                ctx.onInspectNode(node.id)
-              }}>
-              <ArrowUpRight size={12} />
-            </button>
-          </div>
-        </div>
-        <p>{node.fields.length} columns · {node.rowCount.toLocaleString()} rows · {formatBytes(node.estimatedBytes)}</p>
-      </div>
-
-      {node.attributeIds.length > 0 && (
-        <div className='csdt-node__attributes'>
-          {node.attributeIds.map((attributeId) => (
-            <span key={attributeId} className='csdt-attribute-chip'>
-              {attributeId}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className='csdt-node__fields'>
-        {visibleFields.map((field) => (
-          <button
-            key={field.id}
-            type='button'
-            className={[
-              'csdt-field nodrag',
-              ctx.focusedFieldId === field.id && isSelected ? 'is-field-focused' : undefined,
-              edgeHighlightFieldIds?.has(field.id) ? 'is-edge-highlight' : undefined,
-            ].filter(Boolean).join(' ')}
-            onClick={(event) => {
-              event.stopPropagation()
-              ctx.onSelectNode(node.id, field.id)
-            }}>
-            <Handle
-              className='csdt-handle'
-              position={Position.Left}
-              type='target'
-              id={field.targetHandleId}
-            />
-            <span className='csdt-field__main'>
-              <ColumnTypeIcon type={field.type} />
-              <span>{field.label}</span>
-            </span>
-            <span className='csdt-field__badges'>
-              <FieldRoleBadges field={field} />
-            </span>
-            <Handle
-              className='csdt-handle'
-              position={Position.Right}
-              type='source'
-              id={field.sourceHandleId}
-            />
-          </button>
-        ))}
-      </div>
-
-      {(expanded || node.fields.length > collapsedFields.length) && (
-        <button
-          type='button'
-          className='csdt-node__expand nodrag'
-          onClick={(event) => {
-            event.stopPropagation()
-            ctx.onToggleNodeExpand(node.id)
-          }}>
-          {expanded
-            ? <><ChevronUp size={12} /> Show less</>
-            : <><ChevronDown size={12} /> {node.fields.length - collapsedFields.length} more fields</>}
-        </button>
-      )}
-    </div>
-  )
-}
-
-function SemanticEdge({
-  data,
-  id,
-  markerEnd,
-  markerStart,
-  selected,
-  sourcePosition,
-  sourceX,
-  sourceY,
-  targetPosition,
-  targetX,
-  targetY,
-}: EdgeProps<FlowEdge>) {
-  const ctx = useCanvasContext()
-  if (!data) {
-    return null
-  }
-  const edge = ctx.source.edgeMap.get(data.edgeId)
-
-  if (!edge) {
-    return null
-  }
-
-  const parallelIndex = data.parallelIndex ?? 0
-  const parallelCount = data.parallelCount ?? 1
-  const pathOffset = SMOOTH_STEP_OFFSET_BASE + parallelIndex * SMOOTH_STEP_OFFSET_STRIDE
-  const stepPosition = parallelCount <= 1
-    ? 0.5
-    : (parallelIndex + 1) / (parallelCount + 1)
-
-  const [path, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: 28,
-    offset: pathOffset,
-    stepPosition,
-  })
-  const isFocused = ctx.focusedEdgeIds.has(edge.id)
-  const isDimmed = ctx.focusedEdgeIds.size > 0 && !isFocused
-
-  return (
-    <>
-      <BaseEdge
-        id={id}
-        className={[
-          'csdt-edge',
-          `is-${edge.kind}`,
-          edge.kind === 'relationship' && edge.inferred ? 'is-inferred' : undefined,
-          selected ? 'is-selected' : undefined,
-          isFocused ? 'is-focused' : undefined,
-          isDimmed ? 'is-dimmed' : undefined,
-        ].filter(Boolean).join(' ')}
-        path={path}
-        markerStart={markerStart}
-        markerEnd={markerEnd}
-      />
-
-      <EdgeLabelRenderer>
-        <button
-          type='button'
-          className={[
-            'csdt-edge-label',
-            selected ? 'is-selected' : undefined,
-          ].filter(Boolean).join(' ')}
-          style={{
-            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-          }}
-          onClick={() => ctx.onSelectEdge(edge.id)}>
-          {getEdgeBadge(edge, !!selected)}
-        </button>
-      </EdgeLabelRenderer>
-    </>
-  )
-}
-
-function MarkerDefs() {
-  return (
-    <svg className='csdt-markers' width='0' height='0' aria-hidden='true'>
-      <defs>
-        <marker id='csdt-marker-one' markerWidth='12' markerHeight='12' refX='10' refY='6' orient='auto'>
-          <path d='M 10 1 L 10 11' className='csdt-marker-stroke' />
-        </marker>
-        <marker id='csdt-marker-many' markerWidth='16' markerHeight='16' refX='14' refY='8' orient='auto'>
-          <path d='M 14 8 L 4 2' className='csdt-marker-stroke' />
-          <path d='M 14 8 L 4 8' className='csdt-marker-stroke' />
-          <path d='M 14 8 L 4 14' className='csdt-marker-stroke' />
-        </marker>
-        <marker id='csdt-marker-lineage' markerWidth='12' markerHeight='12' refX='10' refY='6' orient='auto'>
-          <circle cx='6' cy='6' r='3.5' className='csdt-marker-fill' />
-        </marker>
-      </defs>
-    </svg>
-  )
 }
 
 export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
@@ -477,7 +173,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       [...expandedNodeIds].filter((id) => displaySource.nodeMap.has(id)),
     )
   }, [displaySource, expandedNodeIds])
-  const [nodePositions, setNodePositions] = useState<Record<string, {x: number; y: number}>>({})
+  const [nodePositions, setNodePositions] = useState<Record<string, FlowNodePosition>>({})
   const layoutRunIdRef = useRef(0)
   const fitViewAfterLayoutRef = useRef(false)
   const fitViewFrameRef = useRef<number | null>(null)
@@ -715,15 +411,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       .slice(0, 14)
   }, [deferredSearchQuery, displaySource])
 
-  const flowNodes = useMemo(
-    () => displaySource ? buildFlowNodes(displaySource, nodePositions, currentSelectedNodeId) : [],
-    [currentSelectedNodeId, displaySource, nodePositions],
-  )
-  const flowEdges = useMemo(
-    () => displaySource ? buildFlowEdges(displaySource, currentSelectedEdgeId) : [],
-    [currentSelectedEdgeId, displaySource],
-  )
-
   const canvasContextValue = useMemo<CanvasContextValue | null>(() => {
     if (!displaySource) {
       return null
@@ -738,6 +425,11 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       focusedNodeIds,
       issuesByTargetId,
       mvJoinKeyOverflowRevealedIds: visibleMvJoinKeyOverflowRevealedIds,
+      onClearSelection() {
+        setSelectedNodeId(null)
+        setSelectedEdgeId(null)
+        setSelectedFieldId(null)
+      },
       onInspectNode(nodeId) {
         setSelectedNodeId(nodeId)
         setSelectedEdgeId(null)
@@ -805,16 +497,15 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     const targetNodeId = item.nodeId
       ?? displaySource?.edgeMap.get(item.edgeId ?? '')?.sourceNodeId
 
-    if (!targetNodeId) {
+    const targetNode = targetNodeId
+      ? flowInstance?.getNodes().find((node) => node.id === targetNodeId)
+      : null
+
+    if (!targetNode) {
       return
     }
 
-    const targetNode = flowNodes.find((node) => node.id === targetNodeId)
-    if (!targetNode || !flowInstance) {
-      return
-    }
-
-    void flowInstance.setCenter(
+    void flowInstance?.setCenter(
       targetNode.position.x + (DEVTOOLS_NODE_WIDTH / 2),
       targetNode.position.y + 150,
       {
@@ -861,7 +552,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   return (
     <>
       <style>{DEVTOOLS_STYLES}</style>
-      <MarkerDefs />
 
       {!isOpen && (
         <button
@@ -972,76 +662,23 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
               )
               : (
                 <div className='csdt-workspace'>
-                  <CanvasContext.Provider value={canvasContextValue}>
-                    <div className='csdt-canvas'>
-                      <ReactFlowProvider>
-                        <ReactFlow
-                          fitView
-                          fitViewOptions={{padding: FIT_VIEW_PADDING}}
-                          nodes={flowNodes}
-                          edges={flowEdges}
-                          nodeTypes={{'semantic-node': SemanticNode}}
-                          edgeTypes={{'semantic-edge': SemanticEdge}}
-                          nodesConnectable={false}
-                          onInit={setFlowInstance}
-                          onNodesChange={(changes) => {
-                            if (!displaySource) {
-                              return
-                            }
+                  <DevtoolsGraphCanvas
+                    canvasContextValue={canvasContextValue}
+                    displaySource={displaySource!}
+                    nodePositions={nodePositions}
+                    onFlowInstanceChange={setFlowInstance}
+                    onNodePositionsChange={setNodePositions}
+                    onRevealMaterializedViewFields={setMvJoinKeyClickRevealNodeId}
+                  />
 
-                            setNodePositions((current) =>
-                              applyFlowNodePositionChanges(current, changes, displaySource))
-                          }}
-                          onNodeClick={(_, node: FlowNode) => {
-                            const n = displaySource?.nodeMap.get(node.id)
-
-                            if (n?.kind === 'materialized-view') {
-                              const joinProjected = getMaterializedViewJoinProjectedFields(n)
-
-                              if (
-                                joinProjected.length > 0
-                                && !visibleMvJoinKeyOverflowRevealedIds.has(node.id)
-                              ) {
-                                setMvJoinKeyClickRevealNodeId(node.id)
-                              }
-                            }
-
-                            setSelectedNodeId(node.id)
-                            setSelectedEdgeId(null)
-                            setSelectedFieldId(null)
-                          }}
-                          onEdgeClick={(_, edge: FlowEdge) => {
-                            setSelectedEdgeId(edge.id)
-                            setSelectedNodeId(null)
-                            setSelectedFieldId(null)
-                          }}
-                          onPaneClick={() => {
-                            setSelectedNodeId(null)
-                            setSelectedEdgeId(null)
-                            setSelectedFieldId(null)
-                          }}
-                          minZoom={0.2}
-                          maxZoom={1.5}
-                          proOptions={{hideAttribution: true}}>
-                          <Background
-                            gap={24}
-                            size={1}
-                            variant={BackgroundVariant.Dots}
-                            color='rgba(31, 41, 55, 0.12)'
-                          />
-                        </ReactFlow>
-                      </ReactFlowProvider>
-                    </div>
-
-                    <SelectionPanel
-                      activeContext={activeContext}
-                      focusedFieldId={currentSelectedFieldId}
-                      onInspectNode={(nodeId) => canvasContextValue.onInspectNode(nodeId)}
-                      selectedEdgeId={currentSelectedEdgeId}
-                      selectedNodeId={currentSelectedNodeId}
-                      source={displaySource!}
-                    />
-                  </CanvasContext.Provider>
+                  <SelectionPanel
+                    activeContext={activeContext}
+                    focusedFieldId={currentSelectedFieldId}
+                    onInspectNode={(nodeId) => canvasContextValue.onInspectNode(nodeId)}
+                    selectedEdgeId={currentSelectedEdgeId}
+                    selectedNodeId={currentSelectedNodeId}
+                    source={displaySource!}
+                  />
                 </div>
               )}
 
