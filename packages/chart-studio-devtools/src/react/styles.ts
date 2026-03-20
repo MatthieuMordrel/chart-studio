@@ -10,43 +10,37 @@ export const DEVTOOLS_STYLES = `
   position: fixed;
   inset: 0;
   z-index: 2147483000;
-  font-family: "Avenir Next", "Segoe UI", "Inter", system-ui, sans-serif;
-  color: #172032;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: var(--cs-foreground, #172032);
 }
 
 .csdt-shell__scrim,
 .csdt-data-viewer__backdrop {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at top left, rgba(205, 222, 250, 0.42), transparent 32%),
-    radial-gradient(circle at right, rgba(246, 225, 198, 0.34), transparent 28%),
-    rgba(16, 22, 36, 0.24);
-  backdrop-filter: blur(10px);
+  background: color-mix(in oklch, var(--cs-foreground, #101624) 18%, transparent);
+  backdrop-filter: blur(6px);
 }
 
 .csdt-shell__workspace {
   position: absolute;
-  inset: 2.5vh 1.8vw;
+  inset: 2vh 1.5vw;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(215, 224, 236, 0.92);
-  border-radius: 28px;
-  background:
-    linear-gradient(180deg, rgba(252, 253, 255, 0.95), rgba(244, 247, 251, 0.96)),
-    rgba(255, 255, 255, 0.86);
-  box-shadow:
-    0 48px 120px rgba(15, 23, 42, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--cs-border, rgba(215, 224, 236, 0.92));
+  border-radius: calc(var(--cs-radius, 0.25rem) + 8px);
+  background: var(--cs-background, rgba(252, 253, 255, 0.98));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 }
 
 .csdt-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
   min-height: 0;
   flex: 1;
 }
@@ -54,12 +48,10 @@ export const DEVTOOLS_STYLES = `
 .csdt-canvas {
   position: relative;
   min-height: 0;
-  border-radius: 24px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
   overflow: hidden;
-  border: 1px solid rgba(210, 221, 235, 0.9);
-  background:
-    radial-gradient(circle at top, rgba(222, 231, 244, 0.62), transparent 34%),
-    linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(239, 244, 248, 0.98));
+  border: 1px solid var(--cs-border, rgba(210, 221, 235, 0.9));
+  background: var(--cs-muted, rgba(248, 250, 252, 0.98));
 }
 
 .csdt-canvas .react-flow {
@@ -74,44 +66,55 @@ export const DEVTOOLS_STYLES = `
 .csdt-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .csdt-header__cluster {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
-  align-items: flex-start;
+  gap: 16px;
+  align-items: center;
 }
 
-.csdt-header__title h1,
+.csdt-header__title h1 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--cs-foreground, #172032);
+}
+
 .csdt-sidepanel h3,
 .csdt-data-viewer h2,
 .csdt-empty-state h2 {
   margin: 0;
-  font-size: 1.5rem;
-  line-height: 1.1;
-  letter-spacing: -0.04em;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--cs-foreground, #172032);
 }
 
 .csdt-kicker {
-  margin: 0 0 4px;
-  color: #6c7b91;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  margin: 0 0 2px;
+  color: var(--cs-muted-foreground, #6c7b91);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .csdt-muted {
-  color: #718198;
+  color: var(--cs-muted-foreground, #718198);
+  font-size: 0.75rem;
 }
 
 .csdt-header__controls {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
 }
 
@@ -124,18 +127,22 @@ export const DEVTOOLS_STYLES = `
 .csdt-node__footer button,
 .csdt-data-viewer button,
 .csdt-icon-button {
-  border: 1px solid rgba(196, 208, 224, 0.9);
-  background: rgba(255, 255, 255, 0.92);
-  color: #1d293d;
-  border-radius: 12px;
-  padding: 10px 14px;
+  border: 1px solid var(--cs-border, rgba(196, 208, 224, 0.9));
+  background: var(--cs-background, rgba(255, 255, 255, 0.92));
+  color: var(--cs-foreground, #1d293d);
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  padding: 6px 10px;
   font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
   transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    background 160ms ease,
-    box-shadow 160ms ease;
-  box-shadow: 0 8px 24px rgba(21, 31, 52, 0.06);
+    border-color 120ms ease,
+    background 120ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.csdt-header select {
+  cursor: pointer;
 }
 
 .csdt-header button:hover,
@@ -145,42 +152,50 @@ export const DEVTOOLS_STYLES = `
 .csdt-node__footer button:hover,
 .csdt-data-viewer button:hover,
 .csdt-icon-button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(114, 139, 186, 0.56);
+  border-color: var(--cs-primary, rgba(114, 139, 186, 0.56));
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 40%, var(--cs-background, #fff));
 }
 
 .csdt-header button:disabled,
 .csdt-segmented button:disabled,
 .csdt-data-viewer button:disabled {
-  opacity: 0.56;
-  transform: none;
+  opacity: 0.45;
+  cursor: default;
 }
 
 .csdt-search {
   position: relative;
-  min-width: 320px;
+  min-width: 240px;
 }
 
 .csdt-search input {
   width: 100%;
   min-width: 0;
-  padding-right: 18px;
+  padding-right: 14px;
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 40%, var(--cs-background, #fff));
+}
+
+.csdt-search input:focus {
+  outline: none;
+  border-color: color-mix(in oklch, var(--cs-primary, #5879ba) 40%, transparent);
+  background: var(--cs-background, #fff);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--cs-ring, #5879ba) 12%, transparent);
 }
 
 .csdt-search__results {
   position: absolute;
-  top: calc(100% + 10px);
+  top: calc(100% + 6px);
   right: 0;
   left: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 360px;
-  padding: 10px;
-  border-radius: 18px;
-  border: 1px solid rgba(204, 215, 229, 0.96);
-  background: rgba(252, 253, 255, 0.98);
-  box-shadow: 0 28px 80px rgba(18, 28, 45, 0.18);
+  gap: 2px;
+  max-height: 320px;
+  padding: 4px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  border: 1px solid var(--cs-border, rgba(204, 215, 229, 0.96));
+  background: var(--cs-popover, rgba(252, 253, 255, 0.98));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   overflow: auto;
   z-index: 20;
 }
@@ -189,90 +204,140 @@ export const DEVTOOLS_STYLES = `
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
   text-align: left;
-  padding: 11px 12px;
+  padding: 6px 8px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
+}
+
+.csdt-search__item:hover {
+  background: var(--cs-muted, #f1f5f9);
 }
 
 .csdt-search__item strong {
-  font-size: 0.95rem;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .csdt-search__item small {
-  color: #77869c;
+  color: var(--cs-muted-foreground, #77869c);
+  font-size: 0.6875rem;
 }
 
 .csdt-launcher {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
+  right: 16px;
+  bottom: 16px;
   z-index: 2147482999;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  padding: 14px 18px;
-  border: 1px solid rgba(221, 230, 242, 0.9);
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(246, 248, 252, 0.98));
-  box-shadow: 0 24px 60px rgba(17, 25, 40, 0.18);
-  color: #152036;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 10px;
+  border: 1px solid var(--cs-border, rgba(221, 230, 242, 0.9));
+  border-radius: calc(var(--cs-radius, 0.25rem) + 6px);
+  background: var(--cs-popover, rgba(255, 255, 255, 0.96));
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 0 0 0 color-mix(in oklch, var(--cs-primary, #5879ba) 0%, transparent);
+  color: var(--cs-foreground, #152036);
   font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
-.csdt-launcher span {
+.csdt-launcher:hover {
+  border-color: color-mix(in oklch, var(--cs-primary, #5879ba) 50%, var(--cs-border, #dde6f2));
+  background: color-mix(in oklch, var(--cs-primary, #5879ba) 3%, var(--cs-popover, #fff));
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    0 0 0 3px color-mix(in oklch, var(--cs-primary, #5879ba) 8%, transparent);
+}
+
+.csdt-launcher__logo {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--cs-primary, #5879ba);
+}
+
+.csdt-launcher__text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.csdt-launcher__text > span:first-child {
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.csdt-launcher__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--cs-primary, #5879ba) 12%, var(--cs-muted, #eef2f7));
+  color: var(--cs-primary, #36507d);
+  font-size: 0.5625rem;
   font-weight: 700;
-}
-
-.csdt-launcher small {
-  color: #6d7f99;
+  line-height: 1;
 }
 
 .csdt-segmented {
   display: inline-flex;
   align-items: center;
-  padding: 4px;
-  border-radius: 14px;
-  background: rgba(236, 241, 247, 0.9);
+  padding: 2px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  background: var(--cs-muted, rgba(236, 241, 247, 0.9));
 }
 
 .csdt-segmented button {
   box-shadow: none;
   border-color: transparent;
   background: transparent;
-  padding: 8px 12px;
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
 }
 
 .csdt-segmented button.is-active {
-  background: rgba(255, 255, 255, 0.98);
-  border-color: rgba(199, 211, 228, 0.92);
-  box-shadow: 0 8px 20px rgba(19, 29, 43, 0.08);
+  background: var(--cs-background, rgba(255, 255, 255, 0.98));
+  border-color: var(--cs-border, rgba(199, 211, 228, 0.92));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .csdt-empty-state {
   margin: auto;
-  max-width: 520px;
-  padding: 28px 30px;
-  border-radius: 24px;
-  border: 1px solid rgba(214, 223, 236, 0.94);
-  background: rgba(255, 255, 255, 0.9);
+  max-width: 400px;
+  padding: 24px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  border: 1px solid var(--cs-border, rgba(214, 223, 236, 0.94));
+  background: var(--cs-card, rgba(255, 255, 255, 0.9));
   text-align: center;
+}
+
+.csdt-empty-state p {
+  margin: 6px 0 0;
+  color: var(--cs-muted-foreground, #718198);
+  font-size: 0.75rem;
 }
 
 .csdt-sidepanel,
 .csdt-issues-drawer {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   min-height: 0;
-  padding: 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(214, 224, 236, 0.92);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 253, 0.96));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  padding: 12px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  border: 1px solid var(--cs-border, rgba(214, 224, 236, 0.92));
+  background: var(--cs-card, rgba(255, 255, 255, 0.94));
   overflow: auto;
 }
 
@@ -285,18 +350,27 @@ export const DEVTOOLS_STYLES = `
 .csdt-issues-drawer__header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+}
+
+.csdt-sidepanel__section h4 {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--cs-muted-foreground, #6c7b91);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .csdt-sidepanel__actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .csdt-sidepanel__field-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .csdt-sidepanel__field,
@@ -304,15 +378,26 @@ export const DEVTOOLS_STYLES = `
 .csdt-issue-row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
-  padding: 11px 12px;
-  border-radius: 14px;
-  background: rgba(241, 245, 249, 0.9);
+  padding: 6px 8px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
+  background: var(--cs-muted, rgba(241, 245, 249, 0.9));
+  font-size: 0.75rem;
 }
 
 .csdt-sidepanel__field.is-focused {
-  outline: 2px solid rgba(89, 125, 199, 0.28);
+  outline: 2px solid color-mix(in oklch, var(--cs-ring, #5879ba) 20%, transparent);
+}
+
+.csdt-sidepanel__field strong {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.csdt-sidepanel__field small {
+  font-size: 0.6875rem;
+  color: var(--cs-muted-foreground, #738197);
 }
 
 .csdt-issue-row {
@@ -320,85 +405,88 @@ export const DEVTOOLS_STYLES = `
 }
 
 .csdt-issue-row.is-warning {
-  border-left: 3px solid #d97706;
+  border-left: 2px solid #d97706;
 }
 
 .csdt-issue-row.is-error {
-  border-left: 3px solid #dc2626;
+  border-left: 2px solid #dc2626;
+}
+
+.csdt-issue-row strong {
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .csdt-issue-row small {
   display: block;
-  margin-top: 3px;
-  color: #728199;
+  margin-top: 2px;
+  color: var(--cs-muted-foreground, #728199);
+  font-size: 0.6875rem;
 }
 
 .csdt-node {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: ${DEVTOOLS_NODE_WIDTH}px;
-  padding: 16px;
-  border-radius: 24px;
-  border: 1px solid rgba(211, 221, 234, 0.96);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.98));
-  box-shadow:
-    0 20px 48px rgba(18, 28, 45, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  padding: 12px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  border: 1px solid var(--cs-border, rgba(211, 221, 234, 0.96));
+  background: var(--cs-card, rgba(255, 255, 255, 0.98));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .csdt-node.is-materialized {
-  background:
-    radial-gradient(circle at top right, rgba(244, 215, 170, 0.36), transparent 36%),
-    linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(250, 246, 238, 0.98));
+  background: color-mix(in oklch, var(--cs-card, #fff) 92%, oklch(0.75 0.1 70));
 }
 
 .csdt-node.is-selected {
-  border-color: rgba(87, 120, 191, 0.82);
+  border-color: var(--cs-primary, rgba(87, 120, 191, 0.82));
   box-shadow:
-    0 26px 56px rgba(36, 55, 99, 0.16),
-    0 0 0 3px rgba(113, 146, 216, 0.18);
+    0 0 0 2px color-mix(in oklch, var(--cs-ring, #5879ba) 16%, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .csdt-node.is-focused {
-  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--cs-primary, #5879ba) 40%, var(--cs-border, #d3ddea));
 }
 
 .csdt-node.is-dimmed {
-  opacity: 0.42;
+  opacity: 0.35;
 }
 
 .csdt-node__hero {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 4px;
 }
 
 .csdt-node__hero h3 {
   margin: 0;
-  font-size: 1.12rem;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--cs-foreground, #172032);
 }
 
-.csdt-node__hero p,
+.csdt-node__hero p {
+  margin: 0;
+  color: var(--cs-muted-foreground, #718198);
+  font-size: 0.6875rem;
+}
+
 .csdt-data-viewer__header p,
 .csdt-data-viewer__header h2 {
   margin: 0;
 }
 
-.csdt-node__meta,
-.csdt-node__stats,
-.csdt-node__attributes,
-.csdt-data-viewer__controls,
-.csdt-data-viewer__pagination,
-.csdt-data-viewer__context,
-.csdt-pagination__buttons {
+.csdt-node__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
+  margin-bottom: 2px;
 }
 
 .csdt-node__type,
@@ -408,17 +496,17 @@ export const DEVTOOLS_STYLES = `
 .csdt-attribute-chip {
   display: inline-flex;
   align-items: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
+  font-size: 0.625rem;
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 
 .csdt-node__type,
 .csdt-context-pill {
-  background: rgba(229, 236, 248, 0.96);
-  color: #36507d;
+  background: color-mix(in oklch, var(--cs-primary, #36507d) 8%, var(--cs-muted, #e5ecf8));
+  color: var(--cs-primary, #36507d);
 }
 
 .csdt-node__issue-count {
@@ -428,34 +516,21 @@ export const DEVTOOLS_STYLES = `
 
 .csdt-filter-pill,
 .csdt-attribute-chip {
-  background: rgba(238, 242, 247, 0.96);
-  color: #58677b;
+  background: var(--cs-muted, rgba(238, 242, 247, 0.96));
+  color: var(--cs-muted-foreground, #58677b);
 }
 
-.csdt-node__stats > div {
-  flex: 1 1 0;
-  min-width: 84px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: rgba(243, 247, 251, 0.94);
-}
-
-.csdt-node__stats strong {
-  display: block;
-  font-size: 0.94rem;
-}
-
-.csdt-node__stats span {
-  color: #708097;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.csdt-node__attributes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
 }
 
 .csdt-node__fields {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 
 .csdt-field {
@@ -463,77 +538,113 @@ export const DEVTOOLS_STYLES = `
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 16px;
-  border: 1px solid rgba(222, 230, 240, 0.98);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.96);
+  padding: 5px 10px;
+  border: 1px solid var(--cs-border, rgba(222, 230, 240, 0.98));
+  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
+  background: var(--cs-background, rgba(255, 255, 255, 0.96));
   text-align: left;
   font: inherit;
+  font-size: 0.75rem;
   color: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.csdt-field:hover {
+  background: var(--cs-muted, #f1f5f9);
 }
 
 .csdt-field.is-field-focused {
-  border-color: rgba(93, 129, 203, 0.62);
-  box-shadow: 0 0 0 3px rgba(113, 146, 216, 0.12);
+  border-color: color-mix(in oklch, var(--cs-primary, #5d81cb) 40%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--cs-ring, #5d81cb) 10%, transparent);
+}
+
+.csdt-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--cs-muted-foreground, #738197);
+}
+
+.csdt-type-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .csdt-field__main {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  gap: 5px;
 }
 
-.csdt-field__main small {
-  color: #738197;
+.csdt-field__main span {
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+.csdt-sidepanel__field-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.csdt-sidepanel__field-label strong {
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .csdt-field__badges {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 3px;
 }
 
 .csdt-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(238, 243, 248, 0.98);
-  color: #516073;
-  font-size: 0.72rem;
-  font-weight: 700;
+  min-width: 24px;
+  padding: 1px 5px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
+  background: var(--cs-muted, rgba(238, 243, 248, 0.98));
+  color: var(--cs-muted-foreground, #516073);
+  font-size: 0.5625rem;
+  font-weight: 600;
 }
 
 .csdt-node__footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
 }
 
 .csdt-node__footer button {
-  flex: 1 1 100px;
+  flex: 1 1 80px;
+  padding: 4px 8px;
+  font-size: 0.6875rem;
 }
 
 .csdt-handle {
-  width: 10px !important;
-  height: 10px !important;
+  width: 8px !important;
+  height: 8px !important;
   border-radius: 999px;
-  background: #5879ba !important;
-  opacity: 0.88;
+  background: var(--cs-primary, #5879ba) !important;
+  opacity: 0.7;
 }
 
 .csdt-edge {
-  stroke: #7d8da4;
-  stroke-width: 2.1;
+  stroke: var(--cs-muted-foreground, #7d8da4);
+  stroke-width: 1.5;
 }
 
 .csdt-edge.is-relationship {
-  stroke: #5f7cb0;
+  stroke: var(--cs-primary, #5f7cb0);
 }
 
 .csdt-edge.is-association {
@@ -542,44 +653,52 @@ export const DEVTOOLS_STYLES = `
 
 .csdt-edge.is-materialization {
   stroke: #7c8c63;
-  stroke-dasharray: 8 6;
+  stroke-dasharray: 6 4;
 }
 
 .csdt-edge.is-inferred {
-  stroke-dasharray: 8 8;
+  stroke-dasharray: 6 6;
 }
 
 .csdt-edge.is-dimmed {
-  opacity: 0.22;
+  opacity: 0.18;
 }
 
 .csdt-edge-label {
   position: absolute;
-  padding: 6px 10px;
-  border: 1px solid rgba(211, 221, 236, 0.96);
+  padding: 3px 7px;
+  border: 1px solid var(--cs-border, rgba(211, 221, 236, 0.96));
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #42516a;
+  background: var(--cs-popover, rgba(255, 255, 255, 0.94));
+  color: var(--cs-muted-foreground, #42516a);
   font: inherit;
-  font-size: 0.75rem;
-  box-shadow: 0 8px 18px rgba(20, 30, 47, 0.12);
+  font-size: 0.625rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.csdt-edge-label:hover {
+  border-color: var(--cs-primary, #5c80c7);
+  color: var(--cs-foreground, #1d2a40);
 }
 
 .csdt-edge-label.is-selected {
-  color: #1d2a40;
-  border-color: rgba(92, 128, 199, 0.5);
+  color: var(--cs-foreground, #1d2a40);
+  border-color: color-mix(in oklch, var(--cs-primary, #5c80c7) 50%, transparent);
+  background: color-mix(in oklch, var(--cs-primary, #5c80c7) 6%, var(--cs-popover, #fff));
 }
 
 .csdt-marker-stroke {
   fill: none;
-  stroke: #64748b;
-  stroke-width: 1.6;
+  stroke: var(--cs-muted-foreground, #64748b);
+  stroke-width: 1.4;
   stroke-linecap: round;
 }
 
 .csdt-marker-fill {
-  fill: #77875d;
-  opacity: 0.92;
+  fill: #7c8c63;
+  opacity: 0.85;
 }
 
 .csdt-data-viewer {
@@ -590,24 +709,23 @@ export const DEVTOOLS_STYLES = `
 
 .csdt-data-viewer__panel {
   position: absolute;
-  inset: 8vh 5vw;
+  inset: 6vh 4vw;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px;
-  border-radius: 28px;
-  border: 1px solid rgba(214, 224, 236, 0.92);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(248, 250, 253, 0.98));
-  box-shadow: 0 44px 120px rgba(15, 23, 42, 0.24);
+  gap: 10px;
+  padding: 16px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 8px);
+  border: 1px solid var(--cs-border, rgba(214, 224, 236, 0.92));
+  background: var(--cs-background, rgba(255, 255, 255, 0.97));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 }
 
 .csdt-data-viewer__header {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
-  align-items: flex-start;
+  gap: 12px;
+  align-items: center;
 }
 
 .csdt-data-viewer__inspect,
@@ -620,17 +738,18 @@ export const DEVTOOLS_STYLES = `
 .csdt-grid {
   flex: 1;
   min-height: 0;
-  border-radius: 20px;
-  border: 1px solid rgba(215, 223, 235, 0.95);
-  background: rgba(251, 252, 254, 0.98);
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  border: 1px solid var(--cs-border, rgba(215, 223, 235, 0.95));
+  background: var(--cs-card, rgba(251, 252, 254, 0.98));
 }
 
 .csdt-json-viewer {
   margin: 0;
-  padding: 18px;
+  padding: 12px;
   overflow: auto;
   font-family: "SFMono-Regular", ui-monospace, monospace;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  color: var(--cs-foreground, #172032);
 }
 
 .csdt-grid {
@@ -645,11 +764,10 @@ export const DEVTOOLS_STYLES = `
 
 .csdt-grid__row {
   position: absolute;
-  left: 0;
-  right: 0;
   display: flex;
-  min-height: 44px;
-  border-bottom: 1px solid rgba(231, 236, 243, 0.95);
+  min-width: 100%;
+  min-height: 36px;
+  border-bottom: 1px solid var(--cs-border, rgba(231, 236, 243, 0.95));
 }
 
 .csdt-grid__row--header {
@@ -657,37 +775,58 @@ export const DEVTOOLS_STYLES = `
   top: 0;
   z-index: 2;
   transform: none !important;
-  background: rgba(245, 248, 251, 0.98);
+  background: var(--cs-muted, rgba(245, 248, 251, 0.98));
+  font-weight: 500;
 }
 
 .csdt-grid__cell {
-  padding: 11px 12px;
+  padding: 8px 10px;
+  min-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.csdt-grid__cell--header {
+  white-space: normal;
+  word-break: break-word;
 }
 
 .csdt-grid__header {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
 }
 
-.csdt-grid__header small {
-  color: #728198;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.csdt-grid__header span {
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .csdt-markers {
   position: absolute;
 }
 
+.csdt-data-viewer__controls,
+.csdt-data-viewer__pagination,
+.csdt-data-viewer__context,
+.csdt-pagination__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.csdt-data-viewer__pagination span {
+  font-size: 0.75rem;
+  color: var(--cs-muted-foreground, #718198);
+}
+
 @media (max-width: 1080px) {
   .csdt-shell__workspace {
-    inset: 1.6vh 1.4vw;
-    padding: 14px;
+    inset: 1vh 1vw;
+    padding: 10px;
   }
 
   .csdt-workspace {
@@ -696,11 +835,11 @@ export const DEVTOOLS_STYLES = `
 
   .csdt-sidepanel,
   .csdt-issues-drawer {
-    max-height: 280px;
+    max-height: 260px;
   }
 
   .csdt-data-viewer__panel {
-    inset: 3vh 2vw;
+    inset: 2vh 1.5vw;
   }
 }
 `

@@ -48,6 +48,7 @@
   "peerDependencies": {
     "@matthieumordrel/chart-studio": "0.5.3",
     "@matthieumordrel/chart-studio-ui": "0.5.3",
+    "lucide-react": ">=0.577.0 <1",
     "react": ">=18.2.0 <20",
     "react-dom": ">=18.2.0 <20",
     "tailwindcss": ">=4.0.0 <5"

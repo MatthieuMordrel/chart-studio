@@ -32,6 +32,7 @@ import {computeGraphLayout, DEVTOOLS_NODE_WIDTH, DEVTOOLS_VISIBLE_FIELD_COUNT} f
 import {normalizeSource} from './normalize.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
+import {ColumnTypeIcon} from './column-type-icon.js'
 import {useDevtoolsSources} from './use-devtools-sources.js'
 import type {
   ChartStudioDevtoolsProps,
@@ -137,7 +138,6 @@ function SemanticNode({
     ? node.fields
     : node.fields.slice(0, DEVTOOLS_VISIBLE_FIELD_COUNT)
   const issueMessages = ctx.issuesByTargetId.get(node.id) ?? []
-  const activeRows = getNodeRows(node, ctx.activeContext, 'effective')
   const isSelected = ctx.selectedNodeId === node.id
   const isFocused = ctx.focusedNodeIds.has(node.id)
   const isDimmed = ctx.focusedNodeIds.size > 0 && !isFocused
@@ -152,33 +152,16 @@ function SemanticNode({
         isDimmed ? 'is-dimmed' : undefined,
       ].filter(Boolean).join(' ')}>
       <div className='csdt-node__hero'>
-        <div>
-          <div className='csdt-node__meta'>
-            <span className='csdt-node__type'>
-              {node.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}
-            </span>
-            {issueMessages.length > 0 && (
-              <span className='csdt-node__issue-count'>{issueMessages.length} issues</span>
-            )}
-          </div>
-          <h3>{node.label}</h3>
-          <p>{node.fields.length} columns · {node.rowCount.toLocaleString()} raw rows</p>
+        <div className='csdt-node__meta'>
+          <span className='csdt-node__type'>
+            {node.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}
+          </span>
+          {issueMessages.length > 0 && (
+            <span className='csdt-node__issue-count'>{issueMessages.length}</span>
+          )}
         </div>
-
-        <div className='csdt-node__stats'>
-          <div>
-            <strong>{node.rowCount.toLocaleString()}</strong>
-            <span>Raw rows</span>
-          </div>
-          <div>
-            <strong>{activeRows.length.toLocaleString()}</strong>
-            <span>Effective</span>
-          </div>
-          <div>
-            <strong>{formatBytes(node.estimatedBytes)}</strong>
-            <span>Payload</span>
-          </div>
-        </div>
+        <h3>{node.label}</h3>
+        <p>{node.fields.length} columns · {node.rowCount.toLocaleString()} rows · {formatBytes(node.estimatedBytes)}</p>
       </div>
 
       {node.attributeIds.length > 0 && (
@@ -208,8 +191,8 @@ function SemanticNode({
               id={field.targetHandleId}
             />
             <span className='csdt-field__main'>
+              <ColumnTypeIcon type={field.type} />
               <span>{field.label}</span>
-              <small>{field.type}</small>
             </span>
             <span className='csdt-field__badges'>
               {field.isPrimaryKey && <span className='csdt-badge'>PK</span>}
@@ -236,7 +219,7 @@ function SemanticNode({
         </button>
         {node.fields.length > DEVTOOLS_VISIBLE_FIELD_COUNT && (
           <button type='button' className='nodrag' onClick={() => ctx.onToggleNodeExpand(node.id)}>
-            {expanded ? 'Collapse schema' : `Show all ${node.fields.length}`}
+            {expanded ? 'Collapse' : `+${node.fields.length - DEVTOOLS_VISIBLE_FIELD_COUNT} more`}
           </button>
         )}
       </div>
@@ -458,7 +441,7 @@ function SelectionPanel({
                 {attributeId}
               </span>
             ))
-            : <p className='csdt-muted'>No attribute badges on this node.</p>}
+            : <p className='csdt-muted'>None</p>}
         </div>
 
         <div className='csdt-sidepanel__section'>
@@ -471,9 +454,9 @@ function SelectionPanel({
                   'csdt-sidepanel__field',
                   focusedFieldId === field.id ? 'is-focused' : undefined,
                 ].filter(Boolean).join(' ')}>
-                <div>
+                <div className='csdt-sidepanel__field-label'>
+                  <ColumnTypeIcon type={field.type} />
                   <strong>{field.label}</strong>
-                  <small>{field.type}</small>
                 </div>
                 <div className='csdt-field__badges'>
                   {field.isPrimaryKey && <span className='csdt-badge'>PK</span>}
@@ -544,8 +527,7 @@ function SelectionPanel({
 
   return (
     <section className='csdt-sidepanel is-empty'>
-      <h3>Selection</h3>
-      <p className='csdt-muted'>Select a dataset, materialized view, relationship, or association to inspect its details.</p>
+      <p className='csdt-muted'>Select an element to inspect.</p>
     </section>
   )
 }
@@ -816,8 +798,18 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
           type='button'
           className='csdt-launcher'
           onClick={() => setIsOpen(true)}>
-          <span>Chart Studio Devtools</span>
-          <small>{visibleSources.length > 0 ? `${visibleSources.length} live source${visibleSources.length === 1 ? '' : 's'}` : 'No live source'}</small>
+          <svg className='csdt-launcher__logo' viewBox='0 0 20 20' fill='none' aria-hidden='true'>
+            <rect x='2' y='11' width='4' height='7' rx='1' fill='currentColor' opacity='0.35' />
+            <rect x='8' y='7' width='4' height='11' rx='1' fill='currentColor' opacity='0.55' />
+            <rect x='14' y='3' width='4' height='15' rx='1' fill='currentColor' opacity='0.85' />
+            <path d='M4 10 L10 5.5 L16 2' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' opacity='0.9' />
+          </svg>
+          <span className='csdt-launcher__text'>
+            <span>Devtools</span>
+            {visibleSources.length > 0 && (
+              <span className='csdt-launcher__badge'>{visibleSources.length}</span>
+            )}
+          </span>
         </button>
       )}
 
@@ -828,7 +820,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
             <header className='csdt-header'>
               <div className='csdt-header__cluster'>
                 <div className='csdt-header__title'>
-                  <p className='csdt-kicker'>Semantic model workspace</p>
                   <h1>{normalizedSource?.label ?? 'Chart Studio Devtools'}</h1>
                 </div>
 
@@ -858,7 +849,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                     <input
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder='Search datasets, views, relationships, associations, attributes, columns'
+                      placeholder='Search…'
                     />
 
                     {searchResults.length > 0 && (

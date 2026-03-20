@@ -16,6 +16,7 @@ import {useVirtualizer} from '@tanstack/react-virtual'
 import type {
   ChartStudioDevtoolsContextSnapshot,
 } from '@matthieumordrel/chart-studio/_internal'
+import {ColumnTypeIcon} from './column-type-icon.js'
 import type {
   DevtoolsRow,
   NormalizedNodeVm,
@@ -128,7 +129,7 @@ export function DevtoolsDataViewer({
         header: () => (
           <div className='csdt-grid__header'>
             <span>{field.label}</span>
-            <small>{field.type}</small>
+            <ColumnTypeIcon type={field.type} />
           </div>
         ),
         cell: (info) => formatRowValue(info.getValue(), node, field.id),
@@ -140,7 +141,7 @@ export function DevtoolsDataViewer({
   const rowVirtualizer = useVirtualizer({
     count: table.getRowModel().rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 44,
+    estimateSize: () => 36,
     overscan: 8,
   })
 
@@ -259,7 +260,7 @@ export function DevtoolsDataViewer({
                           <div
                             key={header.id}
                             className='csdt-grid__cell csdt-grid__cell--header'
-                            style={{width: `${100 / node.fields.length}%`}}>
+                            style={{width: node.fields.length <= 6 ? `${100 / node.fields.length}%` : 160, flex: node.fields.length <= 6 ? undefined : '0 0 auto'}}>
                             {flexRender(header.column.columnDef.header, header.getContext())}
                           </div>
                         ))}
@@ -276,12 +277,12 @@ export function DevtoolsDataViewer({
                           <div
                             key={row.id}
                             className='csdt-grid__row'
-                            style={{transform: `translateY(${virtualRow.start + 44}px)`}}>
+                            style={{transform: `translateY(${virtualRow.start + 36}px)`}}>
                             {row.getVisibleCells().map((cell) => (
                               <div
                                 key={cell.id}
                                 className='csdt-grid__cell'
-                                style={{width: `${100 / node.fields.length}%`}}>
+                                style={{width: node.fields.length <= 6 ? `${100 / node.fields.length}%` : 160, flex: node.fields.length <= 6 ? undefined : '0 0 auto'}}>
                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                               </div>
                             ))}

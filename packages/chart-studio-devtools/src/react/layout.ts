@@ -4,10 +4,10 @@ import type {NormalizedSourceVm} from './types.js'
 export const DEVTOOLS_NODE_WIDTH = 356
 export const DEVTOOLS_VISIBLE_FIELD_COUNT = 8
 
-const NODE_HEADER_HEIGHT = 118
-const NODE_ATTRIBUTE_ROW_HEIGHT = 28
-const NODE_FIELD_ROW_HEIGHT = 34
-const NODE_FOOTER_HEIGHT = 50
+const NODE_HEADER_HEIGHT = 72
+const NODE_ATTRIBUTE_ROW_HEIGHT = 24
+const NODE_FIELD_ROW_HEIGHT = 30
+const NODE_FOOTER_HEIGHT = 36
 
 type ElkNode = {
   id: string
