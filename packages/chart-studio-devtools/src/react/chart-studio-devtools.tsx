@@ -13,7 +13,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import type {CSSProperties} from 'react'
+import type {CSSProperties, ReactNode} from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -36,7 +36,12 @@ import {
   type FlowEdge,
   type FlowNode,
 } from './graph-state.js'
-import {getCollapsedVisibleFields} from './graph-field-visibility.js'
+import {
+  getCollapsedVisibleFields,
+  getMaterializedViewJoinKeyFields,
+  isMaterializedViewJoinOrKeyField,
+  MV_JOIN_KEY_DEFAULT_CAP,
+} from './graph-field-visibility.js'
 import {computeGraphLayout, DEVTOOLS_NODE_WIDTH} from './layout.js'
 import {
   adjustDevtoolsLayoutForEdgeDensity,
@@ -48,7 +53,7 @@ import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
 import {lockDocumentScroll} from './scroll-lock.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
-import {ArrowUpRight, ChevronDown, ChevronUp} from 'lucide-react'
+import {ArrowUpRight, ChevronDown, ChevronRight, ChevronUp, Database, GitBranch, Layers, Link2, Workflow} from 'lucide-react'
 import {ColumnTypeIcon} from './column-type-icon.js'
 import {useDevtoolsSources} from './use-devtools-sources.js'
 import type {
@@ -87,6 +92,8 @@ type CanvasContextValue = {
   focusedFieldId: string | null
   focusedNodeIds: ReadonlySet<string>
   issuesByTargetId: ReadonlyMap<string, readonly string[]>
+  /** Manual ∪ auto: MV join/key overflow is visible (beyond the first cap of join/key rows). */
+  mvJoinKeyOverflowRevealedIds: ReadonlySet<string>
   onInspectNode(nodeId: string): void
   onSelectEdge(edgeId: string): void
   onSelectNode(nodeId: string, fieldId?: string): void
@@ -253,8 +260,13 @@ function SemanticNode({
   }
 
   const expanded = ctx.expandedNodeIds.has(node.id)
-  const collapsedFields = getCollapsedVisibleFields(node, ctx.source)
+  const collapsedFields = getCollapsedVisibleFields(node, ctx.source, {
+    mvJoinKeyOverflowRevealed: ctx.mvJoinKeyOverflowRevealedIds.has(node.id),
+  })
   const visibleFields = expanded ? node.fields : collapsedFields
+  const showExpandForMaterializedView =
+    expanded
+    || node.fields.some((field) => !isMaterializedViewJoinOrKeyField(field))
   const issueMessages = ctx.issuesByTargetId.get(node.id) ?? []
   const isSelected = ctx.selectedNodeId === node.id
   const isFocused = ctx.focusedNodeIds.has(node.id)
@@ -342,11 +354,14 @@ function SemanticNode({
         ))}
       </div>
 
-      {node.fields.length > collapsedFields.length && (
+      {(expanded || (node.kind === 'materialized-view' ? showExpandForMaterializedView : node.fields.length > collapsedFields.length)) && (
         <button
           type='button'
           className='csdt-node__expand nodrag'
-          onClick={() => ctx.onToggleNodeExpand(node.id)}>
+          onClick={(event) => {
+            event.stopPropagation()
+            ctx.onToggleNodeExpand(node.id)
+          }}>
           {expanded
             ? <><ChevronUp size={12} /> Show less</>
             : <><ChevronDown size={12} /> {node.fields.length - collapsedFields.length} more fields</>}
@@ -708,8 +723,47 @@ function describeEdgeSummary(edge: NormalizedEdgeVm): string {
   return `${edge.label} · ${edge.materializationKind}`
 }
 
+function CollapsibleSection({
+  children,
+  defaultOpen = true,
+  title,
+}: {
+  children: ReactNode
+  defaultOpen?: boolean
+  title: string
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <div className={`csdt-sp-section${open ? ' is-open' : ''}`}>
+      <button
+        type='button'
+        className='csdt-sp-section__trigger'
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}>
+        <ChevronRight size={12} className='csdt-sp-section__chevron' />
+        <span>{title}</span>
+      </button>
+      {open && <div className='csdt-sp-section__body'>{children}</div>}
+    </div>
+  )
+}
+
+function NodeKindIcon({kind}: {kind: 'dataset' | 'materialized-view'}) {
+  return kind === 'materialized-view'
+    ? <Layers size={14} aria-hidden='true' />
+    : <Database size={14} aria-hidden='true' />
+}
+
+function EdgeKindIcon({kind}: {kind: string}) {
+  if (kind === 'relationship') return <GitBranch size={13} aria-hidden='true' />
+  if (kind === 'association') return <Link2 size={13} aria-hidden='true' />
+  return <Workflow size={13} aria-hidden='true' />
+}
+
 function SelectionPanel({
   activeContext,
+  expandedNodeIds,
   focusedFieldId,
   onInspectNode,
   selectedEdgeId,
@@ -717,6 +771,8 @@ function SelectionPanel({
   source,
 }: {
   activeContext: ChartStudioDevtoolsContextSnapshot | null
+  /** Full “show more” expansion on the canvas (all columns on the node). */
+  expandedNodeIds: ReadonlySet<string>
   focusedFieldId: string | null
   onInspectNode(nodeId: string): void
   selectedEdgeId: string | null
@@ -728,6 +784,10 @@ function SelectionPanel({
 
   if (selectedNode) {
     const effectiveRows = getNodeRows(selectedNode, activeContext, 'effective')
+    const schemaFields =
+      selectedNode.kind === 'materialized-view' && !expandedNodeIds.has(selectedNode.id)
+        ? getMaterializedViewJoinKeyFields(selectedNode)
+        : selectedNode.fields
     const selectedField = focusedFieldId
       ? selectedNode.fields.find((field) => field.id === focusedFieldId) ?? null
       : null
@@ -737,111 +797,135 @@ function SelectionPanel({
 
     return (
       <section className='csdt-sidepanel'>
-        <div className='csdt-sidepanel__header'>
-          <p className='csdt-kicker'>{selectedNode.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}</p>
-          <h3>{selectedNode.label}</h3>
-          <p className='csdt-muted'>
-            {selectedNode.rowCount.toLocaleString()} raw rows · {effectiveRows.length.toLocaleString()} effective
-          </p>
+        {/* ── Node header ── */}
+        <div className='csdt-sp-hero'>
+          <div className='csdt-sp-hero__icon'>
+            <NodeKindIcon kind={selectedNode.kind} />
+          </div>
+          <div className='csdt-sp-hero__text'>
+            <p className='csdt-sp-hero__kind'>{selectedNode.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}</p>
+            <h3 className='csdt-sp-hero__title'>{selectedNode.label}</h3>
+          </div>
         </div>
 
+        <div className='csdt-sp-stats'>
+          <div className='csdt-sp-stat'>
+            <span className='csdt-sp-stat__value'>{selectedNode.rowCount.toLocaleString()}</span>
+            <span className='csdt-sp-stat__label'>Raw rows</span>
+          </div>
+          <div className='csdt-sp-stat'>
+            <span className='csdt-sp-stat__value'>{effectiveRows.length.toLocaleString()}</span>
+            <span className='csdt-sp-stat__label'>Effective</span>
+          </div>
+          {selectedNode.estimatedBytes > 0 && (
+            <div className='csdt-sp-stat'>
+              <span className='csdt-sp-stat__value'>{formatBytes(selectedNode.estimatedBytes)}</span>
+              <span className='csdt-sp-stat__label'>Size</span>
+            </div>
+          )}
+        </div>
+
+        <button type='button' className='csdt-sp-action' onClick={() => onInspectNode(selectedNode.id)}>
+          <ArrowUpRight size={13} />
+          <span>Open data viewer</span>
+        </button>
+
+        {/* ── Focused column detail ── */}
         {selectedField && (
-          <div className='csdt-sidepanel__section csdt-sidepanel__column-detail'>
-            <p className='csdt-kicker'>Column</p>
-            <h4 className='csdt-sidepanel__column-name'>{selectedField.label}</h4>
-            <div className='csdt-sidepanel__facts'>
-              <p>
-                <span className='csdt-muted'>Type</span>
-                {' '}
-                {selectedField.type}
-              </p>
-              <p>
-                <span className='csdt-muted'>Format</span>
-                {' '}
-                {selectedField.formatHint ?? '—'}
-              </p>
+          <div className='csdt-sp-column-card'>
+            <div className='csdt-sp-column-card__header'>
+              <ColumnTypeIcon type={selectedField.type} />
+              <h4 className='csdt-sp-column-card__name'>{selectedField.label}</h4>
+              <div className='csdt-field__badges'>
+                <FieldRoleBadges field={selectedField} />
+              </div>
+            </div>
+
+            <dl className='csdt-sp-props'>
+              <div className='csdt-sp-prop'>
+                <dt>Type</dt>
+                <dd>{selectedField.type}</dd>
+              </div>
+              {selectedField.formatHint && (
+                <div className='csdt-sp-prop'>
+                  <dt>Format</dt>
+                  <dd>{selectedField.formatHint}</dd>
+                </div>
+              )}
               {selectedField.inferenceHint && (
-                <p>
-                  <span className='csdt-muted'>Inference</span>
-                  {' '}
-                  {selectedField.inferenceHint}
-                </p>
+                <div className='csdt-sp-prop'>
+                  <dt>Inference</dt>
+                  <dd>{selectedField.inferenceHint}</dd>
+                </div>
               )}
               {selectedField.type === 'boolean' && (selectedField.trueLabel || selectedField.falseLabel) && (
-                <p>
-                  <span className='csdt-muted'>Boolean labels</span>
-                  {' '}
-                  {selectedField.trueLabel ?? 'true'} / {selectedField.falseLabel ?? 'false'}
-                </p>
+                <div className='csdt-sp-prop'>
+                  <dt>Labels</dt>
+                  <dd>{selectedField.trueLabel ?? 'true'} / {selectedField.falseLabel ?? 'false'}</dd>
+                </div>
               )}
               {selectedField.isDerived && (
-                <p>
-                  <span className='csdt-muted'>Derived</span>
-                  {' '}
-                  {selectedField.derivedSummary ?? 'Per-row accessor'}
-                </p>
+                <div className='csdt-sp-prop'>
+                  <dt>Derived</dt>
+                  <dd>{selectedField.derivedSummary ?? 'Per-row accessor'}</dd>
+                </div>
               )}
               {selectedField.mvBaseDatasetId && (
-                <p>
-                  <span className='csdt-muted'>Base grain</span>
-                  {' '}
-                  {mvBaseDatasetTitle(selectedField.mvBaseDatasetId)}
-                </p>
+                <div className='csdt-sp-prop'>
+                  <dt>Base grain</dt>
+                  <dd>{humanizeDatasetId(selectedField.mvBaseDatasetId)}</dd>
+                </div>
               )}
               {selectedField.joinProjection && (
-                <p>
-                  <span className='csdt-muted'>Joined column</span>
-                  {' '}
-                  {joinProjectionTitle(selectedField.joinProjection)}
-                </p>
+                <div className='csdt-sp-prop'>
+                  <dt>Joined from</dt>
+                  <dd>{joinProjectionTitle(selectedField.joinProjection)}</dd>
+                </div>
               )}
-            </div>
-            <p className='csdt-sidepanel__subh'>Relationships</p>
-            {fieldRelationshipEdges.length === 0
-              ? <p className='csdt-muted'>No graph edges for this column.</p>
-              : (
-                <ul className='csdt-sidepanel__edge-list'>
+            </dl>
+
+            {fieldRelationshipEdges.length > 0 && (
+              <div className='csdt-sp-column-edges'>
+                <p className='csdt-sp-column-edges__label'>Relationships</p>
+                <ul className='csdt-sp-edge-list'>
                   {fieldRelationshipEdges.map((edge) => (
-                    <li key={edge.id}>
-                      <span className='csdt-sidepanel__edge-kind'>{edge.kind}</span>
-                      <span className='csdt-sidepanel__edge-line'>{describeEdgeSummary(edge)}</span>
+                    <li key={edge.id} className='csdt-sp-edge-item'>
+                      <EdgeKindIcon kind={edge.kind} />
+                      <div className='csdt-sp-edge-item__text'>
+                        <span className='csdt-sp-edge-item__kind'>{edge.kind}</span>
+                        <span className='csdt-sp-edge-item__desc'>{describeEdgeSummary(edge)}</span>
+                      </div>
                     </li>
                   ))}
                 </ul>
-              )}
+              </div>
+            )}
           </div>
         )}
 
-        <div className='csdt-sidepanel__actions'>
-          <button type='button' onClick={() => onInspectNode(selectedNode.id)}>
-            <ArrowUpRight size={13} /> Open data viewer
-          </button>
-        </div>
+        {/* ── Attributes ── */}
+        {selectedNode.attributeIds.length > 0 && (
+          <CollapsibleSection title={`Attributes \u00b7 ${selectedNode.attributeIds.length}`}>
+            <div className='csdt-sp-chips'>
+              {selectedNode.attributeIds.map((attributeId) => (
+                <span key={attributeId} className='csdt-attribute-chip'>
+                  {attributeId}
+                </span>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
 
-        <div className='csdt-sidepanel__section'>
-          <h4>Attributes</h4>
-          {selectedNode.attributeIds.length
-            ? selectedNode.attributeIds.map((attributeId) => (
-              <span key={attributeId} className='csdt-attribute-chip'>
-                {attributeId}
-              </span>
-            ))
-            : <p className='csdt-muted'>None</p>}
-        </div>
-
-        <div className='csdt-sidepanel__section'>
-          <h4>Schema</h4>
-          <div className='csdt-sidepanel__field-list'>
-            {selectedNode.fields.map((field) => (
+        {/* ── Schema ── */}
+        <CollapsibleSection title={`Schema \u00b7 ${schemaFields.length}`}>
+          <div className='csdt-sp-field-list'>
+            {schemaFields.map((field) => (
               <div
                 key={field.id}
-                className={[
-                  'csdt-sidepanel__field',
-                  focusedFieldId === field.id ? 'is-focused' : undefined,
-                ].filter(Boolean).join(' ')}>
-                <div className='csdt-sidepanel__field-label'>
+                className={`csdt-sp-field${focusedFieldId === field.id ? ' is-focused' : ''}`}>
+                <div className='csdt-sp-field__main'>
                   <ColumnTypeIcon type={field.type} />
-                  <strong>{field.label}</strong>
+                  <span className='csdt-sp-field__name'>{field.label}</span>
                 </div>
                 <div className='csdt-field__badges'>
                   <FieldRoleBadges field={field} />
@@ -849,7 +933,7 @@ function SelectionPanel({
               </div>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       </section>
     )
   }
@@ -857,50 +941,73 @@ function SelectionPanel({
   if (selectedEdge) {
     return (
       <section className='csdt-sidepanel'>
-        <div className='csdt-sidepanel__header'>
-          <p className='csdt-kicker'>{selectedEdge.kind}</p>
-          <h3>{selectedEdge.label}</h3>
+        {/* ── Edge header ── */}
+        <div className='csdt-sp-hero'>
+          <div className='csdt-sp-hero__icon csdt-sp-hero__icon--edge'>
+            <EdgeKindIcon kind={selectedEdge.kind} />
+          </div>
+          <div className='csdt-sp-hero__text'>
+            <p className='csdt-sp-hero__kind'>{selectedEdge.kind}</p>
+            <h3 className='csdt-sp-hero__title'>{selectedEdge.label}</h3>
+          </div>
         </div>
 
         {selectedEdge.kind === 'relationship' && (
-          <div className='csdt-sidepanel__section'>
-            <h4>Relationship</h4>
-            <p>{selectedEdge.fromDatasetId}.{selectedEdge.fromFieldId} → {selectedEdge.toDatasetId}.{selectedEdge.toFieldId}</p>
-            <p className='csdt-muted'>{selectedEdge.inferred ? 'Inferred at runtime' : 'Declared explicitly'}</p>
+          <div className='csdt-sp-detail-card'>
+            <div className='csdt-sp-path'>
+              <span className='csdt-sp-path__endpoint'>{selectedEdge.fromDatasetId}<strong>.{selectedEdge.fromFieldId}</strong></span>
+              <span className='csdt-sp-path__arrow'>{'\u2192'}</span>
+              <span className='csdt-sp-path__endpoint'>{selectedEdge.toDatasetId}<strong>.{selectedEdge.toFieldId}</strong></span>
+            </div>
+            <span className={`csdt-sp-status-pill${selectedEdge.inferred ? ' csdt-sp-status-pill--inferred' : ''}`}>
+              {selectedEdge.inferred ? 'Inferred' : 'Declared'}
+            </span>
           </div>
         )}
 
         {selectedEdge.kind === 'association' && (
           <>
-            <div className='csdt-sidepanel__section'>
-              <h4>Association</h4>
-              <p>{selectedEdge.fromDatasetId}.{selectedEdge.fromFieldId} ↔ {selectedEdge.toDatasetId}.{selectedEdge.toFieldId}</p>
-              <p className='csdt-muted'>
-                {selectedEdge.backing === 'explicit'
-                  ? 'Backed by explicit edge rows'
-                  : `Derived from ${selectedEdge.derivedFromDatasetId}`}
-              </p>
+            <div className='csdt-sp-detail-card'>
+              <div className='csdt-sp-path'>
+                <span className='csdt-sp-path__endpoint'>{selectedEdge.fromDatasetId}<strong>.{selectedEdge.fromFieldId}</strong></span>
+                <span className='csdt-sp-path__arrow'>{'\u2194'}</span>
+                <span className='csdt-sp-path__endpoint'>{selectedEdge.toDatasetId}<strong>.{selectedEdge.toFieldId}</strong></span>
+              </div>
+              <span className='csdt-sp-status-pill'>
+                {selectedEdge.backing === 'explicit' ? 'Explicit edges' : `Derived \u00b7 ${selectedEdge.derivedFromDatasetId}`}
+              </span>
             </div>
 
-            <div className='csdt-sidepanel__section'>
-              <h4>Preview</h4>
-              {selectedEdge.previewPairs.length
-                ? selectedEdge.previewPairs.map((pair, index) => (
-                  <div key={`${pair.from}:${pair.to}:${index}`} className='csdt-preview-row'>
-                    <span>{pair.from}</span>
-                    <span>{pair.to}</span>
-                  </div>
-                ))
-                : <p className='csdt-muted'>No generated pairs available.</p>}
-            </div>
+            {selectedEdge.previewPairs.length > 0 && (
+              <CollapsibleSection title={`Preview \u00b7 ${selectedEdge.previewPairs.length} pairs`}>
+                <div className='csdt-sp-preview-grid'>
+                  {selectedEdge.previewPairs.map((pair, index) => (
+                    <div key={`${pair.from}:${pair.to}:${index}`} className='csdt-sp-preview-row'>
+                      <span>{pair.from}</span>
+                      <span className='csdt-sp-preview-row__arrow'>{'\u2192'}</span>
+                      <span>{pair.to}</span>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
           </>
         )}
 
         {selectedEdge.kind === 'materialization' && (
-          <div className='csdt-sidepanel__section'>
-            <h4>Materialization lineage</h4>
-            <p>{selectedEdge.sourceNodeId} → {selectedEdge.viewId}</p>
-            <p className='csdt-muted'>{selectedEdge.projectedFieldIds.join(', ')}</p>
+          <div className='csdt-sp-detail-card'>
+            <div className='csdt-sp-path'>
+              <span className='csdt-sp-path__endpoint'>{selectedEdge.sourceNodeId}</span>
+              <span className='csdt-sp-path__arrow'>{'\u2192'}</span>
+              <span className='csdt-sp-path__endpoint'>{selectedEdge.viewId}</span>
+            </div>
+            {selectedEdge.projectedFieldIds.length > 0 && (
+              <div className='csdt-sp-chips' style={{marginTop: 8}}>
+                {selectedEdge.projectedFieldIds.map((fid) => (
+                  <span key={fid} className='csdt-attribute-chip'>{fid}</span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -909,7 +1016,12 @@ function SelectionPanel({
 
   return (
     <section className='csdt-sidepanel is-empty'>
-      <p className='csdt-muted'>Select an element to inspect.</p>
+      <div className='csdt-sp-empty'>
+        <div className='csdt-sp-empty__icon'>
+          <Database size={20} />
+        </div>
+        <p>Select an element to inspect</p>
+      </div>
     </section>
   )
 }
@@ -927,6 +1039,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const [showIssues, setShowIssues] = useState(false)
   const [viewer, setViewer] = useState<ViewerState | null>(null)
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set())
+  /** User clicked the MV body to reveal join/key rows beyond {@link MV_JOIN_KEY_DEFAULT_CAP}. */
+  const [materializedViewJoinKeyRevealedIds, setMaterializedViewJoinKeyRevealedIds] = useState<Set<string>>(
+    () => new Set(),
+  )
   const [elkLayoutConfig, setElkLayoutConfig] = useState<DevtoolsElkLayoutConfig>(loadStoredDevtoolsElkLayout)
   const [layoutNonce, setLayoutNonce] = useState(0)
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<FlowNode, FlowEdge> | null>(null)
@@ -1077,6 +1193,39 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       : new Map<string, ReadonlySet<string>>(),
     [currentSelectedEdgeId, currentSelectedFieldId, currentSelectedNodeId, displaySource],
   )
+  const autoMaterializedViewJoinKeyRevealedIds = useMemo(() => {
+    const next = new Set<string>()
+
+    if (!displaySource || edgeFieldHighlights.size === 0) {
+      return next
+    }
+
+    for (const [nodeId, fieldIds] of edgeFieldHighlights) {
+      const node = displaySource.nodeMap.get(nodeId)
+
+      if (!node || node.kind !== 'materialized-view' || materializedViewJoinKeyRevealedIds.has(nodeId)) {
+        continue
+      }
+
+      const joinKeys = getMaterializedViewJoinKeyFields(node)
+      const firstN = new Set(joinKeys.slice(0, MV_JOIN_KEY_DEFAULT_CAP).map((field) => field.id))
+
+      for (const fieldId of fieldIds) {
+        const field = node.fields.find((candidate) => candidate.id === fieldId)
+
+        if (field && isMaterializedViewJoinOrKeyField(field) && !firstN.has(fieldId)) {
+          next.add(nodeId)
+          break
+        }
+      }
+    }
+
+    return next
+  }, [displaySource, edgeFieldHighlights, materializedViewJoinKeyRevealedIds])
+  const visibleMvJoinKeyOverflowRevealedIds = useMemo(
+    () => new Set([...materializedViewJoinKeyRevealedIds, ...autoMaterializedViewJoinKeyRevealedIds]),
+    [autoMaterializedViewJoinKeyRevealedIds, materializedViewJoinKeyRevealedIds],
+  )
   const autoExpandedNodeIds = useMemo(() => {
     if (!displaySource || edgeFieldHighlights.size === 0) {
       return new Set<string>()
@@ -1091,10 +1240,22 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         continue
       }
 
-      const collapsedIds = new Set(getCollapsedVisibleFields(node, displaySource).map((field) => field.id))
+      const collapsedIds = new Set(
+        getCollapsedVisibleFields(node, displaySource, {
+          mvJoinKeyOverflowRevealed: visibleMvJoinKeyOverflowRevealedIds.has(nodeId),
+        }).map((field) => field.id),
+      )
 
       for (const fieldId of fieldIds) {
         if (!collapsedIds.has(fieldId)) {
+          if (node.kind === 'materialized-view') {
+            const field = node.fields.find((candidate) => candidate.id === fieldId)
+
+            if (field && isMaterializedViewJoinOrKeyField(field)) {
+              continue
+            }
+          }
+
           next.add(nodeId)
           break
         }
@@ -1102,7 +1263,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
 
     return next
-  }, [displaySource, edgeFieldHighlights, manualExpandedNodeIds])
+  }, [displaySource, edgeFieldHighlights, manualExpandedNodeIds, visibleMvJoinKeyOverflowRevealedIds])
   const visibleExpandedNodeIds = useMemo(() => {
     if (autoExpandedNodeIds.size === 0) {
       return manualExpandedNodeIds
@@ -1129,7 +1290,12 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     let cancelled = false
     const layoutRunId = ++layoutRunIdRef.current
 
-    void computeGraphLayout(layoutSource, visibleExpandedNodeIds, elkLayoutForComputation).then((positions) => {
+    void computeGraphLayout(
+      layoutSource,
+      visibleExpandedNodeIds,
+      elkLayoutForComputation,
+      visibleMvJoinKeyOverflowRevealedIds,
+    ).then((positions) => {
       if (cancelled || layoutRunId !== layoutRunIdRef.current) {
         return
       }
@@ -1162,7 +1328,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         fitViewFrameRef.current = null
       }
     }
-  }, [elkLayoutForComputation, flowInstance, layoutNonce, layoutSource, visibleExpandedNodeIds])
+  }, [elkLayoutForComputation, flowInstance, layoutNonce, layoutSource, visibleExpandedNodeIds, visibleMvJoinKeyOverflowRevealedIds])
 
   const searchResults = useMemo(() => {
     if (!displaySource || deferredSearchQuery.trim().length === 0) {
@@ -1201,6 +1367,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       focusedFieldId: currentSelectedFieldId,
       focusedNodeIds,
       issuesByTargetId,
+      mvJoinKeyOverflowRevealedIds: visibleMvJoinKeyOverflowRevealedIds,
       onInspectNode(nodeId) {
         setSelectedNodeId(nodeId)
         setSelectedEdgeId(null)
@@ -1226,6 +1393,16 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
           if (next.has(nodeId)) {
             next.delete(nodeId)
+            setMaterializedViewJoinKeyRevealedIds((revealed) => {
+              if (!revealed.has(nodeId)) {
+                return revealed
+              }
+
+              const copy = new Set(revealed)
+              copy.delete(nodeId)
+
+              return copy
+            })
           } else {
             next.add(nodeId)
           }
@@ -1248,6 +1425,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     focusedNodeIds,
     issuesByTargetId,
     visibleExpandedNodeIds,
+    visibleMvJoinKeyOverflowRevealedIds,
   ])
 
   function focusSearchItem(item: SearchItemVm) {
@@ -1303,6 +1481,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     startTransition(() => {
       setExpandedNodeIds(() => new Set())
+      setMaterializedViewJoinKeyRevealedIds(() => new Set())
       setLayoutNonce((current) => current + 1)
     })
   }
@@ -1453,6 +1632,19 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                               applyFlowNodePositionChanges(current, changes, displaySource))
                           }}
                           onNodeClick={(_, node: FlowNode) => {
+                            const n = displaySource?.nodeMap.get(node.id)
+
+                            if (n?.kind === 'materialized-view') {
+                              const joinKeys = getMaterializedViewJoinKeyFields(n)
+
+                              if (
+                                joinKeys.length > MV_JOIN_KEY_DEFAULT_CAP
+                                && !visibleMvJoinKeyOverflowRevealedIds.has(node.id)
+                              ) {
+                                setMaterializedViewJoinKeyRevealedIds((prev) => new Set(prev).add(node.id))
+                              }
+                            }
+
                             setSelectedNodeId(node.id)
                             setSelectedEdgeId(null)
                             setSelectedFieldId(null)
@@ -1482,6 +1674,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
                     <SelectionPanel
                       activeContext={activeContext}
+                      expandedNodeIds={visibleExpandedNodeIds}
                       focusedFieldId={currentSelectedFieldId}
                       onInspectNode={(nodeId) => canvasContextValue.onInspectNode(nodeId)}
                       selectedEdgeId={currentSelectedEdgeId}

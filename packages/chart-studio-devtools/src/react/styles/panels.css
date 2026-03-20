@@ -1,13 +1,18 @@
-/* Side panel, issues drawer, preview rows. */
+/* ────────────────────────────────────────────────────────────────
+   Side panel — polished inspector (Supabase / Linear aesthetic).
+   Uses --cs-* design tokens throughout.
+   ──────────────────────────────────────────────────────────────── */
+
+/* ── Root container ── */
 
 .csdt-sidepanel,
 .csdt-issues-drawer {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 2px;
   min-height: 0;
-  padding: 12px;
-  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  padding: 0;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 6px);
   border: 1px solid var(--cs-border, rgba(214, 224, 236, 0.92));
   background: var(--cs-card, rgba(255, 255, 255, 0.94));
   overflow: auto;
@@ -15,137 +20,495 @@
 
 .csdt-sidepanel.is-empty {
   justify-content: center;
+  align-items: center;
+  padding: 32px 16px;
 }
 
-.csdt-sidepanel__header,
-.csdt-sidepanel__section,
+/* ── Empty state ── */
+
+.csdt-sp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.csdt-sp-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 60%, var(--cs-background, #fff));
+  color: var(--cs-muted-foreground, #718198);
+}
+
+.csdt-sp-empty p {
+  margin: 0;
+  color: var(--cs-muted-foreground, #718198);
+  font-size: 0.75rem;
+}
+
+/* ── Hero header (node / edge) ── */
+
+.csdt-sp-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 14px 0;
+}
+
+.csdt-sp-hero__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--cs-primary, #5879ba) 10%, var(--cs-muted, #eef2f7));
+  color: var(--cs-primary, #4a6aad);
+}
+
+.csdt-sp-hero__icon--edge {
+  background: color-mix(in oklch, var(--cs-muted-foreground, #6c7b91) 10%, var(--cs-muted, #eef2f7));
+  color: var(--cs-muted-foreground, #6c7b91);
+}
+
+.csdt-sp-hero__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.csdt-sp-hero__kind {
+  margin: 0;
+  color: var(--cs-muted-foreground, #6c7b91);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.csdt-sp-hero__title {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--cs-foreground, #172032);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Stats row ── */
+
+.csdt-sp-stats {
+  display: flex;
+  gap: 1px;
+  margin: 10px 14px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--cs-border, #d6e0ec) 40%, transparent);
+}
+
+.csdt-sp-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 6px;
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 50%, var(--cs-card, #fff));
+}
+
+.csdt-sp-stat__value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cs-foreground, #172032);
+  line-height: 1;
+}
+
+.csdt-sp-stat__label {
+  font-size: 0.5625rem;
+  font-weight: 500;
+  color: var(--cs-muted-foreground, #718198);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Primary action button ── */
+
+.csdt-sp-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 14px 0;
+  padding: 7px 12px;
+  border: 1px solid var(--cs-border, rgba(196, 208, 224, 0.9));
+  border-radius: 8px;
+  background: var(--cs-background, rgba(255, 255, 255, 0.92));
+  color: var(--cs-foreground, #1d293d);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.csdt-sp-action:hover {
+  border-color: color-mix(in oklch, var(--cs-primary, #5879ba) 40%, var(--cs-border, #dde6f2));
+  background: color-mix(in oklch, var(--cs-primary, #5879ba) 4%, var(--cs-background, #fff));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.csdt-sp-action svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* ── Column detail card ── */
+
+.csdt-sp-column-card {
+  margin: 10px 14px 0;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklch, var(--cs-primary, #5879ba) 16%, var(--cs-border, #d6e0ec));
+  background: color-mix(in oklch, var(--cs-primary, #5879ba) 3%, var(--cs-card, #fff));
+}
+
+.csdt-sp-column-card__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.csdt-sp-column-card__name {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--cs-foreground, #172032);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Properties (dl/dt/dd) ── */
+
+.csdt-sp-props {
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.csdt-sp-prop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid color-mix(in oklch, var(--cs-border, #d6e0ec) 30%, transparent);
+}
+
+.csdt-sp-prop:first-child {
+  border-top: none;
+}
+
+.csdt-sp-prop dt {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--cs-muted-foreground, #6c7b91);
+}
+
+.csdt-sp-prop dd {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--cs-foreground, #172032);
+  text-align: right;
+  word-break: break-word;
+}
+
+/* ── Column relationship edges ── */
+
+.csdt-sp-column-edges {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in oklch, var(--cs-border, #d6e0ec) 30%, transparent);
+}
+
+.csdt-sp-column-edges__label {
+  margin: 0 0 6px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--cs-muted-foreground, #6c7b91);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.csdt-sp-edge-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.csdt-sp-edge-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 60%, var(--cs-card, #fff));
+  font-size: 0.6875rem;
+}
+
+.csdt-sp-edge-item svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--cs-muted-foreground, #718198);
+}
+
+.csdt-sp-edge-item__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.csdt-sp-edge-item__kind {
+  font-weight: 600;
+  color: var(--cs-primary, #36507d);
+  text-transform: capitalize;
+  font-size: 0.625rem;
+}
+
+.csdt-sp-edge-item__desc {
+  color: var(--cs-foreground, #172032);
+  word-break: break-word;
+  font-size: 0.6875rem;
+  font-family: "SFMono-Regular", ui-monospace, monospace;
+}
+
+/* ── Collapsible sections ── */
+
+.csdt-sp-section {
+  border-top: 1px solid color-mix(in oklch, var(--cs-border, #d6e0ec) 50%, transparent);
+}
+
+.csdt-sp-section__trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--cs-muted-foreground, #6c7b91);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+  box-shadow: none;
+  text-align: left;
+}
+
+.csdt-sp-section__trigger:hover {
+  color: var(--cs-foreground, #1d293d);
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 30%, transparent);
+  border: none;
+  box-shadow: none;
+}
+
+.csdt-sp-section__chevron {
+  flex-shrink: 0;
+  transition: transform 160ms ease;
+  color: var(--cs-muted-foreground, #8694a8);
+}
+
+.csdt-sp-section.is-open .csdt-sp-section__chevron {
+  transform: rotate(90deg);
+}
+
+.csdt-sp-section__body {
+  padding: 0 14px 12px;
+}
+
+/* ── Chip group ── */
+
+.csdt-sp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ── Schema field list ── */
+
+.csdt-sp-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.csdt-sp-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  transition: background 100ms ease;
+}
+
+.csdt-sp-field:hover {
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 55%, transparent);
+}
+
+.csdt-sp-field.is-focused {
+  background: color-mix(in oklch, var(--cs-primary, #5879ba) 6%, var(--cs-muted, #f1f5f9));
+  outline: 2px solid color-mix(in oklch, var(--cs-ring, #5879ba) 20%, transparent);
+  outline-offset: -1px;
+  border-radius: 6px;
+}
+
+.csdt-sp-field__main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.csdt-sp-field__name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--cs-foreground, #172032);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Edge detail card ── */
+
+.csdt-sp-detail-card {
+  margin: 10px 14px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 50%, var(--cs-card, #fff));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.csdt-sp-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  font-family: "SFMono-Regular", ui-monospace, monospace;
+  color: var(--cs-foreground, #172032);
+}
+
+.csdt-sp-path__endpoint {
+  min-width: 0;
+  word-break: break-word;
+  color: var(--cs-muted-foreground, #718198);
+}
+
+.csdt-sp-path__endpoint strong {
+  color: var(--cs-foreground, #172032);
+  font-weight: 600;
+}
+
+.csdt-sp-path__arrow {
+  color: var(--cs-muted-foreground, #8694a8);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.csdt-sp-status-pill {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: color-mix(in oklch, var(--cs-primary, #5879ba) 10%, var(--cs-muted, #eef2f7));
+  color: var(--cs-primary, #36507d);
+}
+
+.csdt-sp-status-pill--inferred {
+  background: rgba(255, 241, 222, 0.96);
+  color: #b45309;
+}
+
+/* ── Preview grid (association pairs) ── */
+
+.csdt-sp-preview-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.csdt-sp-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 50%, var(--cs-card, #fff));
+  font-size: 0.6875rem;
+  font-family: "SFMono-Regular", ui-monospace, monospace;
+  color: var(--cs-foreground, #172032);
+}
+
+.csdt-sp-preview-row__arrow {
+  color: var(--cs-muted-foreground, #8694a8);
+  flex-shrink: 0;
+}
+
+/* ── Issues drawer (shared with original) ── */
+
+.csdt-issues-drawer {
+  padding: 12px;
+  gap: 12px;
+}
+
 .csdt-issues-drawer__header {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.csdt-sidepanel__section h4 {
-  margin: 0;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--cs-muted-foreground, #6c7b91);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.csdt-sidepanel__actions {
-  display: flex;
-  gap: 6px;
-}
-
-.csdt-sidepanel__actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.csdt-sidepanel__column-detail {
-  padding-bottom: 4px;
-  border-bottom: 1px solid color-mix(in oklch, var(--cs-border, #d3ddea) 70%, transparent);
-}
-
-.csdt-sidepanel__section h4.csdt-sidepanel__column-name {
-  margin: 0;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: -0.01em;
-  color: var(--cs-foreground, #172032);
-}
-
-.csdt-sidepanel__column-detail .csdt-sidepanel__facts {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.csdt-sidepanel__column-detail .csdt-sidepanel__facts p {
-  margin: 0;
-  font-size: 0.75rem;
-  line-height: 1.4;
-}
-
-.csdt-sidepanel__subh {
-  margin: 10px 0 4px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--cs-muted-foreground, #6c7b91);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.csdt-sidepanel__edge-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.csdt-sidepanel__edge-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
-  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
-  background: var(--cs-muted, rgba(241, 245, 249, 0.9));
-  font-size: 0.6875rem;
-}
-
-.csdt-sidepanel__edge-kind {
-  font-weight: 600;
-  color: var(--cs-primary, #36507d);
-  text-transform: capitalize;
-}
-
-.csdt-sidepanel__edge-line {
-  color: var(--cs-foreground, #172032);
-  word-break: break-word;
-}
-
-.csdt-sidepanel__field-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.csdt-sidepanel__field,
-.csdt-preview-row,
 .csdt-issue-row {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  align-items: center;
+  align-items: flex-start;
   padding: 6px 8px;
   border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
   background: var(--cs-muted, rgba(241, 245, 249, 0.9));
   font-size: 0.75rem;
-}
-
-.csdt-sidepanel__field.is-focused {
-  outline: 2px solid color-mix(in oklch, var(--cs-ring, #5879ba) 20%, transparent);
-}
-
-.csdt-sidepanel__field strong {
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.csdt-sidepanel__field small {
-  font-size: 0.6875rem;
-  color: var(--cs-muted-foreground, #738197);
-}
-
-.csdt-issue-row {
-  align-items: flex-start;
 }
 
 .csdt-issue-row.is-warning {
