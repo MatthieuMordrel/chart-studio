@@ -951,6 +951,27 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
   }, [isOpen, showIssues, viewer])
 
+  /**
+   * Chart UI dropdowns portal to `document.body` with default z-index 40/50.
+   * Devtools shells use ~2^31 z-index so those panels would render underneath;
+   * raise the stacking variables while the shell is open.
+   */
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    const root = document.documentElement
+
+    root.style.setProperty('--cs-chart-dropdown-backdrop-z-index', '2147483002')
+    root.style.setProperty('--cs-chart-dropdown-panel-z-index', '2147483003')
+
+    return () => {
+      root.style.removeProperty('--cs-chart-dropdown-backdrop-z-index')
+      root.style.removeProperty('--cs-chart-dropdown-panel-z-index')
+    }
+  }, [isOpen])
+
   useEffect(() => {
     if (!activeSource && selectedSourceId) {
       setSelectedSourceId(null)

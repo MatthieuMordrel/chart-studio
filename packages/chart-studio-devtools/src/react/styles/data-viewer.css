@@ -25,12 +25,62 @@
   justify-content: space-between;
   gap: 12px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .csdt-data-viewer__inspect,
 .csdt-data-viewer__explore {
   min-height: 0;
   flex: 1;
+}
+
+/* Explore: chart toolbar + table share one card; flex fills modal below the header */
+.csdt-data-viewer__explore {
+  display: flex;
+  flex-direction: column;
+}
+
+.csdt-explore-chart {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: min(280px, 52vh);
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  border: 1px solid var(--cs-border, rgba(215, 223, 235, 0.95));
+  background: var(--cs-card, rgba(251, 252, 254, 0.98));
+  overflow: hidden;
+}
+
+.csdt-explore-chart__toolbar {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--cs-border, rgba(231, 236, 243, 0.92));
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 42%, var(--cs-background, #fff));
+}
+
+.csdt-explore-chart__toolbar-inner {
+  min-width: 0;
+}
+
+.csdt-explore-chart__canvas-shell {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  background: var(--cs-background, rgba(255, 255, 255, 0.98));
+}
+
+.csdt-explore-chart__canvas-measure {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.csdt-explore-chart__canvas {
+  flex: 1;
+  min-height: 0;
 }
 
 .csdt-data-viewer__inspect {

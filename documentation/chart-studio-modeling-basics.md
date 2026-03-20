@@ -20,14 +20,16 @@ Chart Studio makes **grain explicit** so that mistake is hard to make by acciden
 
 ## The pieces (what / when / why)
 
-| Piece | What it is | When to use it | Why it exists |
-|--------|------------|----------------|---------------|
-| **Dataset** | A flat table: keys, columns, and optional calculated fields. | Any table you want to chart from. | A chart reads **one** row shape at a time. |
-| **Relationship** | **One-to-many** link: one parent row → many child rows (via a column on the child that points to the parent). | “One manager, many plans,” “each plan belongs to one manager.” | Declares a real link so joins and filters are clear—not guessed. |
-| **Association** | **Many-to-many** link between two tables (often a small **bridge** table in the middle). | “Each plan needs many skills; each skill appears on many plans.” | Many-to-many cannot be modeled as a single pointer column; it needs its own structure. |
-| **Materialized view** | A **named, flat result** built from `model.materialize(...)`: start from one table, optionally pull in other tables, optionally **repeat rows** when a plan matches many skills. | You need a **different row meaning** (for example one row per plan-and-skill pair) or one wide table used by several charts. | **What each row means** and **how tables were combined** is written down once—not hidden inside each chart. |
-| **Attribute** | A **shared filter** (for example “filter by capability”) wired to real columns. | A dashboard should filter every chart the same way. | Filters stay aligned with the model instead of one-off settings. |
-| **Dashboard** | Which charts exist + which shared filters apply. | Building a screen. | Separates “how the world is modeled” from “this one page.” |
+Each row below says **why you must define the thing** (what goes wrong if you don’t) and **what defining it gives you** (filtering, simpler charts, less ambiguity).
+
+| Piece | What it is | When to use it | Why define it · what it gives you |
+|--------|------------|----------------|-----------------------------------|
+| **Dataset** | A flat table: keys, columns, and optional calculated fields. | Any table you want to chart from. | **Why:** A chart has to read **one** clear row type; column names alone do not say which column is the key or what a row represents. **Gives you:** Simple metrics and filters on a single table, without mixing two row meanings in one chart. |
+| **Relationship** | **One-to-many** link: one parent row → many child rows (via a column on the child that points to the parent). | “One manager, many plans,” “each plan belongs to one manager.” | **Why:** Two columns that look like ids are not automatically a safe link—naming is ambiguous. **Gives you:** One agreed path for joins and filters so every chart that “follows the manager” does the same thing. |
+| **Association** | **Many-to-many** link between two tables (often a small **bridge** table in the middle). | “Each plan needs many skills; each skill appears on many plans.” | **Why:** You cannot describe many-to-many with a single “pointer” column; the shape of the link must be explicit. **Gives you:** Correct counts and filters across both sides (no pretending each row only points to one thing on the other side). |
+| **Materialized view** | A **named, flat result** built from `model.materialize(...)`: start from one table, optionally pull in other tables, optionally **repeat rows** when a plan matches many skills. | You need a **different row meaning** (for example one row per plan-and-skill pair) or one wide table used by several charts. | **Why:** Cross-table questions need a fixed **row meaning**; leaving that implicit invites wrong totals and double-counting. **Gives you:** Simpler chart definitions, one place that states how tables were combined, and fewer “we summed the wrong rows” mistakes. |
+| **Attribute** | A **shared filter** (for example “filter by skill”) wired to real columns. | A dashboard should filter every chart the same way. | **Why:** A filter label (“by skill”) must map to real data; otherwise each chart could filter differently. **Gives you:** Consistent filtering across charts without copying the same filter rules everywhere. |
+| **Dashboard** | Which charts exist + which shared filters apply. | Building a screen. | **Why:** The data model is reusable; a screen is one way to use it. **Gives you:** Same model on many pages, with different layouts and filter sets, without duplicating the model. |
 
 ---
 

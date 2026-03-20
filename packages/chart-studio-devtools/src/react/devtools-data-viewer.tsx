@@ -1,5 +1,7 @@
 import {
+  type RefObject,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -71,6 +73,45 @@ function formatRowValue(
   return String(value)
 }
 
+/**
+ * Syncs chart canvas pixel height to the explore panel’s remaining space.
+ */
+function useExploreCanvasHeight(containerRef: RefObject<HTMLDivElement | null>) {
+  const [height, setHeight] = useState(320)
+
+  useLayoutEffect(() => {
+    const el = containerRef.current
+
+    if (!el) {
+      return
+    }
+
+    function read() {
+      const container = containerRef.current
+
+      if (!container) {
+        return
+      }
+
+      const next = Math.floor(container.getBoundingClientRect().height)
+
+      if (next > 0) {
+        setHeight((current) => (current === next ? current : next))
+      }
+    }
+
+    read()
+    const observer = new ResizeObserver(read)
+    observer.observe(el)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
+  return Math.max(200, height)
+}
+
 function DevtoolsExploreChart({
   node,
   rows,
@@ -78,6 +119,9 @@ function DevtoolsExploreChart({
   node: NormalizedNodeVm
   rows: readonly DevtoolsRow[]
 }) {
+  const canvasShellRef = useRef<HTMLDivElement>(null)
+  const canvasHeightPx = useExploreCanvasHeight(canvasShellRef)
+
   const schema = useMemo(
     () => node.definition.chart('devtoolsExplore').build(),
     [node.definition],
@@ -96,8 +140,16 @@ function DevtoolsExploreChart({
   return (
     <div className='csdt-data-viewer__explore'>
       <Chart chart={chart}>
-        <ChartToolbar />
-        <ChartCanvas height={360} />
+        <div className='csdt-explore-chart'>
+          <div className='csdt-explore-chart__toolbar'>
+            <ChartToolbar className='csdt-explore-chart__toolbar-inner' />
+          </div>
+          <div className='csdt-explore-chart__canvas-shell'>
+            <div ref={canvasShellRef} className='csdt-explore-chart__canvas-measure'>
+              <ChartCanvas height={canvasHeightPx} className='csdt-explore-chart__canvas border-0' />
+            </div>
+          </div>
+        </div>
       </Chart>
     </div>
   )

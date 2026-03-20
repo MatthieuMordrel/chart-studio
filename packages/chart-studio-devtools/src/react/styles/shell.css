@@ -17,6 +17,7 @@
 /* Thin, theme-aware scrollbars (Firefox scrollbar properties, WebKit pseudos). */
 .csdt-json-viewer,
 .csdt-grid,
+.csdt-explore-chart__canvas,
 .csdt-sidepanel,
 .csdt-issues-drawer,
 .csdt-search__results {
@@ -27,6 +28,7 @@
 
 .csdt-json-viewer::-webkit-scrollbar,
 .csdt-grid::-webkit-scrollbar,
+.csdt-explore-chart__canvas::-webkit-scrollbar,
 .csdt-sidepanel::-webkit-scrollbar,
 .csdt-issues-drawer::-webkit-scrollbar,
 .csdt-search__results::-webkit-scrollbar {
@@ -36,6 +38,7 @@
 
 .csdt-json-viewer::-webkit-scrollbar-track,
 .csdt-grid::-webkit-scrollbar-track,
+.csdt-explore-chart__canvas::-webkit-scrollbar-track,
 .csdt-sidepanel::-webkit-scrollbar-track,
 .csdt-issues-drawer::-webkit-scrollbar-track,
 .csdt-search__results::-webkit-scrollbar-track {
@@ -45,6 +48,7 @@
 
 .csdt-json-viewer::-webkit-scrollbar-thumb,
 .csdt-grid::-webkit-scrollbar-thumb,
+.csdt-explore-chart__canvas::-webkit-scrollbar-thumb,
 .csdt-sidepanel::-webkit-scrollbar-thumb,
 .csdt-issues-drawer::-webkit-scrollbar-thumb,
 .csdt-search__results::-webkit-scrollbar-thumb {
@@ -56,6 +60,7 @@
 
 .csdt-json-viewer::-webkit-scrollbar-thumb:hover,
 .csdt-grid::-webkit-scrollbar-thumb:hover,
+.csdt-explore-chart__canvas::-webkit-scrollbar-thumb:hover,
 .csdt-sidepanel::-webkit-scrollbar-thumb:hover,
 .csdt-issues-drawer::-webkit-scrollbar-thumb:hover,
 .csdt-search__results::-webkit-scrollbar-thumb:hover {

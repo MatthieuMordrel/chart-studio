@@ -27,6 +27,8 @@ type PanelPosition = {
  * @property repositionKey - Value that forces re-measurement when panel content changes
  * @property className - Additional CSS classes for the content area
  * @property children - Panel content
+ * @remarks Stacking uses `--cs-chart-dropdown-backdrop-z-index` (default 40) and
+ *   `--cs-chart-dropdown-panel-z-index` (default 50) so hosts can raise z-index above app overlays.
  */
 export function ChartDropdownPanel({
   isOpen,
@@ -107,18 +109,23 @@ export function ChartDropdownPanel({
   return createPortal(
     <>
       {/* Transparent backdrop — click anywhere outside to close */}
-      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="fixed inset-0"
+        style={{zIndex: 'var(--cs-chart-dropdown-backdrop-z-index, 40)'}}
+        onClick={onClose}
+      />
 
       {/* Panel with layered shadow for depth */}
       <div
         ref={panelRef}
-        className={`fixed z-50 overflow-hidden rounded-xl border border-border/50 bg-popover text-popover-foreground shadow-[0_8px_30px_-6px_rgba(0,0,0,0.12),0_2px_8px_-2px_rgba(0,0,0,0.05)] ${className ?? ''}`}
+        className={`fixed overflow-hidden rounded-xl border border-border/50 bg-popover text-popover-foreground shadow-[0_8px_30px_-6px_rgba(0,0,0,0.12),0_2px_8px_-2px_rgba(0,0,0,0.05)] ${className ?? ''}`}
         style={{
           top: position?.top ?? 0,
           left: position?.left ?? 0,
           width,
           minWidth: minWidth === 'trigger' ? triggerRef.current?.getBoundingClientRect().width : minWidth,
           visibility: position ? 'visible' : 'hidden',
+          zIndex: 'var(--cs-chart-dropdown-panel-z-index, 50)',
         }}
         onWheel={(e) => e.stopPropagation()}
       >
