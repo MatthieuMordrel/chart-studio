@@ -1,4 +1,5 @@
 export {ChartStudioDevtools} from './chart-studio-devtools.js'
+export {filterGraphVisibleSource} from './normalize.js'
 
 export type {
   DevtoolsElkCrossingStrategy,

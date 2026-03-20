@@ -32,7 +32,7 @@ import type {ChartStudioDevtoolsContextSnapshot} from '@matthieumordrel/chart-st
 import {ElkLayoutPanel} from './devtools-elk-layout-panel.js'
 import {computeGraphLayout, DEVTOOLS_NODE_WIDTH, DEVTOOLS_VISIBLE_FIELD_COUNT} from './layout.js'
 import {loadStoredDevtoolsElkLayout, persistDevtoolsElkLayout, type DevtoolsElkLayoutConfig} from './layout-options.js'
-import {normalizeSource} from './normalize.js'
+import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
 import {ColumnTypeIcon} from './column-type-icon.js'
@@ -84,6 +84,44 @@ type CanvasContextValue = {
 }
 
 const CanvasContext = createContext<CanvasContextValue | null>(null)
+
+const SHOW_MATERIALIZED_VIEWS_STORAGE_KEY = 'chart-studio-devtools:show-materialized-views-v1'
+
+/**
+ * @returns Whether MV nodes should appear on the graph (persisted preference, default true)
+ */
+function loadShowMaterializedViews(): boolean {
+  if (typeof localStorage === 'undefined') {
+    return true
+  }
+
+  try {
+    const raw = localStorage.getItem(SHOW_MATERIALIZED_VIEWS_STORAGE_KEY)
+
+    if (raw === null) {
+      return true
+    }
+
+    return raw === 'true'
+  } catch {
+    return true
+  }
+}
+
+/**
+ * @param show - Persisted for the next devtools session
+ */
+function persistShowMaterializedViews(show: boolean): void {
+  if (typeof localStorage === 'undefined') {
+    return
+  }
+
+  try {
+    localStorage.setItem(SHOW_MATERIALIZED_VIEWS_STORAGE_KEY, show ? 'true' : 'false')
+  } catch {
+    // ignore quota / private mode
+  }
+}
 
 function useCanvasContext(): CanvasContextValue {
   const value = useContext(CanvasContext)
@@ -962,6 +1000,11 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     () => activeSource ? normalizeSource(activeSource) : null,
     [activeSource],
   )
+  const [showMaterializedViews, setShowMaterializedViews] = useState(() => loadShowMaterializedViews())
+  const displaySource = useMemo(
+    () => (normalizedSource ? filterGraphVisibleSource(normalizedSource, showMaterializedViews) : null),
+    [normalizedSource, showMaterializedViews],
+  )
   /** Dashboard shared-filter scope only (see `useDashboard` devtools snapshot). */
   const activeContext = useMemo(
     () => normalizedSource?.contexts[0] ?? null,
@@ -1039,6 +1082,49 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   }, [elkLayoutConfig])
 
   useEffect(() => {
+    persistShowMaterializedViews(showMaterializedViews)
+  }, [showMaterializedViews])
+
+  useEffect(() => {
+    if (!displaySource) {
+      return
+    }
+
+    if (selectedNodeId && !displaySource.nodeMap.has(selectedNodeId)) {
+      setSelectedNodeId(null)
+      setSelectedFieldId(null)
+    }
+
+    if (selectedEdgeId && !displaySource.edgeMap.has(selectedEdgeId)) {
+      setSelectedEdgeId(null)
+    }
+  }, [displaySource, selectedEdgeId, selectedNodeId])
+
+  useEffect(() => {
+    if (!viewer || !displaySource) {
+      return
+    }
+
+    if (!displaySource.nodeMap.has(viewer.nodeId)) {
+      setViewer(null)
+    }
+  }, [displaySource, viewer])
+
+  useEffect(() => {
+    if (!displaySource) {
+      return
+    }
+
+    setExpandedNodeIds((current) => {
+      const next = new Set(
+        [...current].filter((id) => displaySource.nodeMap.has(id)),
+      )
+
+      return next.size === current.size ? current : next
+    })
+  }, [displaySource])
+
+  useEffect(() => {
     if (!activeSource && selectedSourceId) {
       setSelectedSourceId(null)
     }
@@ -1051,71 +1137,71 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   }, [activeSource, selectedSourceId])
 
   useEffect(() => {
-    if (!normalizedSource) {
+    if (!displaySource) {
       setNodes([])
       setEdges([])
       positionsRef.current = {}
       return
     }
 
-    setEdges(buildFlowEdges(normalizedSource))
-  }, [normalizedSource, setEdges])
+    setEdges(buildFlowEdges(displaySource))
+  }, [displaySource, setEdges])
 
   useEffect(() => {
-    if (!normalizedSource) {
+    if (!displaySource) {
       return
     }
 
     let cancelled = false
 
-    void computeGraphLayout(normalizedSource, expandedNodeIds, elkLayoutConfig).then((positions) => {
+    void computeGraphLayout(displaySource, expandedNodeIds, elkLayoutConfig).then((positions) => {
       if (cancelled) {
         return
       }
 
       positionsRef.current = positions
       startTransition(() => {
-        setNodes(buildFlowNodes(normalizedSource, positions))
+        setNodes(buildFlowNodes(displaySource, positions))
       })
     })
 
     return () => {
       cancelled = true
     }
-  }, [elkLayoutConfig, expandedNodeIds, layoutNonce, normalizedSource, setNodes])
+  }, [displaySource, elkLayoutConfig, expandedNodeIds, layoutNonce, setNodes])
 
   const issuesByTargetId = useMemo(() => {
-    if (!normalizedSource) {
+    if (!displaySource) {
       return new Map<string, readonly string[]>()
     }
 
-    return normalizedSource.issues.reduce((map, issue) => {
+    return displaySource.issues.reduce((map, issue) => {
       const existing = map.get(issue.targetId) ?? []
       map.set(issue.targetId, [...existing, issue.message])
       return map
     }, new Map<string, readonly string[]>())
-  }, [normalizedSource])
+  }, [displaySource])
 
   const {focusedEdgeIds, focusedNodeIds} = useMemo(
-    () => normalizedSource
-      ? findFocusSets(normalizedSource, selectedNodeId, selectedEdgeId, selectedFieldId)
+    () => displaySource
+      ? findFocusSets(displaySource, selectedNodeId, selectedEdgeId, selectedFieldId)
       : {focusedEdgeIds: new Set<string>(), focusedNodeIds: new Set<string>()},
-    [normalizedSource, selectedEdgeId, selectedFieldId, selectedNodeId],
+    [displaySource, selectedEdgeId, selectedFieldId, selectedNodeId],
   )
 
   const edgeFieldHighlights = useMemo(
-    () => normalizedSource
-      ? computeEdgeFieldHighlights(selectedEdgeId, selectedNodeId, selectedFieldId, normalizedSource)
+    () => displaySource
+      ? computeEdgeFieldHighlights(selectedEdgeId, selectedNodeId, selectedFieldId, displaySource)
       : new Map<string, ReadonlySet<string>>(),
-    [normalizedSource, selectedEdgeId, selectedFieldId, selectedNodeId],
+    [displaySource, selectedEdgeId, selectedFieldId, selectedNodeId],
   )
 
   useEffect(() => {
-    if (!normalizedSource) {
+    if (!displaySource) {
       return
     }
 
-    const highlights = computeEdgeFieldHighlights(selectedEdgeId, selectedNodeId, selectedFieldId, normalizedSource)
+    const highlights = computeEdgeFieldHighlights(selectedEdgeId, selectedNodeId, selectedFieldId, displaySource)
 
     if (highlights.size === 0) {
       return
@@ -1125,7 +1211,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       let next: Set<string> | null = null
 
       for (const [nodeId, fieldIds] of highlights) {
-        const node = normalizedSource.nodeMap.get(nodeId)
+        const node = displaySource.nodeMap.get(nodeId)
 
         if (!node) {
           continue
@@ -1150,25 +1236,25 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
       return next ?? current
     })
-  }, [layoutNonce, normalizedSource, selectedEdgeId, selectedFieldId, selectedNodeId])
+  }, [displaySource, layoutNonce, selectedEdgeId, selectedFieldId, selectedNodeId])
 
   const searchResults = useMemo(() => {
-    if (!normalizedSource || deferredSearchQuery.trim().length === 0) {
+    if (!displaySource || deferredSearchQuery.trim().length === 0) {
       return []
     }
 
     const query = deferredSearchQuery.trim().toLowerCase()
 
-    return normalizedSource.searchItems
+    return displaySource.searchItems
       .filter((item) =>
         item.label.toLowerCase().includes(query)
         || item.description.toLowerCase().includes(query),
       )
       .slice(0, 14)
-  }, [deferredSearchQuery, normalizedSource])
+  }, [deferredSearchQuery, displaySource])
 
   const canvasContextValue = useMemo<CanvasContextValue | null>(() => {
-    if (!normalizedSource) {
+    if (!displaySource) {
       return null
     }
 
@@ -1223,16 +1309,16 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       },
       selectedEdgeId,
       selectedNodeId,
-      source: normalizedSource,
+      source: displaySource,
     }
   }, [
     activeContext,
+    displaySource,
     edgeFieldHighlights,
     expandedNodeIds,
     focusedEdgeIds,
     focusedNodeIds,
     issuesByTargetId,
-    normalizedSource,
     selectedEdgeId,
     selectedFieldId,
     selectedNodeId,
@@ -1252,7 +1338,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     setSearchQuery('')
 
     const targetNodeId = item.nodeId
-      ?? normalizedSource?.edgeMap.get(item.edgeId ?? '')?.sourceNodeId
+      ?? displaySource?.edgeMap.get(item.edgeId ?? '')?.sourceNodeId
 
     if (!targetNodeId) {
       return
@@ -1282,7 +1368,11 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     setPausedSources(sources)
   }
 
-  function resetLayout() {
+  /**
+   * Clears expanded field rows, re-runs ELK via `layoutNonce`, and fits the viewport — same as
+   * **Reset layout**, reused when toggling graph visibility (e.g. materialized views).
+   */
+  function applyLayoutResetAndFitView() {
     startTransition(() => {
       setExpandedNodeIds(() => new Set())
       setLayoutNonce((current) => current + 1)
@@ -1296,8 +1386,12 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }, 80)
   }
 
-  const viewerNode = viewer && normalizedSource
-    ? normalizedSource.nodeMap.get(viewer.nodeId) ?? null
+  function resetLayout() {
+    applyLayoutResetAndFitView()
+  }
+
+  const viewerNode = viewer && displaySource
+    ? displaySource.nodeMap.get(viewer.nodeId) ?? null
     : null
   const viewerRows = viewerNode && viewer
     ? getNodeRows(viewerNode, activeContext, viewer.scope)
@@ -1378,9 +1472,20 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                   <button type='button' onClick={togglePause}>
                     {pausedSources ? 'Resume' : 'Pause'}
                   </button>
+                  <label className='csdt-toggle'>
+                    <input
+                      type='checkbox'
+                      checked={showMaterializedViews}
+                      onChange={(event) => {
+                        setShowMaterializedViews(event.target.checked)
+                        applyLayoutResetAndFitView()
+                      }}
+                    />
+                    <span>Materialized views</span>
+                  </label>
                   <button type='button' onClick={resetLayout}>Reset layout</button>
                   <button type='button' onClick={() => setShowIssues((current) => !current)}>
-                    Issues ({normalizedSource?.issues.length ?? 0})
+                    Issues ({displaySource?.issues.length ?? 0})
                   </button>
                   <button type='button' onClick={() => setIsOpen(false)}>Close</button>
                 </div>
@@ -1452,22 +1557,22 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                       onInspectNode={(nodeId) => canvasContextValue.onInspectNode(nodeId)}
                       selectedEdgeId={selectedEdgeId}
                       selectedNodeId={selectedNodeId}
-                      source={normalizedSource}
+                      source={displaySource!}
                     />
                   </CanvasContext.Provider>
                 </div>
               )}
 
-            {showIssues && normalizedSource && (
+            {showIssues && displaySource && (
               <aside className='csdt-issues-drawer'>
                 <div className='csdt-issues-drawer__header'>
                   <h3>Issues</h3>
                   <button type='button' onClick={() => setShowIssues(false)}>Close</button>
                 </div>
 
-                {normalizedSource.issues.length === 0
+                {displaySource.issues.length === 0
                   ? <p className='csdt-muted'>No issues in the current snapshot.</p>
-                  : normalizedSource.issues.map((issue) => (
+                  : displaySource.issues.map((issue) => (
                     <div key={issue.id} className={`csdt-issue-row is-${issue.severity}`}>
                       <div>
                         <strong>{issue.message}</strong>
@@ -1476,13 +1581,13 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                       <button
                         type='button'
                         onClick={() => {
-                          if (normalizedSource.nodeMap.has(issue.targetId)) {
+                          if (displaySource.nodeMap.has(issue.targetId)) {
                             setSelectedNodeId(issue.targetId)
                             setSelectedEdgeId(null)
                             return
                           }
 
-                          if (normalizedSource.edgeMap.has(issue.targetId)) {
+                          if (displaySource.edgeMap.has(issue.targetId)) {
                             setSelectedEdgeId(issue.targetId)
                             setSelectedNodeId(null)
                           }

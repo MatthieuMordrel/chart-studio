@@ -671,3 +671,60 @@ export function normalizeSource(
     searchItems: normalizeSearchItems(nodes, edges, attributes),
   }
 }
+
+/**
+ * Drops materialized-view nodes and their incident edges from the graph view model when
+ * {@link showMaterializedViews} is false. Search items and issues are rebuilt so the UI stays consistent.
+ *
+ * @param source - Full normalized snapshot
+ * @param showMaterializedViews - When true, returns `source` unchanged
+ */
+export function filterGraphVisibleSource(
+  source: NormalizedSourceVm,
+  showMaterializedViews: boolean,
+): NormalizedSourceVm {
+  if (showMaterializedViews) {
+    return source
+  }
+
+  const hiddenIds = new Set(
+    source.nodes.filter((node) => node.kind === 'materialized-view').map((node) => node.id),
+  )
+
+  if (hiddenIds.size === 0) {
+    return source
+  }
+
+  const nodes = source.nodes.filter((node) => !hiddenIds.has(node.id))
+  const edges = source.edges.filter(
+    (edge) => !hiddenIds.has(edge.sourceNodeId) && !hiddenIds.has(edge.targetNodeId),
+  )
+
+  const removedEdgeIds = new Set(
+    [...source.edges]
+      .filter((edge) => hiddenIds.has(edge.sourceNodeId) || hiddenIds.has(edge.targetNodeId))
+      .map((edge) => edge.id),
+  )
+
+  const issues = source.issues.filter(
+    (issue) =>
+      !hiddenIds.has(issue.targetId) && !removedEdgeIds.has(issue.targetId),
+  )
+
+  const nodeMap = new Map(nodes.map((node) => [node.id, node] as const))
+  const edgeMap = new Map(edges.map((edge) => [edge.id, edge] as const))
+
+  return {
+    ...source,
+    nodes,
+    edges,
+    issues,
+    searchItems: normalizeSearchItems(nodes, edges, source.attributes),
+    nodeMap,
+    edgeMap,
+    snapshot: {
+      ...source.snapshot,
+      issues,
+    },
+  }
+}
