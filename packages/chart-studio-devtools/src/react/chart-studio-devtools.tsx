@@ -37,6 +37,8 @@ import {ColumnTypeIcon} from './column-type-icon.js'
 import {useDevtoolsSources} from './use-devtools-sources.js'
 import type {
   ChartStudioDevtoolsProps,
+  DatasetFieldJoinProjection,
+  DatasetFieldVm,
   NormalizedEdgeVm,
   NormalizedNodeVm,
   NormalizedSourceVm,
@@ -81,6 +83,51 @@ function useCanvasContext(): CanvasContextValue {
   }
 
   return value
+}
+
+/**
+ * Readable label for a dataset id (matches devtools humanize style elsewhere).
+ */
+function humanizeDatasetId(datasetId: string): string {
+  return datasetId
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim()
+    .split(/\s+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+/**
+ * Tooltip for materialized-view join / traversal columns.
+ */
+function joinProjectionTitle(j: DatasetFieldJoinProjection): string {
+  const viaKind = j.stepKind === 'through-association'
+    ? 'association'
+    : 'relationship'
+
+  return [
+    `From ${j.targetDataset}`,
+    `${viaKind} “${j.via}”`,
+    `alias “${j.alias}”`,
+  ].join(' · ')
+}
+
+function FieldRoleBadges({ field }: { field: DatasetFieldVm }) {
+  return (
+    <>
+      {field.isPrimaryKey && <span className='csdt-badge'>PK</span>}
+      {field.isForeignKey && <span className='csdt-badge'>FK</span>}
+      {field.joinProjection && (
+        <span className='csdt-badge csdt-badge--join' title={joinProjectionTitle(field.joinProjection)}>
+          {humanizeDatasetId(field.joinProjection.targetDataset)}
+        </span>
+      )}
+      {field.isAssociationField && <span className='csdt-badge'>N:N</span>}
+      {field.isDerived && <span className='csdt-badge'>Derived</span>}
+    </>
+  )
 }
 
 function formatBytes(bytes: number): string {
@@ -185,11 +232,14 @@ function SemanticNode({
             key={field.id}
             type='button'
             className={[
-              'csdt-field',
+              'csdt-field nodrag',
               ctx.focusedFieldId === field.id && isSelected ? 'is-field-focused' : undefined,
               edgeHighlightFieldIds?.has(field.id) ? 'is-edge-highlight' : undefined,
             ].filter(Boolean).join(' ')}
-            onClick={() => ctx.onSelectNode(node.id, field.id)}>
+            onClick={(event) => {
+              event.stopPropagation()
+              ctx.onSelectNode(node.id, field.id)
+            }}>
             <Handle
               className='csdt-handle'
               position={Position.Left}
@@ -201,10 +251,7 @@ function SemanticNode({
               <span>{field.label}</span>
             </span>
             <span className='csdt-field__badges'>
-              {field.isPrimaryKey && <span className='csdt-badge'>PK</span>}
-              {field.isForeignKey && <span className='csdt-badge'>FK</span>}
-              {field.isAssociationField && <span className='csdt-badge'>N:N</span>}
-              {field.isDerived && <span className='csdt-badge'>Derived</span>}
+              <FieldRoleBadges field={field} />
             </span>
             <Handle
               className='csdt-handle'
@@ -361,70 +408,185 @@ function buildFlowEdges(
 }
 
 /**
- * Maps each endpoint node id to field ids that participate in the selected edge
- * (for row highlighting on the canvas).
+ * @param nodeId - Dataset / view node id
+ * @param fieldId - Column id on that node
  */
-function computeEdgeFieldHighlights(
-  selectedEdgeId: string | null,
-  source: NormalizedSourceVm,
-): ReadonlyMap<string, ReadonlySet<string>> {
-  if (!selectedEdgeId) {
-    return new Map()
+function addFieldToHighlightMap(
+  byNode: Map<string, Set<string>>,
+  nodeId: string,
+  fieldId: string,
+): void {
+  let set = byNode.get(nodeId)
+
+  if (!set) {
+    set = new Set()
+    byNode.set(nodeId, set)
   }
 
-  const edge = source.edgeMap.get(selectedEdgeId)
+  set.add(fieldId)
+}
 
-  if (!edge) {
-    return new Map()
-  }
-
+/**
+ * Field ids on each node that participate in a single graph edge (for row highlighting).
+ */
+function fieldHighlightsForEdge(edge: NormalizedEdgeVm): ReadonlyMap<string, ReadonlySet<string>> {
   const byNode = new Map<string, Set<string>>()
 
-  /**
-   * @param nodeId - Dataset / view node id
-   * @param fieldId - Column id on that node
-   */
-  function addField(nodeId: string, fieldId: string) {
-    let set = byNode.get(nodeId)
-
-    if (!set) {
-      set = new Set()
-      byNode.set(nodeId, set)
-    }
-
-    set.add(fieldId)
-  }
-
   if (edge.kind === 'relationship' || edge.kind === 'association') {
-    addField(edge.sourceNodeId, edge.fromFieldId)
-    addField(edge.targetNodeId, edge.toFieldId)
+    addFieldToHighlightMap(byNode, edge.sourceNodeId, edge.fromFieldId)
+    addFieldToHighlightMap(byNode, edge.targetNodeId, edge.toFieldId)
   } else if (edge.kind === 'materialization') {
     const sourceFieldId = edge.sourceHandleId.endsWith('::out')
       ? edge.sourceHandleId.slice(0, -'::out'.length)
       : edge.sourceHandleId
 
-    addField(edge.sourceNodeId, sourceFieldId)
+    addFieldToHighlightMap(byNode, edge.sourceNodeId, sourceFieldId)
 
     if (edge.projectedFieldIds.length > 0) {
       for (const fieldId of edge.projectedFieldIds) {
-        addField(edge.targetNodeId, fieldId)
+        addFieldToHighlightMap(byNode, edge.targetNodeId, fieldId)
       }
     } else {
       const targetFieldId = edge.targetHandleId.endsWith('::in')
         ? edge.targetHandleId.slice(0, -'::in'.length)
         : edge.targetHandleId
 
-      addField(edge.targetNodeId, targetFieldId)
+      addFieldToHighlightMap(byNode, edge.targetNodeId, targetFieldId)
     }
   }
 
   return new Map([...byNode.entries()].map(([id, set]) => [id, set]))
 }
 
+function mergeFieldHighlightMaps(
+  maps: ReadonlyArray<ReadonlyMap<string, ReadonlySet<string>>>,
+): ReadonlyMap<string, ReadonlySet<string>> {
+  const merged = new Map<string, Set<string>>()
+
+  for (const map of maps) {
+    for (const [nodeId, fieldIds] of map) {
+      let set = merged.get(nodeId)
+
+      if (!set) {
+        set = new Set()
+        merged.set(nodeId, set)
+      }
+
+      for (const fieldId of fieldIds) {
+        set.add(fieldId)
+      }
+    }
+  }
+
+  return new Map([...merged.entries()].map(([id, set]) => [id, set]))
+}
+
+/**
+ * Returns whether the given column participates in this edge on the graph.
+ */
+function edgeTouchesField(edge: NormalizedEdgeVm, nodeId: string, fieldId: string): boolean {
+  if (edge.kind === 'relationship' || edge.kind === 'association') {
+    return (
+      (edge.sourceNodeId === nodeId && edge.fromFieldId === fieldId)
+      || (edge.targetNodeId === nodeId && edge.toFieldId === fieldId)
+    )
+  }
+
+  if (edge.kind === 'materialization') {
+    const sourceFieldId = edge.sourceHandleId.endsWith('::out')
+      ? edge.sourceHandleId.slice(0, -'::out'.length)
+      : edge.sourceHandleId
+
+    if (edge.sourceNodeId === nodeId && sourceFieldId === fieldId) {
+      return true
+    }
+
+    if (edge.targetNodeId !== nodeId) {
+      return false
+    }
+
+    if (edge.projectedFieldIds.length > 0) {
+      return edge.projectedFieldIds.includes(fieldId)
+    }
+
+    const targetFieldId = edge.targetHandleId.endsWith('::in')
+      ? edge.targetHandleId.slice(0, -'::in'.length)
+      : edge.targetHandleId
+
+    return targetFieldId === fieldId
+  }
+
+  return false
+}
+
+/**
+ * Graph edges that connect through the given column on {@link nodeId}.
+ */
+function findEdgesForField(
+  nodeId: string,
+  fieldId: string,
+  source: NormalizedSourceVm,
+): readonly NormalizedEdgeVm[] {
+  return source.edges.filter((edge) => edgeTouchesField(edge, nodeId, fieldId))
+}
+
+/**
+ * All graph edges that connect to this dataset / view node.
+ */
+function findEdgesForNode(nodeId: string, source: NormalizedSourceVm): readonly NormalizedEdgeVm[] {
+  return source.edges.filter((edge) =>
+    edge.sourceNodeId === nodeId || edge.targetNodeId === nodeId,
+  )
+}
+
+/**
+ * Maps each endpoint node id to field ids to pulse-highlight on the canvas:
+ * selected edge, every edge for a selected column, or every edge for a selected node (whole table).
+ */
+function computeEdgeFieldHighlights(
+  selectedEdgeId: string | null,
+  selectedNodeId: string | null,
+  selectedFieldId: string | null,
+  source: NormalizedSourceVm,
+): ReadonlyMap<string, ReadonlySet<string>> {
+  if (selectedEdgeId) {
+    const edge = source.edgeMap.get(selectedEdgeId)
+
+    if (!edge) {
+      return new Map()
+    }
+
+    return fieldHighlightsForEdge(edge)
+  }
+
+  if (selectedNodeId && selectedFieldId) {
+    const edges = findEdgesForField(selectedNodeId, selectedFieldId, source)
+
+    if (edges.length === 0) {
+      return new Map()
+    }
+
+    return mergeFieldHighlightMaps(edges.map((edge) => fieldHighlightsForEdge(edge)))
+  }
+
+  if (selectedNodeId) {
+    const connectedEdges = findEdgesForNode(selectedNodeId, source)
+
+    if (connectedEdges.length === 0) {
+      return new Map()
+    }
+
+    return mergeFieldHighlightMaps(connectedEdges.map((edge) => fieldHighlightsForEdge(edge)))
+  }
+
+  return new Map()
+}
+
 function findFocusSets(
   source: NormalizedSourceVm,
   selectedNodeId: string | null,
   selectedEdgeId: string | null,
+  selectedFieldId: string | null,
 ): {
   focusedEdgeIds: ReadonlySet<string>
   focusedNodeIds: ReadonlySet<string>
@@ -442,9 +604,30 @@ function findFocusSets(
   }
 
   if (selectedNodeId) {
-    const connectedEdges = source.edges.filter((edge) =>
-      edge.sourceNodeId === selectedNodeId || edge.targetNodeId === selectedNodeId,
-    )
+    if (selectedFieldId) {
+      const edges = findEdgesForField(selectedNodeId, selectedFieldId, source)
+
+      if (edges.length === 0) {
+        return {
+          focusedEdgeIds: new Set(),
+          focusedNodeIds: new Set([selectedNodeId]),
+        }
+      }
+
+      const nodeIds = new Set<string>()
+
+      for (const edge of edges) {
+        nodeIds.add(edge.sourceNodeId)
+        nodeIds.add(edge.targetNodeId)
+      }
+
+      return {
+        focusedEdgeIds: new Set(edges.map((edge) => edge.id)),
+        focusedNodeIds: nodeIds,
+      }
+    }
+
+    const connectedEdges = findEdgesForNode(selectedNodeId, source)
 
     return {
       focusedEdgeIds: new Set(connectedEdges.map((edge) => edge.id)),
@@ -460,6 +643,21 @@ function findFocusSets(
     focusedEdgeIds: new Set(),
     focusedNodeIds: new Set(),
   }
+}
+
+/**
+ * One-line description of an edge for the column inspector list.
+ */
+function describeEdgeSummary(edge: NormalizedEdgeVm): string {
+  if (edge.kind === 'relationship') {
+    return `${edge.fromDatasetId}.${edge.fromFieldId} → ${edge.toDatasetId}.${edge.toFieldId}`
+  }
+
+  if (edge.kind === 'association') {
+    return `${edge.fromDatasetId}.${edge.fromFieldId} ↔ ${edge.toDatasetId}.${edge.toFieldId}`
+  }
+
+  return `${edge.label} · ${edge.materializationKind}`
 }
 
 function SelectionPanel({
@@ -484,6 +682,12 @@ function SelectionPanel({
 
   if (selectedNode) {
     const effectiveRows = getNodeRows(selectedNode, activeContext, 'effective')
+    const selectedField = focusedFieldId
+      ? selectedNode.fields.find((field) => field.id === focusedFieldId) ?? null
+      : null
+    const fieldRelationshipEdges = focusedFieldId && selectedField
+      ? findEdgesForField(selectedNode.id, focusedFieldId, source)
+      : []
 
     return (
       <section className='csdt-sidepanel'>
@@ -494,6 +698,66 @@ function SelectionPanel({
             {selectedNode.rowCount.toLocaleString()} raw rows · {effectiveRows.length.toLocaleString()} effective
           </p>
         </div>
+
+        {selectedField && (
+          <div className='csdt-sidepanel__section csdt-sidepanel__column-detail'>
+            <p className='csdt-kicker'>Column</p>
+            <h4 className='csdt-sidepanel__column-name'>{selectedField.label}</h4>
+            <div className='csdt-sidepanel__facts'>
+              <p>
+                <span className='csdt-muted'>Type</span>
+                {' '}
+                {selectedField.type}
+              </p>
+              <p>
+                <span className='csdt-muted'>Format</span>
+                {' '}
+                {selectedField.formatHint ?? '—'}
+              </p>
+              {selectedField.inferenceHint && (
+                <p>
+                  <span className='csdt-muted'>Inference</span>
+                  {' '}
+                  {selectedField.inferenceHint}
+                </p>
+              )}
+              {selectedField.type === 'boolean' && (selectedField.trueLabel || selectedField.falseLabel) && (
+                <p>
+                  <span className='csdt-muted'>Boolean labels</span>
+                  {' '}
+                  {selectedField.trueLabel ?? 'true'} / {selectedField.falseLabel ?? 'false'}
+                </p>
+              )}
+              {selectedField.isDerived && (
+                <p>
+                  <span className='csdt-muted'>Derived</span>
+                  {' '}
+                  {selectedField.derivedSummary ?? 'Per-row accessor'}
+                </p>
+              )}
+              {selectedField.joinProjection && (
+                <p>
+                  <span className='csdt-muted'>Joined column</span>
+                  {' '}
+                  {joinProjectionTitle(selectedField.joinProjection)}
+                </p>
+              )}
+            </div>
+            <p className='csdt-sidepanel__subh'>Relationships</p>
+            {fieldRelationshipEdges.length === 0
+              ? <p className='csdt-muted'>No graph edges for this column.</p>
+              : (
+                <ul className='csdt-sidepanel__edge-list'>
+                  {fieldRelationshipEdges.map((edge) => (
+                    <li key={edge.id}>
+                      <span className='csdt-sidepanel__edge-kind'>{edge.kind}</span>
+                      <span className='csdt-sidepanel__edge-line'>{describeEdgeSummary(edge)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+          </div>
+        )}
 
         <div className='csdt-sidepanel__actions'>
           <button type='button' onClick={() => onInspectNode(selectedNode.id)}>Inspect</button>
@@ -526,10 +790,7 @@ function SelectionPanel({
                   <strong>{field.label}</strong>
                 </div>
                 <div className='csdt-field__badges'>
-                  {field.isPrimaryKey && <span className='csdt-badge'>PK</span>}
-                  {field.isForeignKey && <span className='csdt-badge'>FK</span>}
-                  {field.isAssociationField && <span className='csdt-badge'>N:N</span>}
-                  {field.isDerived && <span className='csdt-badge'>Derived</span>}
+                  <FieldRoleBadges field={field} />
                 </div>
               </div>
             ))}
@@ -742,24 +1003,28 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
   const {focusedEdgeIds, focusedNodeIds} = useMemo(
     () => normalizedSource
-      ? findFocusSets(normalizedSource, selectedNodeId, selectedEdgeId)
+      ? findFocusSets(normalizedSource, selectedNodeId, selectedEdgeId, selectedFieldId)
       : {focusedEdgeIds: new Set<string>(), focusedNodeIds: new Set<string>()},
-    [normalizedSource, selectedEdgeId, selectedNodeId],
+    [normalizedSource, selectedEdgeId, selectedFieldId, selectedNodeId],
   )
 
   const edgeFieldHighlights = useMemo(
     () => normalizedSource
-      ? computeEdgeFieldHighlights(selectedEdgeId, normalizedSource)
+      ? computeEdgeFieldHighlights(selectedEdgeId, selectedNodeId, selectedFieldId, normalizedSource)
       : new Map<string, ReadonlySet<string>>(),
-    [normalizedSource, selectedEdgeId],
+    [normalizedSource, selectedEdgeId, selectedFieldId, selectedNodeId],
   )
 
   useEffect(() => {
-    if (!normalizedSource || !selectedEdgeId) {
+    if (!normalizedSource) {
       return
     }
 
-    const highlights = computeEdgeFieldHighlights(selectedEdgeId, normalizedSource)
+    const highlights = computeEdgeFieldHighlights(selectedEdgeId, selectedNodeId, selectedFieldId, normalizedSource)
+
+    if (highlights.size === 0) {
+      return
+    }
 
     setExpandedNodeIds((current) => {
       let next: Set<string> | null = null
@@ -790,7 +1055,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
       return next ?? current
     })
-  }, [normalizedSource, selectedEdgeId])
+  }, [normalizedSource, selectedEdgeId, selectedFieldId, selectedNodeId])
 
   const searchResults = useMemo(() => {
     if (!normalizedSource || deferredSearchQuery.trim().length === 0) {

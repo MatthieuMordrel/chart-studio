@@ -39,6 +39,72 @@
   gap: 6px;
 }
 
+.csdt-sidepanel__column-detail {
+  padding-bottom: 4px;
+  border-bottom: 1px solid color-mix(in oklch, var(--cs-border, #d3ddea) 70%, transparent);
+}
+
+.csdt-sidepanel__section h4.csdt-sidepanel__column-name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  color: var(--cs-foreground, #172032);
+}
+
+.csdt-sidepanel__column-detail .csdt-sidepanel__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.csdt-sidepanel__column-detail .csdt-sidepanel__facts p {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.csdt-sidepanel__subh {
+  margin: 10px 0 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--cs-muted-foreground, #6c7b91);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.csdt-sidepanel__edge-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.csdt-sidepanel__edge-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
+  background: var(--cs-muted, rgba(241, 245, 249, 0.9));
+  font-size: 0.6875rem;
+}
+
+.csdt-sidepanel__edge-kind {
+  font-weight: 600;
+  color: var(--cs-primary, #36507d);
+  text-transform: capitalize;
+}
+
+.csdt-sidepanel__edge-line {
+  color: var(--cs-foreground, #172032);
+  word-break: break-word;
+}
+
 .csdt-sidepanel__field-list {
   display: flex;
   flex-direction: column;

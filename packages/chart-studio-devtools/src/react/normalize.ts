@@ -15,6 +15,7 @@ import type {
   DevtoolsAssociation,
   DevtoolsAttribute,
   DevtoolsRelationship,
+  DatasetFieldJoinProjection,
   DatasetFieldVm,
   DevtoolsRow,
   MaterializationEdgeVm,
@@ -80,11 +81,41 @@ function getInferenceHint(column: ChartColumn<any, string>): string | null {
   return `${column.inference.detectedType} · ${column.inference.confidence}`
 }
 
+/**
+ * Ranks columns for listing: PK, FK-only, joined (MV), association keys, then the rest.
+ */
+function fieldOrderingRank(
+  columnId: string,
+  keySet: Set<string>,
+  foreignKeySet: Set<string>,
+  associationFieldSet: Set<string>,
+  joinedFieldSet: ReadonlySet<string>,
+): number {
+  if (keySet.has(columnId)) {
+    return 0
+  }
+
+  if (foreignKeySet.has(columnId)) {
+    return 1
+  }
+
+  if (joinedFieldSet.has(columnId)) {
+    return 2
+  }
+
+  if (associationFieldSet.has(columnId)) {
+    return 3
+  }
+
+  return 4
+}
+
 function buildFieldOrder(
   datasetId: string,
   definition: {key?: readonly string[]; columns?: Record<string, unknown>},
   columns: readonly ChartColumn<any, string>[],
   model: ChartStudioDevtoolsSource['snapshot']['model'],
+  joinedFieldIds: ReadonlySet<string>,
 ): readonly ChartColumn<any, string>[] {
   const keySet = new Set(definition.key ?? [])
   const foreignKeySet = new Set(
@@ -111,16 +142,12 @@ function buildFieldOrder(
   )
 
   return [...columns].sort((left, right) => {
-    const leftPrimary = keySet.has(left.id)
-    const rightPrimary = keySet.has(right.id)
-    if (leftPrimary !== rightPrimary) {
-      return leftPrimary ? -1 : 1
-    }
+    const rankDiff =
+      fieldOrderingRank(left.id, keySet, foreignKeySet, associationFieldSet, joinedFieldIds)
+      - fieldOrderingRank(right.id, keySet, foreignKeySet, associationFieldSet, joinedFieldIds)
 
-    const leftRelationship = foreignKeySet.has(left.id) || associationFieldSet.has(left.id)
-    const rightRelationship = foreignKeySet.has(right.id) || associationFieldSet.has(right.id)
-    if (leftRelationship !== rightRelationship) {
-      return leftRelationship ? -1 : 1
+    if (rankDiff !== 0) {
+      return rankDiff
     }
 
     const leftDeclared = declaredOrder.get(left.id)
@@ -133,17 +160,48 @@ function buildFieldOrder(
   })
 }
 
+/**
+ * Maps output column ids to join metadata for a built materialized view.
+ */
+function buildJoinProjectionByFieldId(view: AnyMaterializedView): ReadonlyMap<string, DatasetFieldJoinProjection> {
+  const meta = view.materialization
+  const map = new Map<string, DatasetFieldJoinProjection>()
+
+  if (!meta?.steps) {
+    return map
+  }
+
+  for (const step of meta.steps) {
+    const via = step.kind === 'through-association' ? step.association : step.relationship
+
+    for (const columnId of step.projectedColumns) {
+      const fieldId = buildProjectedId(step.alias, columnId)
+      map.set(fieldId, {
+        targetDataset: step.targetDataset,
+        via,
+        alias: step.alias,
+        stepKind: step.kind,
+      })
+    }
+  }
+
+  return map
+}
+
 function normalizeFields(
   datasetId: string,
   definition: {key?: readonly string[]; columns?: Record<string, unknown>},
   rows: readonly DevtoolsRow[],
   model: ChartStudioDevtoolsSource['snapshot']['model'],
+  joinProjectionByFieldId: ReadonlyMap<string, DatasetFieldJoinProjection> | null,
 ): readonly DatasetFieldVm[] {
+  const joinedFieldIds = new Set(joinProjectionByFieldId?.keys() ?? [])
   const resolvedColumns = buildFieldOrder(
     datasetId,
     definition,
     inferColumnsFromData(rows, definition.columns ? {columns: definition.columns} : undefined),
     model,
+    joinedFieldIds,
   )
   const keySet = new Set(definition.key ?? [])
   const foreignKeySet = new Set(
@@ -170,16 +228,27 @@ function normalizeFields(
       && 'kind' in rawColumn
       && rawColumn.kind === 'derived'
 
+    let derivedSummary: string | null = null
+
+    if (isDerived && rawColumn && typeof rawColumn === 'object' && 'type' in rawColumn) {
+      const derivedType = (rawColumn as {type?: string}).type
+      derivedSummary = derivedType
+        ? `Per-row accessor · ${derivedType}`
+        : 'Per-row accessor'
+    }
+
     return {
       id: column.id,
       label: column.label,
       type: column.type,
       formatHint: getFormatHint(column),
       inferenceHint: getInferenceHint(column),
+      derivedSummary,
       isPrimaryKey: keySet.has(column.id),
       isForeignKey: foreignKeySet.has(column.id),
       isAssociationField: associationFieldSet.has(column.id),
       isDerived,
+      joinProjection: joinProjectionByFieldId?.get(column.id) ?? null,
       trueLabel: column.type === 'boolean' ? column.trueLabel : undefined,
       falseLabel: column.type === 'boolean' ? column.falseLabel : undefined,
       ...createHandleIds(column.id),
@@ -380,7 +449,7 @@ export function normalizeSource(
 
   Object.entries(source.snapshot.model.datasets).forEach(([datasetId, dataset]) => {
     const rawRows = source.snapshot.data[datasetId] ?? []
-    const fields = normalizeFields(datasetId, dataset as AnyDatasetDefinition, rawRows, source.snapshot.model)
+    const fields = normalizeFields(datasetId, dataset as AnyDatasetDefinition, rawRows, source.snapshot.model, null)
 
     nodes.push({
       id: datasetId,
@@ -400,7 +469,8 @@ export function normalizeSource(
 
   Object.entries(materializedViews).forEach(([viewId, view]) => {
     const rawRows = view.materialize(source.snapshot.data as any) as readonly DevtoolsRow[]
-    const fields = normalizeFields(viewId, view, rawRows, source.snapshot.model)
+    const joinMap = buildJoinProjectionByFieldId(view)
+    const fields = normalizeFields(viewId, view, rawRows, source.snapshot.model, joinMap)
 
     nodes.push({
       id: viewId,

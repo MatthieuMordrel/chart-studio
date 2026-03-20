@@ -104,16 +104,31 @@ export type ChartStudioDevtoolsProps = {
   pollIntervalMs?: number
 }
 
+/** Materialized-view column projected from another dataset via a join / traversal step. */
+export type DatasetFieldJoinProjection = {
+  /** Target dataset id whose columns were merged into this view. */
+  targetDataset: string
+  /** Relationship or association id used to reach {@link targetDataset}. */
+  via: string
+  /** Materialization step alias (e.g. manager, capability). */
+  alias: string
+  stepKind: 'join' | 'through-relationship' | 'through-association'
+}
+
 export type DatasetFieldVm = {
   id: string
   label: string
   type: string
   formatHint: string | null
   inferenceHint: string | null
+  /** Short human summary when the column is declared as `kind: 'derived'`. */
+  derivedSummary: string | null
   isPrimaryKey: boolean
   isForeignKey: boolean
   isAssociationField: boolean
   isDerived: boolean
+  /** Set for columns introduced by a materialized view join / expansion step. */
+  joinProjection: DatasetFieldJoinProjection | null
   trueLabel?: string
   falseLabel?: string
   sourceHandleId: string

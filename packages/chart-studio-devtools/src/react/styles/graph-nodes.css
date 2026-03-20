@@ -233,6 +233,16 @@
   font-weight: 600;
 }
 
+.csdt-badge--join {
+  max-width: 100px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(in oklch, var(--cs-primary, #36507d) 10%, var(--cs-muted, #e5ecf8));
+  color: var(--cs-primary, #2a4a6f);
+}
+
 .csdt-node__footer {
   display: flex;
   flex-wrap: wrap;
