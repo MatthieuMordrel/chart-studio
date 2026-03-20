@@ -1,116 +1,700 @@
-# Chart Studio devtools (planned)
+# Chart Studio Devtools PRD
 
-High-level plan: what we want to build, how it should feel, what appears in the UI, and how we recommend wiring it so setup stays trivial.
+Status: proposed final target
 
-## What we want to do
+## Summary
 
-We want a **pretty, approachable interface** that explains how Chart Studio is being used in an app—not another log viewer or code-shaped dump. The focus is the **data model**: **relationships** between datasets, **bridge / many-to-many** structures that the API creates or carries, **which links were inferred** versus declared, and **keys and foreign-key columns** called out clearly so joins are obvious at a glance.
+Chart Studio Devtools should ship as a dev-only, canvas-first modeling workspace for the live runtime model already constructed by Chart Studio inside an app.
 
-The point is to make understanding the model and the library’s behavior feel **effortless**, including when **AI-generated code** is changing the project. Authors and reviewers should get **immediate visual feedback** about what the model *is* after each change—datasets, edges, inference, bridges—**without opening and reading source** to reconstruct mental joins. The devtools should update **in step with the running app** (reload, HMR, data refresh) so the UI is the source of “what did we just build?”
+The product should feel closer to a premium semantic-modeling surface than to a generic debug drawer:
 
-**Engineering constraints** (how we ship it, not the product story): dev-only by default—no devtools in production bundles (TanStack-style); v1 reads the **built model at runtime**, not the TypeScript project on disk.
+- beautiful default layout
+- obvious keys and join paths
+- direct visibility into relationships, associations, inferred links, attributes, and materialized views
+- first-class dataset inspection from the graph itself
+- strong support for the data model first, with chart exploration available as a secondary mode
 
-## What we want to see
+The devtools should open from a floating launcher into a near-fullscreen overlay, stay live with the running app, and let a developer move seamlessly between:
 
-1. **Model graph (or equivalent)**  
-   Datasets as nodes; **relationships** and **associations** as edges, with clear labels: which **key** / **column** links to which side. Distinguish **user-declared** vs **inferred** relationships where the runtime exposes that metadata.
+- understanding the model
+- inspecting dataset or materialized-view rows
+- checking effective filter context
+- debugging inferred links, many-to-many associations, and generated views
 
-2. **Bridge / many-to-many clarity**  
-   For associations: show **edge** configuration (explicit bridge rows vs derived), and sample **edge data** when the host passes row payloads.
+## Product Goal
 
-3. **Data exploration**  
-   Per-dataset views: **raw JSON**, **tabular** (e.g. TanStack Table), and optionally **embedded Chart Studio charts** for the same definitions used in the app—so “model + data + chart” stay aligned.
+Build the final intended devtools experience directly, not a temporary low-fidelity shell.
 
-4. **Chart implementation context**  
-   Surface enough of the **active chart / materialized view** (ids, grain, steps) so a developer can see *why* a slice of data looks a certain way—not only the raw rows.
+The default experience should be the experience teams use 99% of the time:
 
-_Note for v1:_ the “graph” can be a **structured list or tree** first; a full canvas layout is not required on day one (see UX section).
+- clean automatic layout
+- beautiful light visual design
+- clear field-level relationships
+- immediate understanding of the live model after code changes or HMR
 
-## How to show it (UX shell)
+## Problem
 
-### Experience bar (applies to every version)
+Chart Studio now has enough model semantics that understanding a running app by reading source alone is too expensive:
 
-- **Look and feel:** intentional typography, spacing, and color—**attractive** devtools that teams are happy to leave open, not a utilitarian afterthought.
-- **Understandability:** plain-language labels, sensible grouping, and **progressive disclosure** so beginners see the whole picture and experts can drill in.
-- **Live model:** wire the UI to the **current** model and data (via context or `getSnapshot` on a **short interval** / **subscription** when the host supports it) so edits in code or data **show up immediately** without manual refresh.
+- relationships may be explicit or inferred
+- associations may be explicit edge rows or derived from embedded values
+- attributes add shared filter semantics on top of structural links
+- materialized views create new flat grains that charts can execute against
 
-### v1: keep the scope small, not the quality
+Today, developers must reconstruct these semantics manually from source and runtime behavior.
 
-The first version should limit **surface area** (fewer panels and modes), not **care** in design. Concretely:
+The devtools should make the live semantic model visually obvious and pleasant to inspect.
 
-- **One shell:** a **fixed-position panel** (e.g. bottom or side) **or** a minimal **floating bar + expandable panel**—no requirement for drag-and-drop, `localStorage` layout persistence, or a second window.
-- **Open / close:** a single **toggle** (FAB or header button). Avoid a blocking centered modal as the *only* option; a slide-up / docked panel is enough.
-- **Navigation inside:** simple **tabs** (*Model*, *Data*, *Chart*—or fewer if some merge into one screen). **No resizable split panes in v1** unless they come almost for free from a library.
-- **Model view:** prefer a **clear list / tree** of datasets, relationships, and associations with readable labels (from → to, key / column). Defer a **full graph canvas** if it is not quick to ship.
-- **Data view:** **JSON first** is acceptable for v1; a basic **scrollable** table or object explorer for one dataset at a time is enough. **Virtualization and heavy TanStack Table** polish can follow once the shell proves useful.
-- **Room to grow:** use `max-height` + **internal scroll** so a big model does not break the layout; an optional **“Larger”** control that increases height to ~80–90% of the viewport covers most “almost full screen” needs in v1 without fullscreen APIs or pop-out.
+## Runtime Truths This PRD Must Respect
 
-That keeps v1 **focused and shippable** while still meeting the experience bar above; richer layout modes come later.
+This PRD is intentionally aligned to the current Chart Studio runtime, not to a hypothetical BI engine.
 
-### Later (v2+): richer layout
+### Dataset
 
-When the core is useful, add the ergonomics that matter for huge models and dual-monitor workflows:
+A dataset is one chartable flat row array with declared keys and columns.
 
-- **Draggable / resizable** panel, **near full-screen** and optional **browser fullscreen**.
-- **Pop-out window** with **`BroadcastChannel` / `postMessage`** so the app stays in one window and devtools in another.
-- **Split panes** inside the shell (e.g. model outline | detail), **virtualized** tables, and optional **force-directed or ELK** graph layouts.
-- **Persist** size / position / pop-out in `localStorage`; **disconnected** state when the pop-out closes.
+### Relationship
 
-## Recommendation
+A relationship is a direct `1:N` key-to-foreign-key link.
 
-### Default: dev-only package + snapshot API
+Relationships may be:
 
-- Publish something like **`@chart-studio/devtools`** (exact name TBD) with the **v1 UX** above (simple docked / expandable panel + tabs), gated entirely behind **development** imports.
-- The host app provides a **snapshot function** (or stable refs) so devtools always read the **same** model and data the charts use—no second source of truth.
-- **Do not** rely on parsing project TypeScript for v1; the model is already constructed at runtime when the app runs.
+- explicit
+- inferred at runtime when Chart Studio can safely infer them
 
-### Setup: as close to one line as possible
+### Association
 
-Target: a single component (or single `install` call) in **dev-only** bootstrap code, with optional props only when needed.
+An association is a direct semantic `N:N` link between two datasets.
 
-**Ideal entry shape:**
+An association is not itself a chartable dataset or a materialized table.
+
+Associations may be backed by:
+
+- explicit edge rows
+- derived edge values from existing dataset rows
+
+Chart Studio does not invent many-to-many mappings when no real mapping exists in the source data.
+
+### Materialized View
+
+A materialized view is the actual derived flat table-like output created from `materialize(...)`.
+
+This is the thing that creates a new chartable row shape and declared grain.
+
+### Attribute
+
+An attribute is a shared filter semantic, not a structural join.
+
+## Goals
+
+- Make the live runtime data model understandable at a glance.
+- Show datasets and materialized views as first-class nodes.
+- Make primary keys, foreign-key paths, and association paths obvious.
+- Distinguish explicit versus inferred relationships without clutter.
+- Make association semantics inspectable without pretending they are physical tables.
+- Let developers inspect raw and effective rows quickly from the graph.
+- Reuse existing Chart Studio schema and formatting metadata wherever possible.
+- Keep setup close to one line in development.
+- Keep devtools out of production bundles.
+
+## Non-Goals
+
+- Parsing TypeScript source files or analyzing the project on disk.
+- Inventing many-to-many bridges when the source data does not contain one.
+- Shipping a separate sidecar application as the primary integration path.
+- Persisting custom graph layouts across sessions in v1.
+- Forcing raw dataset inspection through the existing chart aggregation pipeline.
+- Making chart debugging equal in scope to model/data debugging for the first release.
+
+## Primary Users
+
+- Library authors working on Chart Studio itself
+- App developers integrating Chart Studio into a product
+- Reviewers validating AI-generated or rapidly changing model code
+- Engineers debugging why a chart or dashboard behaves differently after a model change
+
+## Jobs To Be Done
+
+- "Show me what model exists right now, without reading source."
+- "Show me which links are inferred versus declared."
+- "Show me how two datasets connect, including `N:N` semantics."
+- "Show me the real generated materialized tables my charts are using."
+- "Let me inspect rows and JSON quickly from the model graph."
+- "Let me understand what 'effective' means under the currently selected chart or dashboard context."
+
+## UX Principles
+
+- Canvas first, drawer second.
+- Beauty matters; this should feel like a premium analytics tool, not a utility panel.
+- The graph is the source of truth for model understanding.
+- Dense information should stay available, but mostly on hover, selection, and expansion.
+- Raw inspection and analytical exploration are different modes and should not be conflated.
+- The canonical automatic layout is the default product experience.
+
+## Experience Overview
+
+### Entry
+
+- Devtools open from a small floating launcher.
+- Clicking the launcher opens a near-fullscreen overlay workspace.
+- The running app remains visible underneath the overlay.
+
+### Visual Direction
+
+- Premium analytics light theme
+- bright but not sterile
+- warm neutral surfaces
+- crisp cards
+- subtle depth and glass where useful
+- restrained motion
+- high legibility over novelty
+
+### Live Behavior
+
+- Devtools are live by default.
+- Model, data, issues, and active context update automatically with HMR and runtime changes.
+- A pause toggle freezes the current snapshot for inspection.
+
+## Main Workspace
+
+### Header
+
+The workspace header should contain:
+
+- active chart or dashboard context selector
+- global search
+- pause or resume updates
+- reset layout
+- issues summary
+- close action
+
+### Navigation
+
+- Search must match dataset ids, materialized view ids, relationship ids, association ids, attribute ids, and column ids.
+- Selecting a search result pans and zooms to the target.
+- Search focus should temporarily emphasize the node and its immediate connections.
+
+## Graph Model
+
+### Core Rule
+
+The default graph is semantic-first and truthful to the runtime model.
+
+### Nodes
+
+The graph includes:
+
+- dataset nodes
+- materialized-view nodes
+
+Materialized views are mixed into the main graph, not isolated in a separate lane.
+
+They should behave like normal table-like nodes from the graph point of view, while still being visually marked as generated by Chart Studio.
+
+### Edges
+
+The graph includes:
+
+- relationship edges
+- association edges
+- materialization lineage edges
+
+Edges should connect at the field level, not only node-to-node.
+
+### Cardinality
+
+- Use crow's-foot-style endpoint notation.
+- Use subtle badges or endpoint markers for quick scanning.
+- Keep the always-visible labels minimal.
+
+### Relationship Semantics
+
+- Explicit and inferred relationships are both shown by default.
+- Inferred links must be visually distinct but subtle.
+- The main graph should communicate the distinction with color, stroke, and iconography rather than long edge labels.
+- Hover must state clearly whether a relationship is explicit or inferred.
+
+### Association Semantics
+
+- Associations stay as direct `N:N` edges in the default graph.
+- The main graph should not pretend that an association is automatically a real bridge table.
+- Selecting or hovering an association should reveal enough detail to understand whether it is backed by explicit edge rows or derived edge values.
+- Selecting an association edge should expand a temporary association node or edge-inspector surface that exposes:
+  - association id
+  - from and to datasets
+  - backing mode: explicit or derived
+  - explicit edge columns or derived source dataset
+  - generated edge-pair preview
+  - raw edge JSON when available
+
+### Materialization Semantics
+
+- Materialized views are first-class nodes.
+- They use the same node affordances as datasets.
+- They must be visually marked as generated or materialized.
+- Their connections may use relationship-like geometry and field anchors, but hover and styling must make clear that these links describe materialized lineage, not newly declared semantic-model relationships.
+
+### Attributes
+
+- Attributes appear as subtle badges on relevant dataset nodes.
+- Hover or selection reveals source, label column, targets, and path semantics.
+- Attributes should not dominate the graph.
+
+### Issues
+
+- Affected nodes and edges show inline issue badges.
+- The workspace also provides an issues drawer with jump-to-focus.
+- Issue severity should distinguish warnings from blocking errors.
+
+## Node Design
+
+### Default State
+
+Nodes are schema-first by default.
+
+They do not render inline sample rows.
+
+Each node should show:
+
+- dataset or materialized-view name
+- type badge
+- row count
+- estimated payload size
+- collapsed schema summary
+
+### Column Ordering
+
+Columns inside a node follow this rule:
+
+1. primary key columns first
+2. foreign-key and association-relevant fields next
+3. remaining columns in declared `.columns(...)` order
+
+### Column Visibility
+
+- Show roughly 7 to 8 rows by default.
+- Collapse the remainder behind an obvious expand control.
+- Expanded mode should make it easy to see every column quickly.
+
+### Column Metadata
+
+Each visible column row should support:
+
+- primary-key badge
+- foreign-key or association-linked badge where meaningful
+- derived-column badge
+- formatting or display metadata on hover or click
+
+Formatting detail should expose the information already carried by the dataset schema:
+
+- format preset or formatter presence
+- date or number formatting hints
+- derived versus direct value
+
+### Relationship Anchors
+
+Edges must anchor to the actual column row when possible, for example:
+
+- `owners.id -> jobs.ownerId`
+- materialized field lineage anchored to the projected field or source field
+
+## Data Inspection
+
+### Entry Point
+
+Nodes do not embed row previews.
+
+Instead, they expose a data-inspection action that opens a large viewer from the node.
+
+### Large Viewer Shell
+
+- near-fullscreen modal overlay
+- canvas remains visible underneath
+- easy back-and-forth between graph and inspector
+
+### Viewer Modes
+
+The large viewer has two explicit modes:
+
+- `Inspect`
+- `Explore`
+
+#### Inspect
+
+Purpose: truthful row inspection.
+
+Capabilities:
+
+- `Raw` versus `Effective` toggle
+- default to `Raw`
+- `Table` versus `JSON` toggle
+- all columns in schema order
+- pagination
+- virtualization
+- column metadata reuse from the dataset definition
+
+When `Effective` is selected, the viewer must always show the active filter context clearly.
+
+#### Explore
+
+Purpose: analytical exploration using existing Chart Studio chart mechanics.
+
+Capabilities:
+
+- reuse the current chart stack
+- default chart type is `table`
+- allow grouping, filters, time bucket, metric, sorting, and other existing chart controls
+- suitable for analytical exploration, not raw inspection
+
+## Why Inspect And Explore Are Separate
+
+The current Chart Studio `table` chart is a chart-table, not a raw dataset inspector.
+
+It renders transformed pipeline output rather than raw rows. That is correct for chart exploration, but not sufficient for raw and effective dataset inspection.
+
+Therefore:
+
+- `Inspect` should use a dedicated data-grid implementation
+- `Explore` should reuse the existing chart implementation
+
+## Active Context Model
+
+`Effective` always depends on an explicit active context selected in the workspace header.
+
+The selected context may represent:
+
+- a chart
+- a dashboard
+
+The active context should drive:
+
+- effective row inspection
+- displayed filter summary
+- highlighted materialized views
+- chart-exploration defaults where helpful
+
+## Layout Behavior
+
+### Default Layout
+
+- Layout quality is a first-class product requirement.
+- The default auto-layout should be the intended primary experience.
+- The graph should be readable without manual cleanup in the common case.
+
+### Manual Adjustment
+
+- Users can drag nodes during the session.
+- A clear `Reset layout` action returns to the canonical layout.
+- Manual adjustments are temporary.
+- Fresh open or reload returns to the default layout.
+
+## Hover And Selection Model
+
+Hover is the primary place for dense detail.
+
+The main graph should stay clean while hover or selection reveals:
+
+- explicit versus inferred relationship status
+- join fields
+- association backing mode
+- materialized lineage details
+- attribute targets
+- derived-column information
+- formatting metadata
+- issue explanations
+
+## Technical Approach
+
+### Integration Model
+
+Ship a dev-only React package, for example:
+
+`@chart-studio/devtools`
+
+Primary integration:
+
+- in-process
+- development only
+- rendered inside the app
+
+The default goal is a one-line dev-only mount when provider context is available.
+
+Fallback integration is an explicit snapshot function.
+
+### Recommended Host API
 
 ```tsx
-// e.g. main.tsx or dev-only DevProviders.tsx — import only in development
-import { ChartStudioDevtools } from '@chart-studio/devtools/react'
+import {ChartStudioDevtools} from '@chart-studio/devtools/react'
 
-// One line in your tree (snapshot wiring can be minimal defaults if you use a Chart Studio provider)
-;<ChartStudioDevtools />
+<ChartStudioDevtools />
 ```
 
-If the app already wraps Chart Studio in a **dashboard / data provider**, devtools should read from that context so the line stays literally one component with **no props**. If there is no global provider, the developer passes one callback:
-
-**Target API when explicit wiring is required:**
+Fallback:
 
 ```tsx
-import { ChartStudioDevtools } from '@chart-studio/devtools/react'
+import {ChartStudioDevtools} from '@chart-studio/devtools/react'
 
-;<ChartStudioDevtools
+<ChartStudioDevtools
   getSnapshot={() => ({
-    model: definedModel.build(),
-    data: modelData,
-    // optional, when debugging a specific chart or view:
-    chartId: 'revenueByRegion',
-    // optional: last validation error, filter state, etc.
+    model,
+    data,
+    materializedViews,
+    contexts,
+    issues,
   })}
 />
 ```
 
-**Production safety** (responsibility of the host app, documented in package README):
+### Snapshot Shape
 
-- Import devtools only from a file that is loaded with `import.meta.env.DEV` / `process.env.NODE_ENV === 'development'`, or use a **dynamic `import()`** so the devtools package is not in the production bundle.
+Recommended conceptual snapshot contract:
 
-### Later (optional): sidecar / second port
+```ts
+type ChartStudioDevtoolsSnapshot = {
+  model: DefinedDataModel<any, any, any, any>
+  data: Record<string, readonly Record<string, unknown>[]>
+  materializedViews?: Record<string, MaterializedViewDefinition<any, any, any, any>>
+  contexts?: readonly DevtoolsContextSnapshot[]
+  issues?: readonly DevtoolsIssue[]
+}
 
-For teams that do not want *any* devtools import in application source, a **Vite plugin + small local server** (Vitest UI–style) can forward **serialized snapshots** over WebSocket/`postMessage`. That is more moving parts; treat it as phase 2 after the in-process devtools are proven.
+type DevtoolsContextSnapshot = {
+  id: string
+  label: string
+  kind: 'chart' | 'dashboard'
+  filterSummary: readonly {
+    columnId: string
+    label: string
+    values: readonly string[]
+  }[]
+  effectiveDatasets?: Record<string, readonly Record<string, unknown>[]>
+  effectiveMaterializedViews?: Record<string, readonly Record<string, unknown>[]>
+}
 
-## Implementation approach (high level)
+type DevtoolsIssue = {
+  id: string
+  severity: 'warning' | 'error'
+  scope: 'dataset' | 'relationship' | 'association' | 'materialized-view' | 'context'
+  targetId: string
+  message: string
+}
+```
 
-Devtools should read the **same built data model** (and row payloads) the app passes into Chart Studio—**no TypeScript analysis**. At a high level: **datasets** give you the “nodes,” **relationships** and **associations** give you the “edges” and bridge semantics; optional runtime metadata distinguishes **inferred** links. The UI maps that structure to lists or a graph. Be mindful that some fields are **functions** or **large arrays**, so remote or serialized views may need **summaries** rather than full dumps.
+### Data Flow
 
-## Success criteria
+1. Read the live snapshot from provider or `getSnapshot()`.
+2. Normalize runtime model objects into a graph-oriented view model.
+3. Build node and edge metadata for datasets, materialized views, relationships, associations, attributes, and issues.
+4. Compute the canonical layout.
+5. Render the graph.
+6. Open `Inspect` or `Explore` viewers on demand from node or edge selection.
 
-- **Minutes to adopt:** install package, one dev-only line (or one component + optional `getSnapshot`).
-- **No production leakage:** tree-shaking / dev-only imports are documented and easy to verify.
-- **Ground truth:** everything shown is derived from the live **defined model** and **runtime data**, not from static analysis of source files.
-- **Pleasant and live:** the interface stays **readable and appealing**, and updates **as the model or data changes** in development.
+### Live Sync
+
+Preferred approach:
+
+- subscribe to provider-owned state when Chart Studio exposes a stable store
+- use `useSyncExternalStore` where possible
+
+Fallback:
+
+- short dev-only polling of `getSnapshot()` when no subscription is available
+
+### Graph Normalization Layer
+
+Introduce a normalization layer inside devtools that converts runtime objects into a stable UI model:
+
+- `DatasetNodeVm`
+- `MaterializedViewNodeVm`
+- `RelationshipEdgeVm`
+- `AssociationEdgeVm`
+- `MaterializationEdgeVm`
+- `AttributeBadgeVm`
+- `IssueVm`
+
+This layer should also:
+
+- preserve `.columns(...)` order
+- mark primary and foreign keys
+- distinguish explicit versus inferred relationships
+- summarize function-backed fields such as derived association accessors
+- compute counts and estimated sizes lazily
+
+### Why Associations Need A Special UI Treatment
+
+Associations are direct `N:N` links in the semantic model.
+
+They should remain direct edges in the main graph.
+
+However, developers still need to inspect their backing mapping. The temporary association expansion is therefore a UI affordance, not a claim that Chart Studio created a real bridge dataset.
+
+### Why Materialized Views Need Their Own Nodes
+
+Materialized views are real derived table-like outputs:
+
+- they have a row shape
+- they have a declared grain
+- they can be charted directly
+
+Therefore they must appear as full nodes in the main graph.
+
+## Technology Recommendation
+
+### Core UI Stack
+
+- React 19
+- TypeScript
+- Bun workspace package
+- `@xyflow/react` for the graph canvas
+- `elkjs` for automatic layered layout
+- `@tanstack/react-table` for `Inspect`
+- `@tanstack/react-virtual` for row virtualization in `Inspect`
+
+### Why `@xyflow/react`
+
+This product needs rich custom nodes, field-level anchors, temporary association expansion, drag interaction, pan and zoom, and graph overlays. `@xyflow/react` is the best fit for that combination in a React-first codebase.
+
+### Why `elkjs`
+
+The default layout quality is critical. `elkjs` provides stronger automatic graph layout for table-style model surfaces than ad hoc force layouts.
+
+### Why TanStack Table Only For Inspect
+
+TanStack Table is a good fit for:
+
+- raw and effective row inspection
+- pagination
+- virtualization support
+- column visibility and sorting
+
+It should not replace the existing chart stack for analytical exploration.
+
+### Reuse Of Existing Chart Studio UI
+
+`Explore` mode should reuse the existing Chart Studio UI package:
+
+- `Chart`
+- `ChartToolbar`
+- `ChartCanvas`
+
+This gives immediate reuse of:
+
+- filters
+- grouping
+- time buckets
+- metric controls
+- table-chart rendering
+
+`Inspect` should not depend on this chart pipeline because raw inspection is not the same as chart transformation.
+
+## Reuse Of Existing Schema Metadata
+
+The devtools should reuse user-authored dataset metadata wherever possible:
+
+- column labels
+- column types
+- declared order
+- derived-column definitions
+- formatting presets and formatter hints
+
+This avoids duplicating semantics and ensures the devtools reflect the same model contract the app uses.
+
+## Visual Language
+
+### Datasets
+
+- solid table-like cards
+- primary-key and foreign-key emphasis
+- subtle row separators
+
+### Materialized Views
+
+- same structural language as datasets
+- clearly marked as generated or materialized
+- distinct accent treatment
+
+### Relationships
+
+- crisp relational edge treatment
+- explicit or inferred distinction by style and iconography
+
+### Associations
+
+- direct `N:N` treatment
+- clear endpoint cardinality
+- distinct accent family from `1:N`
+
+### Issues
+
+- warnings should be visible but not alarming
+- errors should be impossible to miss
+
+## Performance Notes
+
+This tool is not primarily optimized for massive remote datasets.
+
+The expected model is:
+
+- the app already holds the relevant arrays in memory
+- devtools read them by reference
+- pagination and virtualization are mainly about rendering cost, not memory reduction
+
+That is acceptable for the intended usage.
+
+## Risks
+
+- Field-level edge anchoring can become visually busy on dense schemas.
+- Derived association accessors are runtime functions and cannot always be serialized into friendly source text.
+- Materialized lineage can be misunderstood as a semantic relationship if styling is too subtle.
+- Default layout quality must be good enough to justify making it the canonical session entry point.
+
+## Acceptance Criteria
+
+- Devtools mount in development with a dev-only in-process package.
+- The main workspace opens from a floating launcher into a near-fullscreen overlay.
+- The graph shows datasets and materialized views as first-class nodes.
+- Relationships use field-level anchors and crow's-foot cardinality.
+- Associations appear as direct `N:N` edges and can expand into a temporary inspector surface.
+- Inferred relationships are visible by default and subtly distinct from explicit ones.
+- Materialized views are visible by default and clearly marked as generated.
+- Nodes show row count, estimated size, and schema with key-first ordering.
+- Nodes default to schema view only and do not render inline row previews.
+- Large data viewer opens from the node and supports:
+  - `Inspect`
+  - `Explore`
+  - `Raw`
+  - `Effective`
+  - `Table`
+  - `JSON`
+- `Effective` always shows the active filter context.
+- Global search can focus datasets, materialized views, relationships, associations, and columns.
+- Issues appear inline and in a jumpable issues drawer.
+- Live updates are enabled by default and can be paused.
+- Reset layout restores the canonical layout.
+- Manual node dragging does not persist across sessions.
+- Production-bundle leakage is documented and avoidable by dev-only mounting.
+
+## Recommended Build Order
+
+1. Create the devtools package and snapshot store.
+2. Implement model normalization and issue normalization.
+3. Implement dataset and materialized-view nodes with field rows and badges.
+4. Implement relationship and association edges with field anchors and crow's-foot endpoints.
+5. Integrate `elkjs` default layout and reset behavior.
+6. Implement the large viewer `Inspect` mode with TanStack Table and JSON mode.
+7. Implement `Explore` mode using the existing chart stack.
+8. Add active-context selection, effective-row handling, and filter-context display.
+9. Add search, issue drawer, pause, and final visual polish.
+
+## Final Recommendation
+
+Build Chart Studio Devtools as a dev-only, in-process, canvas-first semantic-model workspace backed by the live runtime model.
+
+Use:
+
+- `@xyflow/react` for the graph
+- `elkjs` for the default layout
+- TanStack Table for raw and effective inspection
+- the existing Chart Studio chart stack for analytical exploration
+
+Keep the product centered on model and data understanding first. Chart debugging should support that goal, not compete with it.
