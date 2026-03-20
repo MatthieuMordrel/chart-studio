@@ -758,7 +758,6 @@ function EdgeKindIcon({kind}: {kind: string}) {
 
 function SelectionPanel({
   activeContext,
-  expandedNodeIds,
   focusedFieldId,
   onInspectNode,
   selectedEdgeId,
@@ -766,8 +765,6 @@ function SelectionPanel({
   source,
 }: {
   activeContext: ChartStudioDevtoolsContextSnapshot | null
-  /** Full “show more” expansion on the canvas (all columns on the node). */
-  expandedNodeIds: ReadonlySet<string>
   focusedFieldId: string | null
   onInspectNode(nodeId: string): void
   selectedEdgeId: string | null
@@ -779,10 +776,6 @@ function SelectionPanel({
 
   if (selectedNode) {
     const effectiveRows = getNodeRows(selectedNode, activeContext, 'effective')
-    const schemaFields =
-      selectedNode.kind === 'materialized-view' && !expandedNodeIds.has(selectedNode.id)
-        ? getMaterializedViewJoinKeyFields(selectedNode)
-        : selectedNode.fields
     const selectedField = focusedFieldId
       ? selectedNode.fields.find((field) => field.id === focusedFieldId) ?? null
       : null
@@ -790,52 +783,27 @@ function SelectionPanel({
       ? findEdgesForField(selectedNode.id, focusedFieldId, source)
       : []
 
-    return (
-      <section className='csdt-sidepanel'>
-        {/* ── Node header ── */}
-        <div className='csdt-sp-hero'>
-          <p className='csdt-sp-hero__kind'>{selectedNode.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}</p>
-          <h3 className='csdt-sp-hero__title'>{selectedNode.label}</h3>
-        </div>
-
-        <div className='csdt-sp-stats'>
-          <div className='csdt-sp-stat'>
-            <span className='csdt-sp-stat__value'>{selectedNode.rowCount.toLocaleString()}</span>
-            <span className='csdt-sp-stat__label'>Raw rows</span>
+    /* ── Column view (separate from dataset) ── */
+    if (selectedField) {
+      return (
+        <section className='csdt-sidepanel'>
+          <div className='csdt-sp-hero'>
+            <h3 className='csdt-sp-hero__title'>{selectedField.label}</h3>
+            <span className='csdt-node__type'>Column</span>
           </div>
-          <div className='csdt-sp-stat'>
-            <span className='csdt-sp-stat__value'>{effectiveRows.length.toLocaleString()}</span>
-            <span className='csdt-sp-stat__label'>Effective</span>
-          </div>
-          {selectedNode.estimatedBytes > 0 && (
-            <div className='csdt-sp-stat'>
-              <span className='csdt-sp-stat__value'>{formatBytes(selectedNode.estimatedBytes)}</span>
-              <span className='csdt-sp-stat__label'>Size</span>
-            </div>
-          )}
-        </div>
 
-        <button type='button' className='csdt-sp-action' onClick={() => onInspectNode(selectedNode.id)}>
-          <ArrowUpRight size={13} />
-          <span>Open data viewer</span>
-        </button>
+          <p className='csdt-sp-breadcrumb'>{selectedNode.label}</p>
 
-        {/* ── Focused column detail ── */}
-        {selectedField && (
           <div className='csdt-sp-column-card'>
             <div className='csdt-sp-column-card__header'>
               <ColumnTypeIcon type={selectedField.type} />
-              <h4 className='csdt-sp-column-card__name'>{selectedField.label}</h4>
+              <span className='csdt-sp-column-card__type'>{selectedField.type}</span>
               <div className='csdt-field__badges'>
                 <FieldRoleBadges field={selectedField} />
               </div>
             </div>
 
             <dl className='csdt-sp-props'>
-              <div className='csdt-sp-prop'>
-                <dt>Type</dt>
-                <dd>{selectedField.type}</dd>
-              </div>
               {selectedField.formatHint && (
                 <div className='csdt-sp-prop'>
                   <dt>Format</dt>
@@ -873,10 +841,11 @@ function SelectionPanel({
                 </div>
               )}
             </dl>
+          </div>
 
-            {fieldRelationshipEdges.length > 0 && (
-              <div className='csdt-sp-column-edges'>
-                <p className='csdt-sp-column-edges__label'>Relationships</p>
+          <CollapsibleSection title={`Relationships \u00b7 ${fieldRelationshipEdges.length}`}>
+            {fieldRelationshipEdges.length > 0
+              ? (
                 <ul className='csdt-sp-edge-list'>
                   {fieldRelationshipEdges.map((edge) => (
                     <li key={edge.id} className='csdt-sp-edge-item'>
@@ -888,31 +857,65 @@ function SelectionPanel({
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              )
+              : <p className='csdt-sp-empty-hint'>No graph edges for this column.</p>}
+          </CollapsibleSection>
+        </section>
+      )
+    }
+
+    /* ── Dataset / materialized view ── */
+    return (
+      <section className='csdt-sidepanel'>
+        <div className='csdt-sp-hero'>
+          <h3 className='csdt-sp-hero__title'>{selectedNode.label}</h3>
+          <span className='csdt-node__type'>
+            {selectedNode.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}
+          </span>
+        </div>
+
+        <div className='csdt-sp-stats'>
+          <div className='csdt-sp-stat'>
+            <span className='csdt-sp-stat__value'>{selectedNode.rowCount.toLocaleString()}</span>
+            <span className='csdt-sp-stat__label'>Raw rows</span>
           </div>
-        )}
+          <div className='csdt-sp-stat'>
+            <span className='csdt-sp-stat__value'>{effectiveRows.length.toLocaleString()}</span>
+            <span className='csdt-sp-stat__label'>Effective</span>
+          </div>
+          {selectedNode.estimatedBytes > 0 && (
+            <div className='csdt-sp-stat'>
+              <span className='csdt-sp-stat__value'>{formatBytes(selectedNode.estimatedBytes)}</span>
+              <span className='csdt-sp-stat__label'>Size</span>
+            </div>
+          )}
+        </div>
+
+        <button type='button' className='csdt-sp-action' onClick={() => onInspectNode(selectedNode.id)}>
+          <ArrowUpRight size={13} />
+          <span>Open data viewer</span>
+        </button>
 
         {/* ── Attributes ── */}
-        {selectedNode.attributeIds.length > 0 && (
-          <CollapsibleSection title={`Attributes \u00b7 ${selectedNode.attributeIds.length}`}>
-            <div className='csdt-sp-chips'>
-              {selectedNode.attributeIds.map((attributeId) => (
-                <span key={attributeId} className='csdt-attribute-chip'>
-                  {attributeId}
-                </span>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
+        <CollapsibleSection title={`Attributes \u00b7 ${selectedNode.attributeIds.length}`}>
+          {selectedNode.attributeIds.length > 0
+            ? (
+              <div className='csdt-sp-chips'>
+                {selectedNode.attributeIds.map((attributeId) => (
+                  <span key={attributeId} className='csdt-attribute-chip'>
+                    {attributeId}
+                  </span>
+                ))}
+              </div>
+            )
+            : <p className='csdt-sp-empty-hint'>None</p>}
+        </CollapsibleSection>
 
         {/* ── Schema ── */}
-        <CollapsibleSection title={`Schema \u00b7 ${schemaFields.length}`}>
+        <CollapsibleSection title={`Schema \u00b7 ${selectedNode.fields.length}`}>
           <div className='csdt-sp-field-list'>
-            {schemaFields.map((field) => (
-              <div
-                key={field.id}
-                className={`csdt-sp-field${focusedFieldId === field.id ? ' is-focused' : ''}`}>
+            {selectedNode.fields.map((field) => (
+              <div key={field.id} className='csdt-sp-field'>
                 <div className='csdt-sp-field__main'>
                   <ColumnTypeIcon type={field.type} />
                   <span className='csdt-sp-field__name'>{field.label}</span>
@@ -929,12 +932,16 @@ function SelectionPanel({
   }
 
   if (selectedEdge) {
+    const edgeLabel =
+      selectedEdge.kind === 'relationship' ? 'Relationship'
+        : selectedEdge.kind === 'association' ? 'Association'
+          : 'Materialization'
+
     return (
       <section className='csdt-sidepanel'>
-        {/* ── Edge header ── */}
         <div className='csdt-sp-hero'>
-          <p className='csdt-sp-hero__kind'>{selectedEdge.kind}</p>
           <h3 className='csdt-sp-hero__title'>{selectedEdge.label}</h3>
+          <span className='csdt-node__type'>{edgeLabel}</span>
         </div>
 
         {selectedEdge.kind === 'relationship' && (
@@ -1656,7 +1663,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
                     <SelectionPanel
                       activeContext={activeContext}
-                      expandedNodeIds={visibleExpandedNodeIds}
                       focusedFieldId={currentSelectedFieldId}
                       onInspectNode={(nodeId) => canvasContextValue.onInspectNode(nodeId)}
                       selectedEdgeId={currentSelectedEdgeId}

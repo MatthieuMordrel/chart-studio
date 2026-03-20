@@ -51,31 +51,42 @@
   font-size: 0.75rem;
 }
 
-/* ── Header (node / edge) ── */
+/* ── Header (node / edge / column) ── */
 
 .csdt-sp-hero {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
   padding: 14px 14px 0;
 }
 
-.csdt-sp-hero__kind {
-  margin: 0;
-  color: var(--cs-muted-foreground, #6c7b91);
-  font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .csdt-sp-hero__title {
-  margin: 1px 0 0;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.01em;
   color: var(--cs-foreground, #172032);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Badge sits top-right via flex — reuses .csdt-node__type from graph-nodes.css */
+.csdt-sp-hero .csdt-node__type {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Breadcrumb (parent context) ── */
+
+.csdt-sp-breadcrumb {
+  margin: 2px 14px 0;
+  font-size: 0.6875rem;
+  color: var(--cs-muted-foreground, #718198);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -168,17 +179,13 @@
   min-width: 0;
 }
 
-.csdt-sp-column-card__name {
-  margin: 0;
+.csdt-sp-column-card__type {
   flex: 1;
   min-width: 0;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-size: 0.6875rem;
+  font-weight: 500;
   color: var(--cs-foreground, #172032);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-transform: capitalize;
 }
 
 /* ── Properties (dl/dt/dd) ── */
@@ -329,6 +336,14 @@
 
 .csdt-sp-section__body {
   padding: 0 14px 12px;
+}
+
+/* ── Empty section hint ── */
+
+.csdt-sp-empty-hint {
+  margin: 0;
+  font-size: 0.6875rem;
+  color: var(--cs-muted-foreground, #8694a8);
 }
 
 /* ── Chip group ── */
