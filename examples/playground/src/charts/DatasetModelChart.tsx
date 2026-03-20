@@ -12,6 +12,7 @@ import {
   type DashboardSharedDateRangeFilterRuntime,
   type DashboardSharedSelectFilterRuntime,
 } from '@matthieumordrel/chart-studio'
+import {ChartStudioDevtools} from '@matthieumordrel/chart-studio-devtools/react'
 import {Chart, ChartCanvas, ChartToolbar} from '@matthieumordrel/chart-studio-ui'
 import {
   hiringNetworkData as projectPlanningSeedData,
@@ -1028,6 +1029,7 @@ export function DatasetModelChart() {
   return (
     <DashboardProvider dashboard={dashboard}>
       <DatasetModelDashboard validation={validation} />
+      <ChartStudioDevtools />
     </DashboardProvider>
   )
 }

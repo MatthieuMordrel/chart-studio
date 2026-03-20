@@ -1,0 +1,61 @@
+{
+  "name": "@matthieumordrel/chart-studio-devtools",
+  "version": "0.5.3",
+  "description": "Dev-only semantic model workspace for chart-studio.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.mts",
+      "import": "./dist/react/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MatthieuMordrel/chart-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MatthieuMordrel/chart-studio/issues"
+  },
+  "homepage": "https://github.com/MatthieuMordrel/chart-studio#readme",
+  "author": "Matthieu Mordrel",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "charts",
+    "devtools",
+    "dashboard",
+    "visualization"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "bunx tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@matthieumordrel/chart-studio": "0.5.3",
+    "@matthieumordrel/chart-studio-ui": "0.5.3",
+    "react": ">=18.2.0 <20",
+    "react-dom": ">=18.2.0 <20",
+    "tailwindcss": ">=4.0.0 <5"
+  },
+  "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.23",
+    "@xyflow/react": "^12.10.1",
+    "elkjs": "^0.11.1"
+  }
+}

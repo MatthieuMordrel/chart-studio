@@ -16,6 +16,17 @@ export {
 } from './core/date-range-presets.js'
 export {computeDateRange, filterByDateRange} from './core/date-utils.js'
 export {
+  getChartStudioDevtoolsSnapshots,
+  getRegisteredMaterializedViews,
+  removeChartStudioDevtoolsSnapshot,
+  subscribeChartStudioDevtoolsSnapshots,
+  upsertChartStudioDevtoolsSnapshot,
+  type ChartStudioDevtoolsContextSnapshot,
+  type ChartStudioDevtoolsFilterSummary,
+  type ChartStudioDevtoolsIssue,
+  type ChartStudioDevtoolsSnapshot,
+} from './core/devtools-bridge.js'
+export {
   createNumericRange,
   formatChartValue,
   formatNumericSurfaceValue,
@@ -31,4 +42,10 @@ export {
   isAggregateMetric,
   isSameMetric,
 } from './core/metric-utils.js'
+export {
+  getModelRuntimeMetadata,
+  registerModelMaterializedView,
+  type InferredRelationshipMetadata,
+  type ModelRuntimeMetadata,
+} from './core/model-inference.js'
 export {applyFilters} from './core/pipeline.js'

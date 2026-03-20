@@ -30,6 +30,12 @@
       ],
       "@matthieumordrel/chart-studio-ui": [
         "./packages/chart-studio-ui/src/index.ts"
+      ],
+      "@matthieumordrel/chart-studio-devtools": [
+        "./packages/chart-studio-devtools/src/index.ts"
+      ],
+      "@matthieumordrel/chart-studio-devtools/react": [
+        "./packages/chart-studio-devtools/src/react/index.ts"
       ]
     }
   }

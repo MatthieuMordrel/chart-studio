@@ -5,6 +5,7 @@ import type {
   ModelRelationshipDefinition,
 } from './data-model.types.js'
 import type {DefinedDataset} from './dataset-builder.types.js'
+import type {MaterializedViewDefinition} from './materialized-view.types.js'
 
 type RuntimeRelationshipDefinition = ModelRelationshipDefinition<string, string, string, string>
 
@@ -20,10 +21,12 @@ export type InferredRelationshipMetadata = {
 
 export type ModelRuntimeMetadata = {
   readonly inferredRelationships: ReadonlyMap<string, InferredRelationshipMetadata>
+  readonly materializedViews: ReadonlyMap<string, MaterializedViewDefinition<any, any, any, any>>
 }
 
 type MutableModelRuntimeMetadata = {
   inferredRelationships: Map<string, InferredRelationshipMetadata>
+  materializedViews: Map<string, MaterializedViewDefinition<any, any, any, any>>
 }
 
 function singularizeDatasetId(datasetId: string): string {
@@ -95,6 +98,7 @@ export function inferModelRelationships(
   }
   const metadata: MutableModelRuntimeMetadata = {
     inferredRelationships: new Map(),
+    materializedViews: new Map(),
   }
   const explicitTargetPairs = new Set(
     Object.values(explicitRelationships).map(
@@ -347,6 +351,7 @@ export function attachModelRuntimeMetadata<
   Object.defineProperty(model, MODEL_RUNTIME_METADATA, {
     value: {
       inferredRelationships: new Map(metadata.inferredRelationships),
+      materializedViews: new Map(metadata.materializedViews),
     } satisfies ModelRuntimeMetadata,
     enumerable: false,
     configurable: false,
@@ -364,5 +369,20 @@ export function getModelRuntimeMetadata(
 
   return {
     inferredRelationships: new Map(),
+    materializedViews: new Map(),
   }
+}
+
+export function registerModelMaterializedView(
+  model: AnyDefinedDataModel,
+  id: string,
+  view: MaterializedViewDefinition<any, any, any, any>,
+): void {
+  const metadata = (model as Record<PropertyKey, unknown>)[MODEL_RUNTIME_METADATA]
+
+  if (!metadata || typeof metadata !== 'object') {
+    return
+  }
+
+  ;(metadata as MutableModelRuntimeMetadata).materializedViews.set(id, view)
 }

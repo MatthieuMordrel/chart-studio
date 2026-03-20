@@ -1,10 +1,19 @@
 import {
   createContext,
   useContext,
+  useEffect,
+  useId,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
+import {
+  getRegisteredMaterializedViews,
+  removeChartStudioDevtoolsSnapshot,
+  upsertChartStudioDevtoolsSnapshot,
+  type ChartStudioDevtoolsContextSnapshot,
+  type ChartStudioDevtoolsFilterSummary,
+} from './devtools-bridge.js'
 import {filterByDateRange} from './date-utils.js'
 import {resolvePresetFilter} from './date-range-presets.js'
 import {resolveDashboardDefinition} from './define-dashboard.js'
@@ -111,6 +120,17 @@ function serializeKeyValue(value: unknown): string {
   }
 
   return `${typeof value}:${String(value)}`
+}
+
+function humanizeId(id: string): string {
+  return id
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim()
+    .split(/\s+/)
+    .filter(part => part.length > 0)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }
 
 function buildProjectedId(alias: string, columnId: string): string {
@@ -412,6 +432,7 @@ export function useDashboard<
     data: DashboardDataInputFromDefinition<TDashboard>
   },
 ): DashboardRuntime<TDashboard> {
+  const devtoolsSourceId = useId()
   const definition = useMemo(
     () => resolveDashboardDefinition(options.definition),
     [options.definition],
@@ -436,7 +457,7 @@ export function useDashboard<
     [dataByDataset, definition],
   )
 
-  return useMemo(() => {
+  const runtime = useMemo(() => {
     const sharedFilterEntries = Object.entries(
       definition.sharedFilters,
     ) as Array<[string, any]>
@@ -917,6 +938,113 @@ export function useDashboard<
     runtimeDatasets,
     selectValuesById,
   ])
+
+  const devtoolsSnapshot = useMemo(() => {
+    const materializedViews = getRegisteredMaterializedViews(definition.model)
+    const effectiveDatasets = Object.fromEntries(
+      Object.keys(definition.model.datasets).map((datasetId) => [
+        datasetId,
+        runtime.dataset(datasetId as DashboardDatasetIdFromDefinition<TDashboard>) as readonly Record<string, unknown>[],
+      ]),
+    )
+    const effectiveMaterializedViews = Object.fromEntries(
+      Object.entries(materializedViews).map(([viewId, view]) => [
+        viewId,
+        view.materialize(effectiveDatasets as any) as readonly Record<string, unknown>[],
+      ]),
+    )
+    const filterSummary: ChartStudioDevtoolsFilterSummary[] = runtime.sharedFilterIds.flatMap((filterId) => {
+      const sharedFilter = runtime.sharedFilter(filterId)
+      const definitionFilter = definition.sharedFilters[filterId]
+
+      if (sharedFilter.kind === 'date-range') {
+        const selection = sharedFilter.selection
+
+        if (selection.preset === 'all-time' || (selection.preset == null && selection.customFilter == null)) {
+          return []
+        }
+
+        if (selection.preset) {
+          return [{
+            columnId: filterId,
+            label: sharedFilter.label,
+            values: [selection.preset],
+          }]
+        }
+
+        if (!selection.customFilter) {
+          return []
+        }
+
+        return [{
+          columnId: filterId,
+          label: sharedFilter.label,
+          values: [`${selection.customFilter.from?.toISOString() ?? 'open'} -> ${selection.customFilter.to?.toISOString() ?? 'open'}`],
+        }]
+      }
+
+      if (sharedFilter.values.size === 0) {
+        return []
+      }
+
+      const optionLabels = new Map(
+        sharedFilter.options.map((option) => [option.value, option.label] as const),
+      )
+
+      return [{
+        columnId: definitionFilter?.source.kind === 'attribute'
+          ? definitionFilter.source.key
+          : definitionFilter?.source.column ?? filterId,
+        label: sharedFilter.label,
+        values: [...sharedFilter.values].map((value) => optionLabels.get(value) ?? value),
+      }]
+    })
+
+    const contexts: ChartStudioDevtoolsContextSnapshot[] = [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        kind: 'dashboard',
+        filterSummary,
+        effectiveDatasets,
+        effectiveMaterializedViews,
+      },
+      ...runtime.chartIds.map((chartId) => ({
+        id: chartId,
+        label: humanizeId(chartId),
+        kind: 'chart' as const,
+        filterSummary,
+        effectiveDatasets,
+        effectiveMaterializedViews,
+      })),
+    ]
+
+    return {
+      label: runtime.chartIds.length > 0
+        ? `Dashboard · ${humanizeId(runtime.chartIds[0] ?? 'workspace')}`
+        : 'Dashboard',
+      model: definition.model,
+      data: dataByDataset as Record<string, readonly Record<string, unknown>[]>,
+      materializedViews,
+      contexts,
+      issues: [] as const,
+    }
+  }, [
+    dataByDataset,
+    definition.model,
+    definition.sharedFilters,
+    runtime,
+  ])
+
+  useEffect(() => {
+    upsertChartStudioDevtoolsSnapshot(devtoolsSourceId, devtoolsSnapshot)
+  }, [devtoolsSnapshot, devtoolsSourceId])
+
+  useEffect(() => () => {
+    removeChartStudioDevtoolsSnapshot(devtoolsSourceId)
+  }, [devtoolsSourceId])
+
+  return runtime
 }
 
 /**

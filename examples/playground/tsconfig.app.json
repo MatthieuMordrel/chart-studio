@@ -27,7 +27,9 @@
     "paths": {
       "@matthieumordrel/chart-studio": ["../../packages/chart-studio/src/index.ts"],
       "@matthieumordrel/chart-studio/_internal": ["../../packages/chart-studio/src/_internal.ts"],
-      "@matthieumordrel/chart-studio-ui": ["../../packages/chart-studio-ui/src/index.ts"]
+      "@matthieumordrel/chart-studio-ui": ["../../packages/chart-studio-ui/src/index.ts"],
+      "@matthieumordrel/chart-studio-devtools": ["../../packages/chart-studio-devtools/src/index.ts"],
+      "@matthieumordrel/chart-studio-devtools/react": ["../../packages/chart-studio-devtools/src/react/index.ts"]
     }
   },
   "include": ["src"]

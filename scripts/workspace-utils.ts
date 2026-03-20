@@ -3,13 +3,13 @@ import {readFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
-export type WorkspacePackageId = 'core' | 'ui'
+export type WorkspacePackageId = 'core' | 'ui' | 'devtools'
 
 export type WorkspacePackage = {
   id: WorkspacePackageId
   dir: string
   manifestPath: string
-  name: '@matthieumordrel/chart-studio' | '@matthieumordrel/chart-studio-ui'
+  name: '@matthieumordrel/chart-studio' | '@matthieumordrel/chart-studio-ui' | '@matthieumordrel/chart-studio-devtools'
 }
 
 export type PackageManifest = {
@@ -38,6 +38,12 @@ export const workspacePackages: readonly WorkspacePackage[] = [
     name: '@matthieumordrel/chart-studio-ui',
     dir: join(repoRoot, 'packages/chart-studio-ui'),
     manifestPath: join(repoRoot, 'packages/chart-studio-ui/package.json'),
+  },
+  {
+    id: 'devtools',
+    name: '@matthieumordrel/chart-studio-devtools',
+    dir: join(repoRoot, 'packages/chart-studio-devtools'),
+    manifestPath: join(repoRoot, 'packages/chart-studio-devtools/package.json'),
   },
 ] as const
 

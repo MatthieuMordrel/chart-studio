@@ -6,6 +6,7 @@ import {
   getModelRuntimeMetadata,
   inferModelAttributes,
   inferModelRelationships,
+  registerModelMaterializedView,
   rewriteInferredRelationshipError,
 } from './model-inference.js'
 import type {
@@ -352,9 +353,11 @@ function createDefinedDataModel<
       associations: state.associations,
       attributes: state.attributes,
       materialize(id, defineView) {
-        return defineView(
+        const view = defineView(
           createMaterializationStartBuilder(id, definedModel),
         )
+        registerModelMaterializedView(definedModel, id, view)
+        return view
       },
       chart(id: any, defineChart: any) {
         return compileModelChart(definedModel, id, defineChart) as any
@@ -391,6 +394,7 @@ function createDefinedDataModel<
           ] as const
         }),
       ),
+      materializedViews: new Map(),
     })
 
     cachedModel = definedModel
@@ -577,9 +581,11 @@ function createDataModelBuilder<
       const model = cachedModel ?? createDefinedDataModel(state)
       cachedModel = model
 
-      return defineView(
+      const view = defineView(
         createMaterializationStartBuilder(id, model),
       )
+      registerModelMaterializedView(model, id, view)
+      return view
     },
     validateData(data: any) {
       try {
