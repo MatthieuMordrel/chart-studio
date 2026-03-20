@@ -172,10 +172,10 @@ export function ChartToolbarOverflow({pinned, hidden, className}: ChartToolbarOv
         isOpen={isOpen}
         onClose={handleClose}
         triggerRef={triggerRef}
-        align="right"
+        align="right-start"
         width={320}
         repositionKey={activePage ?? 'main'}
-        className="flex min-h-[280px] max-h-[min(480px,80vh)] flex-col"
+        className="flex max-h-[min(480px,80vh)] flex-col"
       >
         {activePage === null ? (
           <MainMenu sectionGroups={sectionGroups} onNavigate={setActivePage} />
@@ -204,14 +204,6 @@ function MainMenu({
 }) {
   return (
     <>
-      {/* Header */}
-      <div className="border-b border-border px-4 py-3">
-        <div className="text-xs font-semibold text-foreground">Chart configuration</div>
-        <div className="mt-0.5 text-[10px] text-muted-foreground">
-          Customize how your data is displayed
-        </div>
-      </div>
-
       {/* Sections — scrollable */}
       <div
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2"

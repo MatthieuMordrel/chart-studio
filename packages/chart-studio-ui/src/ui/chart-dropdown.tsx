@@ -20,7 +20,7 @@ type PanelPosition = {
  * @property isOpen - Whether the panel is visible
  * @property onClose - Callback to close the panel
  * @property triggerRef - Ref to the button or element that anchors the panel
- * @property align - Horizontal alignment relative to trigger ('left' | 'right')
+ * @property align - Horizontal alignment relative to trigger ('left' | 'right' | 'right-start')
  * @property width - Fixed panel width in pixels
  * @property minWidth - Minimum panel width in pixels or equal to trigger width
  * @property offset - Gap between trigger and panel
@@ -45,7 +45,7 @@ export function ChartDropdownPanel({
   isOpen: boolean
   onClose: () => void
   triggerRef: RefObject<HTMLElement | null>
-  align?: 'left' | 'right'
+  align?: 'left' | 'right' | 'right-start'
   width?: number
   minWidth?: number | 'trigger'
   offset?: number
@@ -79,11 +79,13 @@ export function ChartDropdownPanel({
       const panelWidth = Math.max(measuredPanelWidth, resolvedMinWidth ?? 0)
       const panelHeight = panel.offsetHeight
 
-      let left = align === 'right' ? triggerRect.right - panelWidth : triggerRect.left
+      let left =
+        align === 'right' ? triggerRect.right - panelWidth :
+        align === 'right-start' ? triggerRect.right :
+        triggerRect.left
       left = Math.min(Math.max(left, 8), window.innerWidth - panelWidth - 8)
 
-      const spaceBelow = window.innerHeight - triggerRect.bottom
-      const openAbove = spaceBelow < panelHeight + offset && triggerRect.top >= panelHeight + offset
+      const openAbove = triggerRect.top >= panelHeight + offset
       let top = openAbove ? triggerRect.top - panelHeight - offset : triggerRect.bottom + offset
       top = Math.max(8, Math.min(top, window.innerHeight - panelHeight - 8))
 
