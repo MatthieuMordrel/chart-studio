@@ -36,8 +36,14 @@ import {
   type FlowEdge,
   type FlowNode,
 } from './graph-state.js'
-import {computeGraphLayout, DEVTOOLS_NODE_WIDTH, DEVTOOLS_VISIBLE_FIELD_COUNT} from './layout.js'
-import {loadStoredDevtoolsElkLayout, persistDevtoolsElkLayout, type DevtoolsElkLayoutConfig} from './layout-options.js'
+import {getCollapsedVisibleFields} from './graph-field-visibility.js'
+import {computeGraphLayout, DEVTOOLS_NODE_WIDTH} from './layout.js'
+import {
+  adjustDevtoolsLayoutForEdgeDensity,
+  loadStoredDevtoolsElkLayout,
+  persistDevtoolsElkLayout,
+  type DevtoolsElkLayoutConfig,
+} from './layout-options.js'
 import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
 import {lockDocumentScroll} from './scroll-lock.js'
 import {DEVTOOLS_STYLES} from './styles.js'
@@ -56,15 +62,15 @@ import type {
 } from './types.js'
 
 /** Base `getSmoothStepPath` offset (matches previous single-edge default). */
-const SMOOTH_STEP_OFFSET_BASE = 18
+const SMOOTH_STEP_OFFSET_BASE = 14
 /** Extra offset per additional edge between the same two nodes (staggered paths). */
-const SMOOTH_STEP_OFFSET_STRIDE = 14
+const SMOOTH_STEP_OFFSET_STRIDE = 12
 
 /**
  * Viewport margin when fitting the graph (React Flow `fitView` padding). Lower = tighter fit /
  * larger default zoom; was 0.22 and left noticeable empty bands on wide layouts.
  */
-const FIT_VIEW_PADDING = 0.08
+const FIT_VIEW_PADDING = 0.06
 
 type ViewerState = {
   nodeId: string
@@ -247,9 +253,8 @@ function SemanticNode({
   }
 
   const expanded = ctx.expandedNodeIds.has(node.id)
-  const visibleFields = expanded
-    ? node.fields
-    : node.fields.slice(0, DEVTOOLS_VISIBLE_FIELD_COUNT)
+  const collapsedFields = getCollapsedVisibleFields(node, ctx.source)
+  const visibleFields = expanded ? node.fields : collapsedFields
   const issueMessages = ctx.issuesByTargetId.get(node.id) ?? []
   const isSelected = ctx.selectedNodeId === node.id
   const isFocused = ctx.focusedNodeIds.has(node.id)
@@ -283,7 +288,7 @@ function SemanticNode({
                 event.stopPropagation()
                 ctx.onInspectNode(node.id)
               }}>
-              <ArrowUpRight size={13} />
+              <ArrowUpRight size={12} />
             </button>
           </div>
         </div>
@@ -337,14 +342,14 @@ function SemanticNode({
         ))}
       </div>
 
-      {node.fields.length > DEVTOOLS_VISIBLE_FIELD_COUNT && (
+      {node.fields.length > collapsedFields.length && (
         <button
           type='button'
           className='csdt-node__expand nodrag'
           onClick={() => ctx.onToggleNodeExpand(node.id)}>
           {expanded
             ? <><ChevronUp size={12} /> Show less</>
-            : <><ChevronDown size={12} /> {node.fields.length - DEVTOOLS_VISIBLE_FIELD_COUNT} more fields</>}
+            : <><ChevronDown size={12} /> {node.fields.length - collapsedFields.length} more fields</>}
         </button>
       )}
     </div>
@@ -944,6 +949,17 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
    * is a pure visibility toggle instead of a relayout trigger.
    */
   const layoutSource = normalizedSource
+  const elkLayoutForComputation = useMemo(
+    () =>
+      layoutSource
+        ? adjustDevtoolsLayoutForEdgeDensity(
+            elkLayoutConfig,
+            layoutSource.edges.length,
+            layoutSource.nodes.length,
+          )
+        : elkLayoutConfig,
+    [elkLayoutConfig, layoutSource],
+  )
   /** Dashboard shared-filter scope only (see `useDashboard` devtools snapshot). */
   const activeContext = useMemo(
     () => normalizedSource?.contexts[0] ?? null,
@@ -1075,10 +1091,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         continue
       }
 
-      for (const fieldId of fieldIds) {
-        const fieldIndex = node.fields.findIndex((field) => field.id === fieldId)
+      const collapsedIds = new Set(getCollapsedVisibleFields(node, displaySource).map((field) => field.id))
 
-        if (fieldIndex >= DEVTOOLS_VISIBLE_FIELD_COUNT) {
+      for (const fieldId of fieldIds) {
+        if (!collapsedIds.has(fieldId)) {
           next.add(nodeId)
           break
         }
@@ -1113,7 +1129,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     let cancelled = false
     const layoutRunId = ++layoutRunIdRef.current
 
-    void computeGraphLayout(layoutSource, visibleExpandedNodeIds, elkLayoutConfig).then((positions) => {
+    void computeGraphLayout(layoutSource, visibleExpandedNodeIds, elkLayoutForComputation).then((positions) => {
       if (cancelled || layoutRunId !== layoutRunIdRef.current) {
         return
       }
@@ -1146,7 +1162,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         fitViewFrameRef.current = null
       }
     }
-  }, [elkLayoutConfig, flowInstance, layoutNonce, layoutSource, visibleExpandedNodeIds])
+  }, [elkLayoutForComputation, flowInstance, layoutNonce, layoutSource, visibleExpandedNodeIds])
 
   const searchResults = useMemo(() => {
     if (!displaySource || deferredSearchQuery.trim().length === 0) {
@@ -1261,7 +1277,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     void flowInstance.setCenter(
       targetNode.position.x + (DEVTOOLS_NODE_WIDTH / 2),
-      targetNode.position.y + 180,
+      targetNode.position.y + 150,
       {
         zoom: 0.9,
         duration: 360,

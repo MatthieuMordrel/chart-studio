@@ -50,20 +50,51 @@ export type DevtoolsElkLayoutConfig = {
 }
 
 export const DEFAULT_DEVTOOLS_ELK_LAYOUT: DevtoolsElkLayoutConfig = {
-  spacingBetweenLayers: 260,
-  spacingNodeNode: 168,
-  padding: 56,
+  spacingBetweenLayers: 188,
+  spacingNodeNode: 112,
+  padding: 38,
   crossingMinimizationStrategy: 'MEDIAN_LAYER_SWEEP',
   nodePlacementStrategy: 'NETWORK_SIMPLEX',
+}
+
+/**
+ * Slightly opens spacing when many edges share the graph so lines stay readable.
+ *
+ * @param config - User / persisted ELK settings
+ * @param edgeCount - Number of edges in the current layout
+ * @param nodeCount - Number of nodes in the current layout
+ */
+export function adjustDevtoolsLayoutForEdgeDensity(
+  config: DevtoolsElkLayoutConfig,
+  edgeCount: number,
+  nodeCount: number,
+): DevtoolsElkLayoutConfig {
+  const normalized = normalizeDevtoolsElkLayoutConfig(config)
+  const avgEdgesPerNode = edgeCount / Math.max(1, nodeCount)
+  const crowded =
+    edgeCount >= 22
+    || avgEdgesPerNode >= 2.35
+    || (nodeCount >= 4 && edgeCount >= nodeCount * 2)
+
+  if (!crowded) {
+    return normalized
+  }
+
+  return normalizeDevtoolsElkLayoutConfig({
+    ...normalized,
+    spacingBetweenLayers: Math.round(Math.max(normalized.spacingBetweenLayers * 1.14, 228)),
+    spacingNodeNode: Math.round(Math.max(normalized.spacingNodeNode * 1.12, 132)),
+    padding: Math.round(Math.max(normalized.padding * 1.08, 44)),
+  })
 }
 
 export const DEVTOOLS_ELK_LAYOUT_PRESETS = {
   compact: {
     label: 'Compact',
     config: {
-      spacingBetweenLayers: 180,
-      spacingNodeNode: 120,
-      padding: 40,
+      spacingBetweenLayers: 148,
+      spacingNodeNode: 92,
+      padding: 30,
       crossingMinimizationStrategy: 'LAYER_SWEEP',
       nodePlacementStrategy: 'NETWORK_SIMPLEX',
     } satisfies DevtoolsElkLayoutConfig,

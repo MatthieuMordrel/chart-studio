@@ -1,4 +1,5 @@
 import ELK from 'elkjs/lib/elk.bundled.js'
+import {getCollapsedVisibleFields} from './graph-field-visibility.js'
 import {
   DEFAULT_DEVTOOLS_ELK_LAYOUT,
   devtoolsElkLayoutToElkOptions,
@@ -7,13 +8,13 @@ import {
 } from './layout-options.js'
 import type {NormalizedSourceVm} from './types.js'
 
-export const DEVTOOLS_NODE_WIDTH = 356
-export const DEVTOOLS_VISIBLE_FIELD_COUNT = 8
+/** Canvas node width (React Flow + ELK); keep in sync with `--csdt-node-width` fallback in CSS. */
+export const DEVTOOLS_NODE_WIDTH = 276
 
-const NODE_HEADER_HEIGHT = 72
-const NODE_ATTRIBUTE_ROW_HEIGHT = 24
-const NODE_FIELD_ROW_HEIGHT = 30
-const NODE_FOOTER_HEIGHT = 36
+const NODE_HEADER_HEIGHT = 62
+const NODE_ATTRIBUTE_ROW_HEIGHT = 22
+const NODE_FIELD_ROW_HEIGHT = 26
+const NODE_FOOTER_HEIGHT = 32
 
 type ElkNode = {
   id: string
@@ -45,7 +46,7 @@ export function estimateNodeHeight(
 
   const visibleFieldCount = expandedNodeIds.has(nodeId)
     ? node.fields.length
-    : Math.min(node.fields.length, DEVTOOLS_VISIBLE_FIELD_COUNT)
+    : getCollapsedVisibleFields(node, source).length
   const attributeHeight = node.attributeIds.length > 0 ? NODE_ATTRIBUTE_ROW_HEIGHT : 0
 
   return NODE_HEADER_HEIGHT

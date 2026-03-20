@@ -69,8 +69,7 @@
   background-color: color-mix(in oklch, var(--cs-muted-foreground, #718198) 58%, transparent);
 }
 
-.csdt-shell__scrim,
-.csdt-data-viewer__backdrop {
+.csdt-shell__scrim {
   position: absolute;
   inset: 0;
   background: color-mix(in oklch, var(--cs-foreground, #101624) 18%, transparent);
@@ -114,5 +113,5 @@
 }
 
 .csdt-canvas .react-flow__node {
-  width: var(--csdt-node-width, 356px);
+  width: var(--csdt-node-width, 276px);
 }
