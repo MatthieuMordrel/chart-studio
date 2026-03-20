@@ -114,18 +114,27 @@ function joinProjectionTitle(j: DatasetFieldJoinProjection): string {
   ].join(' · ')
 }
 
+function mvBaseDatasetTitle(datasetId: string): string {
+  return `Column carried from base dataset “${datasetId}” (the \`from(...)\` grain before join / expansion steps).`
+}
+
 function FieldRoleBadges({ field }: { field: DatasetFieldVm }) {
   return (
     <>
-      {field.isPrimaryKey && <span className='csdt-badge'>PK</span>}
-      {field.isForeignKey && <span className='csdt-badge'>FK</span>}
       {field.joinProjection && (
         <span className='csdt-badge csdt-badge--join' title={joinProjectionTitle(field.joinProjection)}>
           {humanizeDatasetId(field.joinProjection.targetDataset)}
         </span>
       )}
       {field.isAssociationField && <span className='csdt-badge'>N:N</span>}
+      {field.mvBaseDatasetId && (
+        <span className='csdt-badge csdt-badge--mv-base' title={mvBaseDatasetTitle(field.mvBaseDatasetId)}>
+          {humanizeDatasetId(field.mvBaseDatasetId)}
+        </span>
+      )}
       {field.isDerived && <span className='csdt-badge'>Derived</span>}
+      {field.isPrimaryKey && <span className='csdt-badge'>PK</span>}
+      {field.isForeignKey && <span className='csdt-badge'>FK</span>}
     </>
   )
 }
@@ -733,6 +742,13 @@ function SelectionPanel({
                   <span className='csdt-muted'>Derived</span>
                   {' '}
                   {selectedField.derivedSummary ?? 'Per-row accessor'}
+                </p>
+              )}
+              {selectedField.mvBaseDatasetId && (
+                <p>
+                  <span className='csdt-muted'>Base grain</span>
+                  {' '}
+                  {mvBaseDatasetTitle(selectedField.mvBaseDatasetId)}
                 </p>
               )}
               {selectedField.joinProjection && (

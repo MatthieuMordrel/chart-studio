@@ -82,7 +82,8 @@ function getInferenceHint(column: ChartColumn<any, string>): string | null {
 }
 
 /**
- * Ranks columns for listing: PK, FK-only, joined (MV), association keys, then the rest.
+ * Ranks columns for listing: PK, FK, join-projected (MV), association keys, MV base grain, then the rest.
+ * Join / association columns surface first so they stay visible above long carried-from-base lists.
  */
 function fieldOrderingRank(
   columnId: string,
@@ -90,6 +91,7 @@ function fieldOrderingRank(
   foreignKeySet: Set<string>,
   associationFieldSet: Set<string>,
   joinedFieldSet: ReadonlySet<string>,
+  mvBaseFieldSet: ReadonlySet<string>,
 ): number {
   if (keySet.has(columnId)) {
     return 0
@@ -107,7 +109,11 @@ function fieldOrderingRank(
     return 3
   }
 
-  return 4
+  if (mvBaseFieldSet.has(columnId)) {
+    return 4
+  }
+
+  return 5
 }
 
 function buildFieldOrder(
@@ -116,6 +122,7 @@ function buildFieldOrder(
   columns: readonly ChartColumn<any, string>[],
   model: ChartStudioDevtoolsSource['snapshot']['model'],
   joinedFieldIds: ReadonlySet<string>,
+  mvBaseFieldIds: ReadonlySet<string>,
 ): readonly ChartColumn<any, string>[] {
   const keySet = new Set(definition.key ?? [])
   const foreignKeySet = new Set(
@@ -143,8 +150,8 @@ function buildFieldOrder(
 
   return [...columns].sort((left, right) => {
     const rankDiff =
-      fieldOrderingRank(left.id, keySet, foreignKeySet, associationFieldSet, joinedFieldIds)
-      - fieldOrderingRank(right.id, keySet, foreignKeySet, associationFieldSet, joinedFieldIds)
+      fieldOrderingRank(left.id, keySet, foreignKeySet, associationFieldSet, joinedFieldIds, mvBaseFieldIds)
+      - fieldOrderingRank(right.id, keySet, foreignKeySet, associationFieldSet, joinedFieldIds, mvBaseFieldIds)
 
     if (rankDiff !== 0) {
       return rankDiff
@@ -194,14 +201,41 @@ function normalizeFields(
   rows: readonly DevtoolsRow[],
   model: ChartStudioDevtoolsSource['snapshot']['model'],
   joinProjectionByFieldId: ReadonlyMap<string, DatasetFieldJoinProjection> | null,
+  /** `view.materialization.baseDataset` when normalizing a materialized view; otherwise null. */
+  materializationBaseDatasetId: string | null,
 ): readonly DatasetFieldVm[] {
   const joinedFieldIds = new Set(joinProjectionByFieldId?.keys() ?? [])
+  const inferredColumns = inferColumnsFromData(
+    rows,
+    definition.columns ? {columns: definition.columns} : undefined,
+  )
+  const mvBaseFieldIds = new Set<string>()
+
+  if (materializationBaseDatasetId) {
+    for (const col of inferredColumns) {
+      if (joinedFieldIds.has(col.id)) {
+        continue
+      }
+
+      const rawColumn = definition.columns?.[col.id]
+      const isDerivedCol = !!rawColumn
+        && typeof rawColumn === 'object'
+        && 'kind' in rawColumn
+        && rawColumn.kind === 'derived'
+
+      if (!isDerivedCol) {
+        mvBaseFieldIds.add(col.id)
+      }
+    }
+  }
+
   const resolvedColumns = buildFieldOrder(
     datasetId,
     definition,
-    inferColumnsFromData(rows, definition.columns ? {columns: definition.columns} : undefined),
+    inferredColumns,
     model,
     joinedFieldIds,
+    mvBaseFieldIds,
   )
   const keySet = new Set(definition.key ?? [])
   const foreignKeySet = new Set(
@@ -237,6 +271,13 @@ function normalizeFields(
         : 'Per-row accessor'
     }
 
+    const joinProjection = joinProjectionByFieldId?.get(column.id) ?? null
+    const mvBaseDatasetId = materializationBaseDatasetId != null
+      && !joinProjection
+      && !isDerived
+      ? materializationBaseDatasetId
+      : null
+
     return {
       id: column.id,
       label: column.label,
@@ -248,7 +289,8 @@ function normalizeFields(
       isForeignKey: foreignKeySet.has(column.id),
       isAssociationField: associationFieldSet.has(column.id),
       isDerived,
-      joinProjection: joinProjectionByFieldId?.get(column.id) ?? null,
+      joinProjection,
+      mvBaseDatasetId,
       trueLabel: column.type === 'boolean' ? column.trueLabel : undefined,
       falseLabel: column.type === 'boolean' ? column.falseLabel : undefined,
       ...createHandleIds(column.id),
@@ -449,7 +491,7 @@ export function normalizeSource(
 
   Object.entries(source.snapshot.model.datasets).forEach(([datasetId, dataset]) => {
     const rawRows = source.snapshot.data[datasetId] ?? []
-    const fields = normalizeFields(datasetId, dataset as AnyDatasetDefinition, rawRows, source.snapshot.model, null)
+    const fields = normalizeFields(datasetId, dataset as AnyDatasetDefinition, rawRows, source.snapshot.model, null, null)
 
     nodes.push({
       id: datasetId,
@@ -470,7 +512,14 @@ export function normalizeSource(
   Object.entries(materializedViews).forEach(([viewId, view]) => {
     const rawRows = view.materialize(source.snapshot.data as any) as readonly DevtoolsRow[]
     const joinMap = buildJoinProjectionByFieldId(view)
-    const fields = normalizeFields(viewId, view, rawRows, source.snapshot.model, joinMap)
+    const fields = normalizeFields(
+      viewId,
+      view,
+      rawRows,
+      source.snapshot.model,
+      joinMap,
+      view.materialization.baseDataset,
+    )
 
     nodes.push({
       id: viewId,

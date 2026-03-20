@@ -233,6 +233,16 @@
   font-weight: 600;
 }
 
+.csdt-badge--mv-base {
+  max-width: 100px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(in oklch, var(--cs-muted-foreground, #64748b) 12%, var(--cs-muted, #eef2f7));
+  color: var(--cs-foreground, #334155);
+}
+
 .csdt-badge--join {
   max-width: 100px;
   min-width: 0;

@@ -129,6 +129,11 @@ export type DatasetFieldVm = {
   isDerived: boolean
   /** Set for columns introduced by a materialized view join / expansion step. */
   joinProjection: DatasetFieldJoinProjection | null
+  /**
+   * Materialized views only: base grain dataset for columns carried from the `from(...)` dataset
+   * (not join-projected, not derived). Explains why e.g. `id` matches `projectPlans.id`.
+   */
+  mvBaseDatasetId: string | null
   trueLabel?: string
   falseLabel?: string
   sourceHandleId: string
