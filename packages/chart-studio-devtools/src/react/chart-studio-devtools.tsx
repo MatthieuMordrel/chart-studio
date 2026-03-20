@@ -1083,15 +1083,20 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
   }, [isOpen])
 
+  /**
+   * Reconcile interactive state (selection, viewer, expanded nodes, active source)
+   * whenever the underlying display source or active source changes. Clears any
+   * references to nodes/edges that no longer exist in the current graph.
+   */
   useEffect(() => {
-    persistDevtoolsElkLayout(elkLayoutConfig)
-  }, [elkLayoutConfig])
+    if (!activeSource && selectedSourceId) {
+      setSelectedSourceId(null)
+    }
 
-  useEffect(() => {
-    persistShowMaterializedViews(showMaterializedViews)
-  }, [showMaterializedViews])
+    if (activeSource && selectedSourceId == null) {
+      setSelectedSourceId(activeSource.id)
+    }
 
-  useEffect(() => {
     if (!displaySource) {
       return
     }
@@ -1104,21 +1109,9 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     if (selectedEdgeId && !displaySource.edgeMap.has(selectedEdgeId)) {
       setSelectedEdgeId(null)
     }
-  }, [displaySource, selectedEdgeId, selectedNodeId])
 
-  useEffect(() => {
-    if (!viewer || !displaySource) {
-      return
-    }
-
-    if (!displaySource.nodeMap.has(viewer.nodeId)) {
+    if (viewer && !displaySource.nodeMap.has(viewer.nodeId)) {
       setViewer(null)
-    }
-  }, [displaySource, viewer])
-
-  useEffect(() => {
-    if (!displaySource) {
-      return
     }
 
     setExpandedNodeIds((current) => {
@@ -1128,19 +1121,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
       return next.size === current.size ? current : next
     })
-  }, [displaySource])
-
-  useEffect(() => {
-    if (!activeSource && selectedSourceId) {
-      setSelectedSourceId(null)
-    }
-  }, [activeSource, selectedSourceId])
-
-  useEffect(() => {
-    if (activeSource && selectedSourceId == null) {
-      setSelectedSourceId(activeSource.id)
-    }
-  }, [activeSource, selectedSourceId])
+  }, [activeSource, displaySource, selectedEdgeId, selectedNodeId, selectedSourceId, viewer])
 
   useEffect(() => {
     if (!displaySource) {
@@ -1203,20 +1184,14 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   )
 
   useEffect(() => {
-    if (!displaySource) {
-      return
-    }
-
-    const highlights = computeEdgeFieldHighlights(selectedEdgeId, selectedNodeId, selectedFieldId, displaySource)
-
-    if (highlights.size === 0) {
+    if (!displaySource || edgeFieldHighlights.size === 0) {
       return
     }
 
     setExpandedNodeIds((current) => {
       let next: Set<string> | null = null
 
-      for (const [nodeId, fieldIds] of highlights) {
+      for (const [nodeId, fieldIds] of edgeFieldHighlights) {
         const node = displaySource.nodeMap.get(nodeId)
 
         if (!node) {
@@ -1242,7 +1217,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
       return next ?? current
     })
-  }, [displaySource, layoutNonce, selectedEdgeId, selectedFieldId, selectedNodeId])
+  }, [displaySource, edgeFieldHighlights, layoutNonce])
 
   const searchResults = useMemo(() => {
     if (!displaySource || deferredSearchQuery.trim().length === 0) {
@@ -1484,6 +1459,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                       checked={showMaterializedViews}
                       onChange={(event) => {
                         setShowMaterializedViews(event.target.checked)
+                        persistShowMaterializedViews(event.target.checked)
                         applyLayoutResetAndFitView()
                       }}
                     />
@@ -1498,7 +1474,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
               </div>
 
               {normalizedSource && (
-                <ElkLayoutPanel value={elkLayoutConfig} onChange={setElkLayoutConfig} />
+                <ElkLayoutPanel value={elkLayoutConfig} onChange={(config) => {
+                  setElkLayoutConfig(config)
+                  persistDevtoolsElkLayout(config)
+                }} />
               )}
             </header>
 
