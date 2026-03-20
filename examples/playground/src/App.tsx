@@ -6,14 +6,6 @@ import { KitchenSinkChart } from './charts/KitchenSinkChart'
 import { MinimalChart } from './charts/MinimalChart'
 import { SingleSourceChart } from './charts/SingleSourceChart'
 import { TypedInferredDashboardChart } from './charts/TypedInferredDashboardChart'
-import { CodePanel } from './CodePanel'
-import datasetModelSource from './charts/DatasetModelChart.tsx?raw'
-import dashboardSource from './charts/DashboardChart.tsx?raw'
-import headlessSource from './charts/HeadlessChart.tsx?raw'
-import kitchenSinkSource from './charts/KitchenSinkChart.tsx?raw'
-import minimalSource from './charts/MinimalChart.tsx?raw'
-import singleSourceSource from './charts/SingleSourceChart.tsx?raw'
-import typedInferredDashboardSource from './charts/TypedInferredDashboardChart.tsx?raw'
 import { ThemeToggle } from './ThemeToggle'
 
 type ScenarioId =
@@ -104,17 +96,6 @@ const SCENARIO_GROUPS: ReadonlyArray<ScenarioGroup> = [
 
 const ALL_SCENARIOS = SCENARIO_GROUPS.flatMap(g => g.scenarios)
 
-/** Map each scenario id to its raw source string for the code panel. */
-const SCENARIO_SOURCE: Record<ScenarioId, string> = {
-  'kitchen-sink': kitchenSinkSource,
-  'single-source': singleSourceSource,
-  'schema-restricted': dashboardSource,
-  'dataset-model': datasetModelSource,
-  'typed-inferred-dashboard': typedInferredDashboardSource,
-  minimal: minimalSource,
-  headless: headlessSource
-}
-
 /**
  * Root application for visually testing chart-studio.
  * Tab navigation switches between playground scenarios — one chart per screen.
@@ -170,8 +151,6 @@ function App() {
         {scenarioId === 'headless' && <HeadlessChart />}
         {scenarioId === 'dataset-model' && <DatasetModelChart />}
         {scenarioId === 'typed-inferred-dashboard' && <TypedInferredDashboardChart />}
-
-        <CodePanel source={SCENARIO_SOURCE[scenarioId]} />
       </div>
     </main>
   )
