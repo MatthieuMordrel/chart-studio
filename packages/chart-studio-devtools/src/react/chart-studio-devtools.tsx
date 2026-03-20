@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import type {CSSProperties} from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -964,7 +965,13 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       )}
 
       {isOpen && (
-        <div className='csdt-shell'>
+        <div
+          className='csdt-shell'
+          style={
+            {
+              '--csdt-node-width': `${DEVTOOLS_NODE_WIDTH}px`,
+            } as CSSProperties
+          }>
           <div className='csdt-shell__scrim' onClick={() => setIsOpen(false)} />
           <section className='csdt-shell__workspace'>
             <header className='csdt-header'>

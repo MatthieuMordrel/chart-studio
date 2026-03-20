@@ -1,0 +1,97 @@
+/* Side panel, issues drawer, preview rows. */
+
+.csdt-sidepanel,
+.csdt-issues-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  border: 1px solid var(--cs-border, rgba(214, 224, 236, 0.92));
+  background: var(--cs-card, rgba(255, 255, 255, 0.94));
+  overflow: auto;
+}
+
+.csdt-sidepanel.is-empty {
+  justify-content: center;
+}
+
+.csdt-sidepanel__header,
+.csdt-sidepanel__section,
+.csdt-issues-drawer__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.csdt-sidepanel__section h4 {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--cs-muted-foreground, #6c7b91);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.csdt-sidepanel__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.csdt-sidepanel__field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.csdt-sidepanel__field,
+.csdt-preview-row,
+.csdt-issue-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
+  background: var(--cs-muted, rgba(241, 245, 249, 0.9));
+  font-size: 0.75rem;
+}
+
+.csdt-sidepanel__field.is-focused {
+  outline: 2px solid color-mix(in oklch, var(--cs-ring, #5879ba) 20%, transparent);
+}
+
+.csdt-sidepanel__field strong {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.csdt-sidepanel__field small {
+  font-size: 0.6875rem;
+  color: var(--cs-muted-foreground, #738197);
+}
+
+.csdt-issue-row {
+  align-items: flex-start;
+}
+
+.csdt-issue-row.is-warning {
+  border-left: 2px solid #d97706;
+}
+
+.csdt-issue-row.is-error {
+  border-left: 2px solid #dc2626;
+}
+
+.csdt-issue-row strong {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.csdt-issue-row small {
+  display: block;
+  margin-top: 2px;
+  color: var(--cs-muted-foreground, #728199);
+  font-size: 0.6875rem;
+}

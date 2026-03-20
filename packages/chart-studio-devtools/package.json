@@ -58,5 +58,8 @@
     "@tanstack/react-virtual": "^3.13.23",
     "@xyflow/react": "^12.10.1",
     "elkjs": "^0.11.1"
+  },
+  "devDependencies": {
+    "@tsdown/css": "0.21.2"
   }
 }

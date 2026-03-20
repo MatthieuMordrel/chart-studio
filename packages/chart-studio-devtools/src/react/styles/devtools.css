@@ -1,0 +1,9 @@
+/* Chart Studio devtools — bundled into JS via ?inline for zero extra consumer imports. */
+
+@import './shell.css';
+@import './chrome.css';
+@import './panels.css';
+@import './graph-nodes.css';
+@import './graph-edges.css';
+@import './data-viewer.css';
+@import './responsive.css';

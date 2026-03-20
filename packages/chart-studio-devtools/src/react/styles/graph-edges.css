@@ -1,0 +1,82 @@
+/* Edges, labels, SVG markers. */
+
+.csdt-edge {
+  stroke: var(--cs-muted-foreground, #7d8da4);
+  stroke-width: 1.5;
+}
+
+.csdt-edge.is-relationship {
+  stroke: var(--cs-primary, #5f7cb0);
+}
+
+.csdt-edge.is-association {
+  stroke: #cf7e2c;
+}
+
+.csdt-edge.is-materialization {
+  stroke: #7c8c63;
+  stroke-dasharray: 6 4;
+}
+
+.csdt-edge.is-inferred {
+  stroke-dasharray: 6 6;
+}
+
+.csdt-edge.is-dimmed {
+  opacity: 0.18;
+}
+
+@keyframes csdt-edge-selected-pulse {
+  0%,
+  100% {
+    stroke-width: 2.35;
+    stroke-opacity: 1;
+  }
+
+  50% {
+    stroke-width: 2.9;
+    stroke-opacity: 0.78;
+  }
+}
+
+.csdt-edge.is-selected.is-focused:not(.is-dimmed) {
+  stroke-width: 2.5;
+  animation: csdt-edge-selected-pulse 1.75s ease-in-out infinite;
+}
+
+.csdt-edge-label {
+  position: absolute;
+  padding: 3px 7px;
+  border: 1px solid var(--cs-border, rgba(211, 221, 236, 0.96));
+  border-radius: 999px;
+  background: var(--cs-popover, rgba(255, 255, 255, 0.94));
+  color: var(--cs-muted-foreground, #42516a);
+  font: inherit;
+  font-size: 0.625rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.csdt-edge-label:hover {
+  border-color: var(--cs-primary, #5c80c7);
+  color: var(--cs-foreground, #1d2a40);
+}
+
+.csdt-edge-label.is-selected {
+  color: var(--cs-foreground, #1d2a40);
+  border-color: color-mix(in oklch, var(--cs-primary, #5c80c7) 50%, transparent);
+  background: color-mix(in oklch, var(--cs-primary, #5c80c7) 6%, var(--cs-popover, #fff));
+}
+
+.csdt-marker-stroke {
+  fill: none;
+  stroke: var(--cs-muted-foreground, #64748b);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.csdt-marker-fill {
+  fill: #7c8c63;
+  opacity: 0.85;
+}

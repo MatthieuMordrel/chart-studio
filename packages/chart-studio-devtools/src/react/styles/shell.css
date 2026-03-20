@@ -1,0 +1,111 @@
+/* Shell, workspace, and React Flow canvas chrome. Node width uses --csdt-node-width (set on .csdt-shell from layout). */
+
+.csdt-shell,
+.csdt-shell * {
+  box-sizing: border-box;
+}
+
+.csdt-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: var(--cs-foreground, #172032);
+}
+
+/* Thin, theme-aware scrollbars (Firefox scrollbar properties, WebKit pseudos). */
+.csdt-json-viewer,
+.csdt-grid,
+.csdt-sidepanel,
+.csdt-issues-drawer,
+.csdt-search__results {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--cs-muted-foreground, #718198) 42%, transparent)
+    color-mix(in oklch, var(--cs-muted, #f1f5f9) 55%, var(--cs-background, #fff));
+}
+
+.csdt-json-viewer::-webkit-scrollbar,
+.csdt-grid::-webkit-scrollbar,
+.csdt-sidepanel::-webkit-scrollbar,
+.csdt-issues-drawer::-webkit-scrollbar,
+.csdt-search__results::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.csdt-json-viewer::-webkit-scrollbar-track,
+.csdt-grid::-webkit-scrollbar-track,
+.csdt-sidepanel::-webkit-scrollbar-track,
+.csdt-issues-drawer::-webkit-scrollbar-track,
+.csdt-search__results::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.csdt-json-viewer::-webkit-scrollbar-thumb,
+.csdt-grid::-webkit-scrollbar-thumb,
+.csdt-sidepanel::-webkit-scrollbar-thumb,
+.csdt-issues-drawer::-webkit-scrollbar-thumb,
+.csdt-search__results::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  background-color: color-mix(in oklch, var(--cs-muted-foreground, #718198) 38%, transparent);
+}
+
+.csdt-json-viewer::-webkit-scrollbar-thumb:hover,
+.csdt-grid::-webkit-scrollbar-thumb:hover,
+.csdt-sidepanel::-webkit-scrollbar-thumb:hover,
+.csdt-issues-drawer::-webkit-scrollbar-thumb:hover,
+.csdt-search__results::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklch, var(--cs-muted-foreground, #718198) 58%, transparent);
+}
+
+.csdt-shell__scrim,
+.csdt-data-viewer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklch, var(--cs-foreground, #101624) 18%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.csdt-shell__workspace {
+  position: absolute;
+  inset: 2vh 1.5vw;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--cs-border, rgba(215, 224, 236, 0.92));
+  border-radius: calc(var(--cs-radius, 0.25rem) + 8px);
+  background: var(--cs-background, rgba(252, 253, 255, 0.98));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.csdt-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+.csdt-canvas {
+  position: relative;
+  min-height: 0;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  overflow: hidden;
+  border: 1px solid var(--cs-border, rgba(210, 221, 235, 0.9));
+  background: var(--cs-muted, rgba(248, 250, 252, 0.98));
+}
+
+.csdt-canvas .react-flow {
+  width: 100%;
+  height: 100%;
+}
+
+.csdt-canvas .react-flow__node {
+  width: var(--csdt-node-width, 356px);
+}
