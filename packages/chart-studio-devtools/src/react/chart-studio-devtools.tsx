@@ -54,6 +54,7 @@ type ViewerState = {
 
 type CanvasContextValue = {
   activeContext: ChartStudioDevtoolsContextSnapshot | null
+  edgeHighlightFieldIdsByNodeId: ReadonlyMap<string, ReadonlySet<string>>
   expandedNodeIds: ReadonlySet<string>
   focusedEdgeIds: ReadonlySet<string>
   focusedFieldId: string | null
@@ -141,6 +142,7 @@ function SemanticNode({
   const isSelected = ctx.selectedNodeId === node.id
   const isFocused = ctx.focusedNodeIds.has(node.id)
   const isDimmed = ctx.focusedNodeIds.size > 0 && !isFocused
+  const edgeHighlightFieldIds = ctx.edgeHighlightFieldIdsByNodeId.get(node.id)
 
   return (
     <div
@@ -182,6 +184,7 @@ function SemanticNode({
             className={[
               'csdt-field',
               ctx.focusedFieldId === field.id && isSelected ? 'is-field-focused' : undefined,
+              edgeHighlightFieldIds?.has(field.id) ? 'is-edge-highlight' : undefined,
             ].filter(Boolean).join(' ')}
             onClick={() => ctx.onSelectNode(node.id, field.id)}>
             <Handle
@@ -352,6 +355,67 @@ function buildFlowEdges(
         ? 'url(#csdt-marker-lineage)'
         : 'url(#csdt-marker-many)',
   }))
+}
+
+/**
+ * Maps each endpoint node id to field ids that participate in the selected edge
+ * (for row highlighting on the canvas).
+ */
+function computeEdgeFieldHighlights(
+  selectedEdgeId: string | null,
+  source: NormalizedSourceVm,
+): ReadonlyMap<string, ReadonlySet<string>> {
+  if (!selectedEdgeId) {
+    return new Map()
+  }
+
+  const edge = source.edgeMap.get(selectedEdgeId)
+
+  if (!edge) {
+    return new Map()
+  }
+
+  const byNode = new Map<string, Set<string>>()
+
+  /**
+   * @param nodeId - Dataset / view node id
+   * @param fieldId - Column id on that node
+   */
+  function addField(nodeId: string, fieldId: string) {
+    let set = byNode.get(nodeId)
+
+    if (!set) {
+      set = new Set()
+      byNode.set(nodeId, set)
+    }
+
+    set.add(fieldId)
+  }
+
+  if (edge.kind === 'relationship' || edge.kind === 'association') {
+    addField(edge.sourceNodeId, edge.fromFieldId)
+    addField(edge.targetNodeId, edge.toFieldId)
+  } else if (edge.kind === 'materialization') {
+    const sourceFieldId = edge.sourceHandleId.endsWith('::out')
+      ? edge.sourceHandleId.slice(0, -'::out'.length)
+      : edge.sourceHandleId
+
+    addField(edge.sourceNodeId, sourceFieldId)
+
+    if (edge.projectedFieldIds.length > 0) {
+      for (const fieldId of edge.projectedFieldIds) {
+        addField(edge.targetNodeId, fieldId)
+      }
+    } else {
+      const targetFieldId = edge.targetHandleId.endsWith('::in')
+        ? edge.targetHandleId.slice(0, -'::in'.length)
+        : edge.targetHandleId
+
+      addField(edge.targetNodeId, targetFieldId)
+    }
+  }
+
+  return new Map([...byNode.entries()].map(([id, set]) => [id, set]))
 }
 
 function findFocusSets(
@@ -680,6 +744,51 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     [normalizedSource, selectedEdgeId, selectedNodeId],
   )
 
+  const edgeFieldHighlights = useMemo(
+    () => normalizedSource
+      ? computeEdgeFieldHighlights(selectedEdgeId, normalizedSource)
+      : new Map<string, ReadonlySet<string>>(),
+    [normalizedSource, selectedEdgeId],
+  )
+
+  useEffect(() => {
+    if (!normalizedSource || !selectedEdgeId) {
+      return
+    }
+
+    const highlights = computeEdgeFieldHighlights(selectedEdgeId, normalizedSource)
+
+    setExpandedNodeIds((current) => {
+      let next: Set<string> | null = null
+
+      for (const [nodeId, fieldIds] of highlights) {
+        const node = normalizedSource.nodeMap.get(nodeId)
+
+        if (!node) {
+          continue
+        }
+
+        for (const fieldId of fieldIds) {
+          const fieldIndex = node.fields.findIndex((field) => field.id === fieldId)
+
+          if (fieldIndex === -1) {
+            continue
+          }
+
+          if (fieldIndex >= DEVTOOLS_VISIBLE_FIELD_COUNT && !current.has(nodeId)) {
+            if (!next) {
+              next = new Set(current)
+            }
+
+            next.add(nodeId)
+          }
+        }
+      }
+
+      return next ?? current
+    })
+  }, [normalizedSource, selectedEdgeId])
+
   const searchResults = useMemo(() => {
     if (!normalizedSource || deferredSearchQuery.trim().length === 0) {
       return []
@@ -702,6 +811,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     return {
       activeContext,
+      edgeHighlightFieldIdsByNodeId: edgeFieldHighlights,
       expandedNodeIds,
       focusedEdgeIds,
       focusedFieldId: selectedFieldId,
@@ -756,6 +866,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
   }, [
     activeContext,
+    edgeFieldHighlights,
     expandedNodeIds,
     focusedEdgeIds,
     focusedNodeIds,
@@ -940,6 +1051,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                           edges={edges}
                           nodeTypes={{'semantic-node': SemanticNode}}
                           edgeTypes={{'semantic-edge': SemanticEdge}}
+                          nodesConnectable={false}
                           onInit={setFlowInstance}
                           onNodesChange={onNodesChange}
                           onEdgesChange={onEdgesChange}

@@ -15,7 +15,7 @@ export const DEVTOOLS_STYLES = `
   color: var(--cs-foreground, #172032);
 }
 
-/* Thin, theme-aware scrollbars (Firefox `scrollbar-*`, WebKit pseudos). */
+/* Thin, theme-aware scrollbars (Firefox scrollbar properties, WebKit pseudos). */
 .csdt-json-viewer,
 .csdt-grid,
 .csdt-sidepanel,
@@ -609,6 +609,28 @@ export const DEVTOOLS_STYLES = `
   box-shadow: 0 0 0 2px color-mix(in oklch, var(--cs-ring, #5d81cb) 10%, transparent);
 }
 
+@keyframes csdt-field-edge-highlight {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px color-mix(in oklch, var(--cs-primary, #5d81cb) 32%, transparent),
+      0 0 14px color-mix(in oklch, var(--cs-primary, #5d81cb) 12%, transparent);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px color-mix(in oklch, var(--cs-primary, #5d81cb) 48%, transparent),
+      0 0 22px color-mix(in oklch, var(--cs-primary, #5d81cb) 20%, transparent);
+  }
+}
+
+.csdt-field.is-edge-highlight {
+  z-index: 1;
+  border-color: color-mix(in oklch, var(--cs-primary, #5d81cb) 42%, transparent);
+  background: color-mix(in oklch, var(--cs-primary, #5d81cb) 8%, var(--cs-background, #fff));
+  animation: csdt-field-edge-highlight 2.1s ease-in-out infinite;
+}
+
 .csdt-type-icon {
   display: inline-flex;
   align-items: center;
@@ -678,12 +700,15 @@ export const DEVTOOLS_STYLES = `
   font-size: 0.6875rem;
 }
 
-.csdt-handle {
+/* Invisible but present so React Flow can anchor edges to source/target handle ids. */
+.csdt-canvas .react-flow__handle.csdt-handle {
   width: 8px !important;
   height: 8px !important;
   border-radius: 999px;
-  background: var(--cs-primary, #5879ba) !important;
-  opacity: 0.7;
+  background: transparent !important;
+  border: none !important;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .csdt-edge {
@@ -710,6 +735,24 @@ export const DEVTOOLS_STYLES = `
 
 .csdt-edge.is-dimmed {
   opacity: 0.18;
+}
+
+@keyframes csdt-edge-selected-pulse {
+  0%,
+  100% {
+    stroke-width: 2.35;
+    stroke-opacity: 1;
+  }
+
+  50% {
+    stroke-width: 2.9;
+    stroke-opacity: 0.78;
+  }
+}
+
+.csdt-edge.is-selected.is-focused:not(.is-dimmed) {
+  stroke-width: 2.5;
+  animation: csdt-edge-selected-pulse 1.75s ease-in-out infinite;
 }
 
 .csdt-edge-label {
@@ -893,6 +936,19 @@ export const DEVTOOLS_STYLES = `
 .csdt-data-viewer__pagination span {
   font-size: 0.75rem;
   color: var(--cs-muted-foreground, #718198);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .csdt-field.is-edge-highlight {
+    animation: none;
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--cs-primary, #5d81cb) 36%, transparent);
+  }
+
+  .csdt-edge.is-selected.is-focused:not(.is-dimmed) {
+    animation: none;
+    stroke-width: 2.5;
+    stroke-opacity: 1;
+  }
 }
 
 @media (max-width: 1080px) {
