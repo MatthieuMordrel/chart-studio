@@ -12,7 +12,6 @@ import {
   removeChartStudioDevtoolsSnapshot,
   upsertChartStudioDevtoolsSnapshot,
   type ChartStudioDevtoolsContextSnapshot,
-  type ChartStudioDevtoolsFilterSummary,
 } from './devtools-bridge.js'
 import {filterByDateRange} from './date-utils.js'
 import {resolvePresetFilter} from './date-range-presets.js'
@@ -957,79 +956,11 @@ export function useDashboard<
         view.materialize(effectiveDatasets as any) as readonly Record<string, unknown>[],
       ]),
     )
-    const filterSummary: ChartStudioDevtoolsFilterSummary[] = runtime.sharedFilterIds.flatMap((filterId) => {
-      const sharedFilter = runtime.sharedFilter(filterId)
-      const definitionFilter = definition.sharedFilters[filterId]
-
-      if (sharedFilter.kind === 'date-range') {
-        const selection = sharedFilter.selection
-
-        if (selection.preset === 'all-time' || (selection.preset == null && selection.customFilter == null)) {
-          return []
-        }
-
-        const targets = (definitionFilter?.targets ?? []) as ReadonlyArray<{dataset: string; column: string}>
-
-        if (selection.preset) {
-          return [{
-            filterId,
-            columnId: filterId,
-            label: sharedFilter.label,
-            values: [selection.preset],
-            dateRangeTargets: targets.map((target) => ({
-              datasetId: target.dataset,
-              columnId: target.column,
-            })),
-          }]
-        }
-
-        if (!selection.customFilter) {
-          return []
-        }
-
-        return [{
-          filterId,
-          columnId: filterId,
-          label: sharedFilter.label,
-          values: [`${selection.customFilter.from?.toISOString() ?? 'open'} -> ${selection.customFilter.to?.toISOString() ?? 'open'}`],
-          dateRangeTargets: targets.map((target) => ({
-            datasetId: target.dataset,
-            columnId: target.column,
-          })),
-        }]
-      }
-
-      if (sharedFilter.values.size === 0) {
-        return []
-      }
-
-      const optionLabels = new Map(
-        sharedFilter.options.map((option) => [option.value, option.label] as const),
-      )
-
-      const selectSource = definitionFilter?.source
-      const sourceDatasetId = selectSource && 'dataset' in selectSource
-        ? selectSource.dataset
-        : undefined
-      const columnId = definitionFilter?.source.kind === 'attribute'
-        ? definitionFilter.source.key
-        : definitionFilter?.source.column ?? filterId
-
-      return [{
-        filterId,
-        columnId,
-        label: sharedFilter.label,
-        values: [...sharedFilter.values].map((value) => optionLabels.get(value) ?? value),
-        ...(sourceDatasetId !== undefined ? {sourceDatasetId} : {}),
-      }]
-    })
-
     const contexts: ChartStudioDevtoolsContextSnapshot[] = [
       {
         id: 'dashboard',
         label: 'Dashboard',
         kind: 'dashboard',
-        filterSummary,
         effectiveDatasets,
         effectiveMaterializedViews,
       },
@@ -1037,7 +968,6 @@ export function useDashboard<
         id: chartId,
         label: humanizeId(chartId),
         kind: 'chart' as const,
-        filterSummary,
         effectiveDatasets,
         effectiveMaterializedViews,
       })),
@@ -1056,7 +986,6 @@ export function useDashboard<
   }, [
     dataByDataset,
     definition.model,
-    definition.sharedFilters,
     runtime,
   ])
 

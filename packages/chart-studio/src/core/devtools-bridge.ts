@@ -10,28 +10,10 @@ export type ChartStudioDevtoolsIssue = {
   message: string
 }
 
-export type ChartStudioDevtoolsFilterSummary = {
-  /** Dashboard shared filter id (e.g. `capability`). Used by devtools to resolve attribute metadata. */
-  filterId: string
-  columnId: string
-  label: string
-  values: readonly string[]
-  /**
-   * Select filters: dataset that owns {@link columnId} (attribute `key` or column source).
-   * Used by devtools to highlight matching columns and join projections.
-   */
-  sourceDatasetId?: string
-  /**
-   * Date-range filters: concrete date columns the range applies to (for column highlighting).
-   */
-  dateRangeTargets?: readonly {datasetId: string; columnId: string}[]
-}
-
 export type ChartStudioDevtoolsContextSnapshot = {
   id: string
   label: string
   kind: 'chart' | 'dashboard'
-  filterSummary: readonly ChartStudioDevtoolsFilterSummary[]
   effectiveDatasets?: Record<string, readonly Record<string, unknown>[]>
   effectiveMaterializedViews?: Record<string, readonly Record<string, unknown>[]>
 }

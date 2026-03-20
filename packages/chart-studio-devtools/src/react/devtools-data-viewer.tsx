@@ -17,9 +17,7 @@ import type {
   ChartStudioDevtoolsContextSnapshot,
 } from '@matthieumordrel/chart-studio/_internal'
 import {ColumnTypeIcon} from './column-type-icon.js'
-import {getFilterHighlightedFieldIds} from './filter-column-highlight.js'
 import type {
-  AnyDevtoolsModel,
   DevtoolsRow,
   NormalizedNodeVm,
 } from './types.js'
@@ -31,8 +29,6 @@ const GRID_ROW_HEIGHT_PX = 36
 
 type DevtoolsDataViewerProps = {
   context: ChartStudioDevtoolsContextSnapshot | null
-  /** Semantic model (for resolving attribute filters to dataset/column ids). */
-  model: AnyDevtoolsModel | null
   mode: 'inspect' | 'explore'
   node: NormalizedNodeVm
   onClose(): void
@@ -112,7 +108,6 @@ function DevtoolsExploreChart({
  */
 export function DevtoolsDataViewer({
   context,
-  model,
   mode,
   node,
   onClose,
@@ -134,11 +129,6 @@ export function DevtoolsDataViewer({
   const pageRows = useMemo(
     () => rows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
     [pageIndex, rows],
-  )
-
-  const filterHighlightedFieldIds = useMemo(
-    () => getFilterHighlightedFieldIds(node, context?.filterSummary, model ?? undefined),
-    [node, context, model],
   )
 
   const columnHelper = createColumnHelper<DevtoolsRow>()
@@ -238,19 +228,6 @@ export function DevtoolsDataViewer({
           </div>
         </header>
 
-        {scope === 'effective' && (
-          <div className='csdt-data-viewer__context'>
-            <span className='csdt-context-pill'>{context?.label ?? 'No active context'}</span>
-            {context?.filterSummary.length
-              ? context.filterSummary.map((filter) => (
-                <span key={filter.columnId} className='csdt-filter-pill'>
-                  {filter.label}: {filter.values.join(', ')}
-                </span>
-              ))
-              : <span className='csdt-muted'>No active filters</span>}
-          </div>
-        )}
-
         {mode === 'explore'
           ? <DevtoolsExploreChart node={node} rows={rows} />
           : (
@@ -285,23 +262,14 @@ export function DevtoolsDataViewer({
                   <div ref={scrollRef} className='csdt-grid'>
                     <div className='csdt-grid__inner'>
                       <div className='csdt-grid__row csdt-grid__row--header'>
-                        {table.getFlatHeaders().map((header, columnIndex) => {
-                          const field = node.fields[columnIndex]
-                          const highlight = field ? filterHighlightedFieldIds.has(field.id) : false
-
-                          return (
-                            <div
-                              key={header.id}
-                              className={[
-                                'csdt-grid__cell',
-                                'csdt-grid__cell--header',
-                                highlight ? 'csdt-grid__cell--filter-highlight' : undefined,
-                              ].filter(Boolean).join(' ')}
-                              style={{width: node.fields.length <= 6 ? `${100 / node.fields.length}%` : 160, flex: node.fields.length <= 6 ? undefined : '0 0 auto'}}>
-                              {flexRender(header.column.columnDef.header, header.getContext())}
-                            </div>
-                          )
-                        })}
+                        {table.getFlatHeaders().map((header) => (
+                          <div
+                            key={header.id}
+                            className='csdt-grid__cell csdt-grid__cell--header'
+                            style={{width: node.fields.length <= 6 ? `${100 / node.fields.length}%` : 160, flex: node.fields.length <= 6 ? undefined : '0 0 auto'}}>
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </div>
+                        ))}
                       </div>
 
                       <div
@@ -321,22 +289,14 @@ export function DevtoolsDataViewer({
                               style={{
                                 transform: `translateY(${virtualRow.start - GRID_ROW_HEIGHT_PX}px)`,
                               }}>
-                              {row.getVisibleCells().map((cell, columnIndex) => {
-                                const field = node.fields[columnIndex]
-                                const highlight = field ? filterHighlightedFieldIds.has(field.id) : false
-
-                                return (
-                                  <div
-                                    key={cell.id}
-                                    className={[
-                                      'csdt-grid__cell',
-                                      highlight ? 'csdt-grid__cell--filter-highlight' : undefined,
-                                    ].filter(Boolean).join(' ')}
-                                    style={{width: node.fields.length <= 6 ? `${100 / node.fields.length}%` : 160, flex: node.fields.length <= 6 ? undefined : '0 0 auto'}}>
-                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                  </div>
-                                )
-                              })}
+                              {row.getVisibleCells().map((cell) => (
+                                <div
+                                  key={cell.id}
+                                  className='csdt-grid__cell'
+                                  style={{width: node.fields.length <= 6 ? `${100 / node.fields.length}%` : 160, flex: node.fields.length <= 6 ? undefined : '0 0 auto'}}>
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </div>
+                              ))}
                             </div>
                           )
                         })}

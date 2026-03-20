@@ -18,7 +18,7 @@ The devtools should open from a floating launcher into a near-fullscreen overlay
 
 - understanding the model
 - inspecting dataset or materialized-view rows
-- checking effective filter context
+- comparing raw versus effective dataset slices
 - debugging inferred links, many-to-many associations, and generated views
 
 ## Product Goal
@@ -333,8 +333,6 @@ Capabilities:
 - virtualization
 - column metadata reuse from the dataset definition
 
-When `Effective` is selected, the viewer must always show the active filter context clearly.
-
 #### Explore
 
 Purpose: analytical exploration using existing Chart Studio chart mechanics.
@@ -369,7 +367,6 @@ The selected context may represent:
 The active context should drive:
 
 - effective row inspection
-- displayed filter summary
 - highlighted materialized views
 - chart-exploration defaults where helpful
 
@@ -462,11 +459,6 @@ type DevtoolsContextSnapshot = {
   id: string
   label: string
   kind: 'chart' | 'dashboard'
-  filterSummary: readonly {
-    columnId: string
-    label: string
-    values: readonly string[]
-  }[]
   effectiveDatasets?: Record<string, readonly Record<string, unknown>[]>
   effectiveMaterializedViews?: Record<string, readonly Record<string, unknown>[]>
 }
@@ -666,7 +658,6 @@ That is acceptable for the intended usage.
   - `Effective`
   - `Table`
   - `JSON`
-- `Effective` always shows the active filter context.
 - Global search can focus datasets, materialized views, relationships, associations, and columns.
 - Issues appear inline and in a jumpable issues drawer.
 - Live updates are enabled by default and can be paused.
@@ -683,7 +674,7 @@ That is acceptable for the intended usage.
 5. Integrate `elkjs` default layout and reset behavior.
 6. Implement the large viewer `Inspect` mode with TanStack Table and JSON mode.
 7. Implement `Explore` mode using the existing chart stack.
-8. Add active-context selection, effective-row handling, and filter-context display.
+8. Add active-context selection and effective-row handling.
 9. Add search, issue drawer, pause, and final visual polish.
 
 ## Final Recommendation

@@ -22,7 +22,6 @@ export {
   subscribeChartStudioDevtoolsSnapshots,
   upsertChartStudioDevtoolsSnapshot,
   type ChartStudioDevtoolsContextSnapshot,
-  type ChartStudioDevtoolsFilterSummary,
   type ChartStudioDevtoolsIssue,
   type ChartStudioDevtoolsSnapshot,
 } from './core/devtools-bridge.js'

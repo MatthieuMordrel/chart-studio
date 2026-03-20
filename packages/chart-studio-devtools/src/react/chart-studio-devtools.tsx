@@ -1407,7 +1407,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
           {viewer && viewerNode && (
             <DevtoolsDataViewer
               context={activeContext}
-              model={normalizedSource?.snapshot.model ?? null}
               mode={viewer.mode}
               node={viewerNode}
               onClose={() => setViewer(null)}

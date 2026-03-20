@@ -84,8 +84,6 @@
 
 .csdt-node__type,
 .csdt-node__issue-count,
-.csdt-context-pill,
-.csdt-filter-pill,
 .csdt-attribute-chip {
   display: inline-flex;
   align-items: center;
@@ -96,8 +94,7 @@
   letter-spacing: 0.01em;
 }
 
-.csdt-node__type,
-.csdt-context-pill {
+.csdt-node__type {
   background: color-mix(in oklch, var(--cs-primary, #36507d) 8%, var(--cs-muted, #e5ecf8));
   color: var(--cs-primary, #36507d);
 }
@@ -107,7 +104,6 @@
   color: #b45309;
 }
 
-.csdt-filter-pill,
 .csdt-attribute-chip {
   background: var(--cs-muted, rgba(238, 242, 247, 0.96));
   color: var(--cs-muted-foreground, #58677b);
