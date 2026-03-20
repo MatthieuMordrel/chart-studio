@@ -10,10 +10,10 @@ For deeper scenarios, see [`semantic-model-concepts/README.md`](./semantic-model
 
 **Grain** = *what does one row mean?*
 
-- One row = one **order** → order-level metrics make sense (revenue per order).
-- One row = one **order line** → line-level metrics make sense (units per SKU).
+- One row = one **order** → you can sum revenue **per order**.
+- One row = one **line on an order** (same order appears on several rows) → you can sum **per line** (for example how many units of each product).
 
-If you mix them up, charts look “fine” but numbers are **wrong** (double-counting, inflated sums).  
+If you mix them up, charts look fine but numbers are **wrong** (double-counting, totals that are too high).  
 Chart Studio makes **grain explicit** so that mistake is hard to make by accident.
 
 ---
@@ -22,31 +22,31 @@ Chart Studio makes **grain explicit** so that mistake is hard to make by acciden
 
 | Piece | What it is | When to use it | Why it exists |
 |--------|------------|----------------|---------------|
-| **Dataset** | A flat table: keys + columns + optional derived fields. | Every chartable table you own (facts, dimensions). | Charts attach to **one** row shape at a time. |
-| **Relationship** | **1:N** link: one parent key → many child rows via a foreign key. | “Manager has many plans,” “plan belongs to one manager.” | Declares a real FK path for joins and filters—no guessing. |
-| **Association** | **N:N** link between two datasets (often a **bridge** table). | “Plans need many capabilities; each capability applies to many plans.” | Many-to-many is not a normal FK column; it needs its own semantics. |
-| **Materialized view** | A **named, flat result** built from `model.materialize(...)`: base dataset + optional joins + optional expansion. | You need a **different grain** (e.g. one row per plan×capability) or a **wide table** for charts without repeating joins everywhere. | **Grain and joins become visible and reusable**—not hidden inside the chart runtime. |
-| **Attribute** | A **shared filter** concept (e.g. “capability” filter) wired to real columns. | Dashboards should filter across charts in a consistent way. | Keeps filters aligned with the model instead of ad-hoc props. |
-| **Dashboard** | Which charts exist + which shared filters apply. | Composing a screen. | Separates “model truth” from “this screen.” |
+| **Dataset** | A flat table: keys, columns, and optional calculated fields. | Any table you want to chart from. | A chart reads **one** row shape at a time. |
+| **Relationship** | **One-to-many** link: one parent row → many child rows (via a column on the child that points to the parent). | “One manager, many plans,” “each plan belongs to one manager.” | Declares a real link so joins and filters are clear—not guessed. |
+| **Association** | **Many-to-many** link between two tables (often a small **bridge** table in the middle). | “Each plan needs many skills; each skill appears on many plans.” | Many-to-many cannot be modeled as a single pointer column; it needs its own structure. |
+| **Materialized view** | A **named, flat result** built from `model.materialize(...)`: start from one table, optionally pull in other tables, optionally **repeat rows** when a plan matches many skills. | You need a **different row meaning** (for example one row per plan-and-skill pair) or one wide table used by several charts. | **What each row means** and **how tables were combined** is written down once—not hidden inside each chart. |
+| **Attribute** | A **shared filter** (for example “filter by capability”) wired to real columns. | A dashboard should filter every chart the same way. | Filters stay aligned with the model instead of one-off settings. |
+| **Dashboard** | Which charts exist + which shared filters apply. | Building a screen. | Separates “how the world is modeled” from “this one page.” |
 
 ---
 
 ## How they work together (mental picture)
 
-1. **Datasets** hold your normalized data (good for integrity and reuse).
-2. **Relationships** and **associations** describe **how** datasets connect (1:N and N:N).
-3. **Materialized views** are **optional outputs**: “give me a table at **this** grain, with **these** columns already joined.”
-4. **Charts** are authored against **either** a dataset **or** a materialized view—**one** grain per chart.
+1. **Datasets** hold your tables—usually split into sensible pieces rather than one giant copy-paste of everything.
+2. **Relationships** and **associations** describe **how** those tables connect (one-to-many and many-to-many).
+3. **Materialized views** are **optional** ready-made tables: “give me rows at **this** meaning, with **these** columns already filled in.”
+4. **Charts** point at **either** a dataset **or** a materialized view—always **one** row meaning per chart.
 
 ```text
-[ Datasets ]  --relationships-->  1:N paths
+[ Tables (datasets) ]  --relationships-->  one-to-many paths
        \
-        --associations-->  N:N (bridge / edges)
+        --associations-->  many-to-many (bridge / links between rows)
 
-[ materialize(...) ]  -->  flat table at a chosen grain  -->  charts
+[ materialize(...) ]  -->  one flat table with a chosen row meaning  -->  charts
 ```
 
-Nothing here replaces a good SQL database. It **structures** how analytics and dashboards see the data so **row meaning** is always clear.
+This does not replace a database. It **organizes** how dashboards see the data so **what one row means** is always clear.
 
 ---
 
@@ -54,53 +54,53 @@ Nothing here replaces a good SQL database. It **structures** how analytics and d
 
 ### Without a materialized view (only datasets + relationships)
 
-You *can* still model the world correctly. Relationships and associations describe the links.
+You can still describe the world correctly. Relationships and associations explain the links.
 
-But each chart is tied to **one** dataset. To answer “capability demand by region” you need columns from **plans**, **managers**, and **capabilities** on the **same** row. That either means:
+But each chart is tied to **one** dataset. To answer “how much demand per skill by region?” you may need columns from **plans**, **managers**, and **skills** on the **same** row. That either means:
 
-- denormalizing columns onto one dataset by hand, or
-- a **hidden** join engine that guesses grain and cardinality.
+- copying columns into one table by hand, or
+- a **hidden** join layer that decides row meaning for you.
 
-Hidden joins are where **wrong totals** and **duplicate rows** come from.
+Hidden joins are where **wrong totals** and **duplicate rows** show up.
 
 ### With a materialized view
 
-You **declare** a result table:
+You **define** a result table:
 
-- **Grain**: e.g. `"project-plan-capability"` → one row per (plan, capability).
-- **Steps**: start from `projectPlans`, join manager, expand through the association to capabilities.
+- **Row meaning**: for example “one row = one plan **and** one skill on that plan.”
+- **Steps**: start from plans, add manager info, then **expand** so each plan appears once per linked skill.
 
-Charts on that view use **simple, honest queries**: “count rows, group by capability name.” Everyone knows **one row = one plan–capability pair**.
+Charts on that view can use simple questions: “count rows, group by skill name.” Everyone agrees: **one row = one plan–skill pair**.
 
-So materialized views are not “because SQL can’t join.” They are because **analytics need a clear, named row type**—and the library wants that written down **once**, not reinvented per chart.
+So materialized views are not “because the database cannot join.” They exist because **analytics need a clear, named row type**—and the library wants that definition written **once**, not reinvented for every chart.
 
 ### When you **don’t** need a materialized view
 
-- **Single-dataset** questions only (e.g. “plans per month” on `projectPlans`) → use the dataset directly.
-- **1:N** enrichment is **not** changing grain (e.g. attach manager name to each plan, still one row per plan) → a small **lookup-style** MV is optional; some teams keep a thin view, others keep charts on the base dataset and accept fewer cross-dataset columns until needed.
-- **Exploring** a relationship path in devtools or a one-off chart is not the same as **productizing** a metric—MVs matter most when a **grain** is reused across charts or filters.
+- **Questions that use a single table** (for example “how many plans opened per month?”) → use that dataset directly.
+- **Adding related columns without changing row meaning** (for example attach manager name to each plan, still one row per plan) → a small materialized view is **optional**; some teams add it when several charts need the same wide row, others wait until that pain appears.
+- **Trying things in devtools** is not the same as **shipping** a metric—materialized views matter most when the **same row meaning** is reused across charts or filters.
 
-**Rule of thumb:** add a materialized view when you would otherwise **repeat the same join + grain** in multiple places, or when **cardinality** is easy to get wrong (especially N:N).
+**Rule of thumb:** add a materialized view when you would otherwise **repeat the same combination of tables and row meaning** in several places, or when **many-to-many links** make it easy to count the wrong thing.
 
 ---
 
 ## One example (playground-style)
 
-- **Datasets:** `projectPlans`, `managers`, `capabilities`
-- **Relationship:** `projectManager` (manager → managerId on plans)
-- **Association:** `projectCapabilities` (bridge: plan id ↔ capability id)
-- **View A — `projectPlansWithManager`:** still **one row per plan**, manager fields added → good for **project-level** KPIs.
-- **View B — `projectCapabilityView`:** **one row per (plan, capability)** → good for **capability** and **cross** metrics (counts by capability, etc.).
+- **Tables:** project plans, managers, skills (as “capabilities” in code)
+- **Relationship:** each plan points to one manager.
+- **Many-to-many:** a bridge lists which skills each plan needs.
+- **View A — plans with manager:** still **one row per plan**, manager fields added → good for **plan-level** summaries (totals per plan).
+- **View B — plan × skill:** **one row per plan and skill** → good for **skill** questions (how often each skill appears, by region, etc.).
 
-Using only view B for **project-level** totals would be wrong (plans with many capabilities repeat). Using only view A for **capability-by-region** would be wrong (you don’t have one row per capability link).  
-**Two grains → two purposes**—that’s intentional.
+Using only view B for **plan-level** totals would be wrong (one plan appears on several rows if it has several skills). Using only view A for **skill-by-region** would be wrong (you do not have one row per plan–skill link).  
+**Two row meanings → two purposes**—that is intentional.
 
 ---
 
 ## Why this is a good design
 
-- **Explicit grain** beats “smart” joins that hide cardinality.
-- **Normalized storage** + **declared analytic views** scales better than one giant denormalized table.
-- **Materialized views** are the **contract** between your model and your charts: “this is what we mean by one row here.”
+- **Saying what one row means** beats “smart” joins that hide how rows multiply.
+- **Clean base tables** plus **named result tables for analytics** usually scales better than one enormous table with everything duplicated.
+- **Materialized views** are the **agreement** between your model and your charts: “this is what we mean by one row here.”
 
-If you remember only one thing: **name the grain, then attach charts.** Materialized views are how you **name** grains that span multiple datasets.
+If you remember only one thing: **name the row meaning, then attach charts.** Materialized views are how you **name** row meanings that span several tables.

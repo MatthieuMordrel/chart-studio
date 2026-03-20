@@ -881,7 +881,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const [isOpen, setIsOpen] = useState(props.defaultOpen ?? false)
   const [pausedSources, setPausedSources] = useState<typeof sources | null>(null)
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
-  const [selectedContextId, setSelectedContextId] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
@@ -901,11 +900,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     () => activeSource ? normalizeSource(activeSource) : null,
     [activeSource],
   )
+  /** Dashboard shared-filter scope only (see `useDashboard` devtools snapshot). */
   const activeContext = useMemo(
-    () => normalizedSource?.contexts.find((context) => context.id === selectedContextId)
-      ?? normalizedSource?.contexts[0]
-      ?? null,
-    [normalizedSource, selectedContextId],
+    () => normalizedSource?.contexts[0] ?? null,
+    [normalizedSource],
   )
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([])
@@ -964,12 +962,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       setSelectedSourceId(activeSource.id)
     }
   }, [activeSource, selectedSourceId])
-
-  useEffect(() => {
-    if (normalizedSource && !activeContext) {
-      setSelectedContextId(normalizedSource.contexts[0]?.id ?? null)
-    }
-  }, [activeContext, normalizedSource])
 
   useEffect(() => {
     if (!normalizedSource) {
@@ -1274,17 +1266,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                     </select>
                   )}
 
-                  <select
-                    value={activeContext?.id ?? ''}
-                    onChange={(event) => setSelectedContextId(event.target.value)}
-                    disabled={!normalizedSource || normalizedSource.contexts.length === 0}>
-                    {normalizedSource?.contexts.map((context) => (
-                      <option key={context.id} value={context.id}>
-                        {context.label}
-                      </option>
-                    ))}
-                  </select>
-
                   <div className='csdt-search'>
                     <input
                       value={searchQuery}
@@ -1426,6 +1407,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
           {viewer && viewerNode && (
             <DevtoolsDataViewer
               context={activeContext}
+              model={normalizedSource?.snapshot.model ?? null}
               mode={viewer.mode}
               node={viewerNode}
               onClose={() => setViewer(null)}

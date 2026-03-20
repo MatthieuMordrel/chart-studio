@@ -505,8 +505,12 @@ export function useDashboard<
         return true
       }
 
+      // Attribute filters narrow *targets* (see `targets` / `through` below), not the lookup
+      // dataset that supplies option keys/labels. Filtering source rows would drop dimension
+      // rows still referenced by association edges (e.g. capability ids on bridge rows), which
+      // breaks materialized views and devtools snapshots that materialize through-associations.
       if (filterDefinition.source.kind === 'attribute' && filterDefinition.source.dataset === datasetId) {
-        return selectedValues.has(serializeKeyValue((row as Record<string, unknown>)[filterDefinition.source.key]))
+        return true
       }
 
       const directTargets = filterDefinition.targets.filter(
@@ -964,11 +968,18 @@ export function useDashboard<
           return []
         }
 
+        const targets = (definitionFilter?.targets ?? []) as ReadonlyArray<{dataset: string; column: string}>
+
         if (selection.preset) {
           return [{
+            filterId,
             columnId: filterId,
             label: sharedFilter.label,
             values: [selection.preset],
+            dateRangeTargets: targets.map((target) => ({
+              datasetId: target.dataset,
+              columnId: target.column,
+            })),
           }]
         }
 
@@ -977,9 +988,14 @@ export function useDashboard<
         }
 
         return [{
+          filterId,
           columnId: filterId,
           label: sharedFilter.label,
           values: [`${selection.customFilter.from?.toISOString() ?? 'open'} -> ${selection.customFilter.to?.toISOString() ?? 'open'}`],
+          dateRangeTargets: targets.map((target) => ({
+            datasetId: target.dataset,
+            columnId: target.column,
+          })),
         }]
       }
 
@@ -991,12 +1007,20 @@ export function useDashboard<
         sharedFilter.options.map((option) => [option.value, option.label] as const),
       )
 
+      const selectSource = definitionFilter?.source
+      const sourceDatasetId = selectSource && 'dataset' in selectSource
+        ? selectSource.dataset
+        : undefined
+      const columnId = definitionFilter?.source.kind === 'attribute'
+        ? definitionFilter.source.key
+        : definitionFilter?.source.column ?? filterId
+
       return [{
-        columnId: definitionFilter?.source.kind === 'attribute'
-          ? definitionFilter.source.key
-          : definitionFilter?.source.column ?? filterId,
+        filterId,
+        columnId,
         label: sharedFilter.label,
         values: [...sharedFilter.values].map((value) => optionLabels.get(value) ?? value),
+        ...(sourceDatasetId !== undefined ? {sourceDatasetId} : {}),
       }]
     })
 

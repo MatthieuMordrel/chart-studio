@@ -113,6 +113,65 @@ const secondaryDashboard = defineDashboard(hiringModel)
   .chart('jobsByMonth', jobsByMonth)
   .build()
 
+type SkillRow = {
+  id: string
+  name: string
+}
+
+const skillsOnly = defineDataset<SkillRow>()
+  .key('id')
+  .columns((c) => [
+    c.field('id'),
+    c.category('name'),
+  ])
+
+const jobSkillRows: JobRow[] = [
+  {id: 'job-1', ownerId: 'owner-1', status: 'open', createdAt: '2026-01-10', salary: 100},
+]
+
+const skillLookupRows: SkillRow[] = [
+  {id: 'skill-1', name: 'Alpha'},
+  {id: 'skill-2', name: 'Beta'},
+]
+
+const jobSkillBridge = [
+  {jobId: 'job-1', skillId: 'skill-1'},
+  {jobId: 'job-1', skillId: 'skill-2'},
+] as const
+
+const jobSkillsModel = defineDataModel()
+  .dataset('jobs', jobs)
+  .dataset('skills', skillsOnly)
+  .association('jobSkills', {
+    from: {dataset: 'jobs', key: 'id'},
+    to: {dataset: 'skills', key: 'id'},
+    data: [...jobSkillBridge],
+    columns: {
+      from: 'jobId',
+      to: 'skillId',
+    },
+  })
+  .attribute('skill', {
+    kind: 'select',
+    source: {dataset: 'skills', key: 'id', label: 'name'},
+    targets: [
+      {dataset: 'jobs', through: 'jobSkills', mode: 'exists'},
+    ] as const,
+  })
+  .build()
+
+const jobsWithSkillsGrain = jobSkillsModel.materialize('jobsWithSkills', (m) =>
+  m
+    .from('jobs')
+    .throughAssociation('skill', {association: 'jobSkills'})
+    .grain('job-skill'),
+)
+
+const jobSkillsDashboard = defineDashboard(jobSkillsModel)
+  .chart('jobsByMonth', jobsByMonth)
+  .sharedFilter('skill')
+  .build()
+
 const jobRows: JobRow[] = [
   {id: 'job-1', ownerId: 'owner-1', status: 'open', createdAt: '2026-01-10', salary: 100},
   {id: 'job-2', ownerId: 'owner-1', status: 'closed', createdAt: '2026-02-10', salary: 110},
@@ -272,5 +331,51 @@ describe('dashboard composition', () => {
     expect(() =>
       renderHook(() => useDashboardChart(secondaryDashboard, 'jobsByMonth'), {wrapper: Wrapper}),
     ).toThrow('does not match the nearest <DashboardProvider>')
+  })
+
+  it('keeps attribute lookup datasets whole so many-to-many materialization stays consistent', () => {
+    function Wrapper({children}: {children: ReactNode}) {
+      const dashboard = useDashboard({
+        definition: jobSkillsDashboard,
+        data: {
+          jobs: jobSkillRows,
+          skills: skillLookupRows,
+        },
+      })
+
+      return (
+        <DashboardProvider dashboard={dashboard}>
+          {children}
+        </DashboardProvider>
+      )
+    }
+
+    const {result} = renderHook(() => ({
+      skillFilter: useDashboardSharedFilter(jobSkillsDashboard, 'skill'),
+      jobsRows: useDashboardDataset(jobSkillsDashboard, 'jobs'),
+      skillsRows: useDashboardDataset(jobSkillsDashboard, 'skills'),
+    }), {wrapper: Wrapper})
+
+    const skillOneValue = result.current.skillFilter.kind === 'select'
+      ? result.current.skillFilter.options.find((option) => option.label === 'Alpha')?.value
+      : null
+
+    expect(skillOneValue).toBeTruthy()
+
+    act(() => {
+      if (result.current.skillFilter.kind === 'select' && skillOneValue) {
+        result.current.skillFilter.toggleValue(skillOneValue)
+      }
+    })
+
+    expect(result.current.jobsRows).toHaveLength(1)
+    expect(result.current.skillsRows).toHaveLength(skillLookupRows.length)
+
+    expect(() =>
+      jobsWithSkillsGrain.materialize({
+        jobs: result.current.jobsRows,
+        skills: result.current.skillsRows,
+      }),
+    ).not.toThrow()
   })
 })
