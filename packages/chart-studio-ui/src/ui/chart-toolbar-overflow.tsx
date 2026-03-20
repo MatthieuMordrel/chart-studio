@@ -8,7 +8,7 @@
  */
 
 import type {ComponentType} from 'react'
-import {useRef, useState} from 'react'
+import {useMemo, useRef, useState} from 'react'
 import {
   ArrowLeft,
   BarChart3,
@@ -23,7 +23,7 @@ import {
   MoveHorizontal,
   MoveVertical,
 } from 'lucide-react'
-import {getMetricLabel} from '@matthieumordrel/chart-studio/_internal'
+import {CHART_TYPE_CONFIG, getMetricLabel} from '@matthieumordrel/chart-studio/_internal'
 import {useChartContext} from './chart-context.js'
 import {ChartDropdownPanel} from './chart-dropdown.js'
 import {ChartDateRangePanel, resolvePresetLabel} from './chart-date-range-panel.js'
@@ -45,6 +45,60 @@ const CONTROL_ICONS: Partial<Record<ControlId, ComponentType<{className?: string
   metric: MoveVertical,
   filters: Filter,
   dateRange: Calendar,
+}
+
+/**
+ * Determine which controls have content to render.
+ *
+ * Mirrors the null-return conditions from each control component so the
+ * overflow menu can hide empty rows and empty section headers. When adding
+ * a new control, add its visibility condition here.
+ */
+function useControlVisibility(): ReadonlySet<ControlId> {
+  const {
+    availableXAxes,
+    chartType,
+    availableChartTypes,
+    availableGroupBys,
+    isGroupByOptional,
+    isTimeSeries,
+    availableTimeBuckets,
+  } = useChartContext()
+
+  return useMemo(() => {
+    const visible = new Set<ControlId>()
+
+    // source: always renders (badge or dropdown)
+    visible.add('source')
+
+    // xAxis: hidden when ≤1 option (ChartXAxisSelector)
+    if (availableXAxes.length > 1) visible.add('xAxis')
+
+    // chartType: hidden when ≤1 type available (ChartTypeSelector)
+    if (availableChartTypes.length > 1) visible.add('chartType')
+
+    // groupBy: hidden when chart doesn't support grouping or ≤1 option
+    if (CHART_TYPE_CONFIG[chartType].supportsGrouping) {
+      const optionCount = availableGroupBys.length + (isGroupByOptional ? 1 : 0)
+      if (optionCount > 1) visible.add('groupBy')
+    }
+
+    // timeBucket: hidden when not time series, unsupported, or ≤1 bucket
+    if (
+      isTimeSeries &&
+      CHART_TYPE_CONFIG[chartType].supportsTimeBucketing &&
+      availableTimeBuckets.length > 1
+    ) {
+      visible.add('timeBucket')
+    }
+
+    // Complex controls always have content
+    visible.add('metric')
+    visible.add('filters')
+    visible.add('dateRange')
+
+    return visible
+  }, [availableXAxes.length, availableChartTypes.length, chartType, availableGroupBys.length, isGroupByOptional, isTimeSeries, availableTimeBuckets.length])
 }
 
 /**
@@ -70,11 +124,13 @@ export function ChartToolbarOverflow({pinned, hidden, className}: ChartToolbarOv
   /** null = main menu, ControlId = detail page for that control */
   const [activePage, setActivePage] = useState<ControlId | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const visibleControls = useControlVisibility()
 
-  // Collect overflow controls (not pinned, not hidden) grouped by section
+  // Collect overflow controls (not pinned, not hidden, has content) grouped by section
   const sectionGroups = SECTIONS.map((section) => {
     const controls = CONTROL_IDS.filter((id) => {
       if (pinned.has(id) || hidden.has(id)) return false
+      if (!visibleControls.has(id)) return false
       return CONTROL_REGISTRY[id].section === section.id
     })
     return {section, controls}

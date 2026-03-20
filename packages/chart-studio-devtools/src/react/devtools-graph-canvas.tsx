@@ -42,6 +42,7 @@ import {
   getCollapsedVisibleFields,
   getMaterializedViewJoinProjectedFields,
 } from './graph-field-visibility.js'
+import {computeCanvasFieldOrderByNodeId} from './graph-field-layout.js'
 import {ColumnTypeIcon} from './column-type-icon.js'
 import {FieldRoleBadges, formatBytes} from './devtools-details.js'
 import type {
@@ -96,9 +97,13 @@ type DevtoolsGraphCanvasProps = {
   onRevealMaterializedViewFields(nodeId: string): void
 }
 
-const CanvasContext = createContext<CanvasContextValue | null>(null)
+type CanvasRenderContextValue = CanvasContextValue & {
+  orderedFieldIdsByNodeId: ReadonlyMap<string, readonly string[]>
+}
 
-function useCanvasContext(): CanvasContextValue {
+const CanvasContext = createContext<CanvasRenderContextValue | null>(null)
+
+function useCanvasContext(): CanvasRenderContextValue {
   const value = useContext(CanvasContext)
 
   if (!value) {
@@ -258,6 +263,24 @@ const SemanticNodeCard = memo(function SemanticNodeCard({
 
 SemanticNodeCard.displayName = 'SemanticNodeCard'
 
+function orderVisibleFields(
+  visibleFields: readonly NormalizedFieldVm[],
+  orderedFieldIds: readonly string[] | undefined,
+): readonly NormalizedFieldVm[] {
+  if (!orderedFieldIds || orderedFieldIds.length < 2 || visibleFields.length < 2) {
+    return visibleFields
+  }
+
+  const orderIndexByFieldId = new Map(
+    orderedFieldIds.map((fieldId, index) => [fieldId, index] as const),
+  )
+
+  return [...visibleFields].sort((left, right) =>
+    (orderIndexByFieldId.get(left.id) ?? Number.MAX_SAFE_INTEGER)
+    - (orderIndexByFieldId.get(right.id) ?? Number.MAX_SAFE_INTEGER),
+  )
+}
+
 const SemanticNode = memo(function SemanticNode({
   data,
   dragging = false,
@@ -275,9 +298,10 @@ const SemanticNode = memo(function SemanticNode({
     () => getCollapsedVisibleFields(node, ctx.source, {mvJoinKeyOverflowRevealed}),
     [ctx.source, mvJoinKeyOverflowRevealed, node],
   )
+  const orderedFieldIds = ctx.orderedFieldIdsByNodeId.get(node.id)
   const visibleFields = useMemo(
-    () => (expanded ? node.fields : collapsedFields),
-    [collapsedFields, expanded, node.fields],
+    () => orderVisibleFields(expanded ? node.fields : collapsedFields, orderedFieldIds),
+    [collapsedFields, expanded, node.fields, orderedFieldIds],
   )
   const issueCount = ctx.issuesByTargetId.get(node.id)?.length ?? 0
   const isSelected = ctx.selectedNodeId === node.id
@@ -449,6 +473,17 @@ export const DevtoolsGraphCanvas = memo(function DevtoolsGraphCanvas({
   }, [canvasContextValue.selectedEdgeId, displaySource])
   const [nodes, setNodes] = useState<FlowNode[]>(() => externalNodes)
   const nodesRef = useRef(nodes)
+  const orderedFieldIdsByNodeId = useMemo(
+    () => computeCanvasFieldOrderByNodeId(displaySource, nodePositions, canvasContextValue.expandedNodeIds),
+    [canvasContextValue.expandedNodeIds, displaySource, nodePositions],
+  )
+  const renderContextValue = useMemo<CanvasRenderContextValue>(
+    () => ({
+      ...canvasContextValue,
+      orderedFieldIdsByNodeId,
+    }),
+    [canvasContextValue, orderedFieldIdsByNodeId],
+  )
 
   useEffect(() => {
     nodesRef.current = nodes
@@ -506,7 +541,7 @@ export const DevtoolsGraphCanvas = memo(function DevtoolsGraphCanvas({
     <>
       <MarkerDefs />
 
-      <CanvasContext.Provider value={canvasContextValue}>
+      <CanvasContext.Provider value={renderContextValue}>
         <div className='csdt-canvas'>
           <ReactFlowProvider>
             <ReactFlow
