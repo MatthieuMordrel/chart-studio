@@ -155,15 +155,17 @@ function SemanticNode({
         isDimmed ? 'is-dimmed' : undefined,
       ].filter(Boolean).join(' ')}>
       <div className='csdt-node__hero'>
-        <div className='csdt-node__meta'>
-          <span className='csdt-node__type'>
-            {node.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}
-          </span>
-          {issueMessages.length > 0 && (
-            <span className='csdt-node__issue-count'>{issueMessages.length}</span>
-          )}
+        <div className='csdt-node__header-row'>
+          <h3>{node.label}</h3>
+          <div className='csdt-node__meta'>
+            <span className='csdt-node__type'>
+              {node.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}
+            </span>
+            {issueMessages.length > 0 && (
+              <span className='csdt-node__issue-count'>{issueMessages.length}</span>
+            )}
+          </div>
         </div>
-        <h3>{node.label}</h3>
         <p>{node.fields.length} columns · {node.rowCount.toLocaleString()} rows · {formatBytes(node.estimatedBytes)}</p>
       </div>
 

@@ -37,6 +37,22 @@
   gap: 4px;
 }
 
+.csdt-node__header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.csdt-node__header-row h3 {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .csdt-node__hero h3 {
   margin: 0;
   font-size: 0.8125rem;
@@ -59,10 +75,11 @@
 
 .csdt-node__meta {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   gap: 4px;
   align-items: center;
-  margin-bottom: 2px;
+  justify-content: flex-end;
 }
 
 .csdt-node__type,
