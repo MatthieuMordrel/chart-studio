@@ -50,9 +50,9 @@ type FlowEdge = Edge<{edgeId: string}, 'semantic-edge'>
 
 type ViewerState = {
   nodeId: string
-  mode: 'inspect' | 'explore'
+  /** Paginated grid, chart explore UI, or JSON (one control in the viewer header). */
+  dataView: 'table' | 'explore' | 'json'
   scope: 'raw' | 'effective'
-  viewMode: 'table' | 'json'
 }
 
 type CanvasContextValue = {
@@ -274,7 +274,7 @@ function SemanticNode({
 
       <div className='csdt-node__footer'>
         <button type='button' className='nodrag' onClick={() => ctx.onInspectNode(node.id)}>
-          Inspect
+          Table
         </button>
         <button type='button' className='nodrag' onClick={() => ctx.onExploreNode(node.id)}>
           Explore
@@ -776,7 +776,7 @@ function SelectionPanel({
         )}
 
         <div className='csdt-sidepanel__actions'>
-          <button type='button' onClick={() => onInspectNode(selectedNode.id)}>Inspect</button>
+          <button type='button' onClick={() => onInspectNode(selectedNode.id)}>Table</button>
           <button type='button' onClick={() => onExploreNode(selectedNode.id)}>Explore</button>
         </div>
 
@@ -1119,9 +1119,8 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         setSelectedEdgeId(null)
         setViewer({
           nodeId,
-          mode: 'inspect',
+          dataView: 'table',
           scope: 'raw',
-          viewMode: 'table',
         })
       },
       onExploreNode(nodeId) {
@@ -1129,9 +1128,8 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         setSelectedEdgeId(null)
         setViewer({
           nodeId,
-          mode: 'explore',
+          dataView: 'explore',
           scope: 'raw',
-          viewMode: 'table',
         })
       },
       onSelectEdge(edgeId) {
@@ -1428,15 +1426,13 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
           {viewer && viewerNode && (
             <DevtoolsDataViewer
               context={activeContext}
-              mode={viewer.mode}
+              dataView={viewer.dataView}
               node={viewerNode}
               onClose={() => setViewer(null)}
-              onModeChange={(mode) => setViewer((current) => current ? {...current, mode} : current)}
+              onDataViewChange={(dataView) => setViewer((current) => current ? {...current, dataView} : current)}
               onScopeChange={(scope) => setViewer((current) => current ? {...current, scope} : current)}
-              onViewModeChange={(viewMode) => setViewer((current) => current ? {...current, viewMode} : current)}
               rows={viewerRows}
               scope={viewer.scope}
-              viewMode={viewer.viewMode}
             />
           )}
         </div>

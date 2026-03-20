@@ -22,10 +22,16 @@
 
 .csdt-data-viewer__header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
-  align-items: center;
+  align-items: flex-start;
   flex-shrink: 0;
+}
+
+.csdt-data-viewer__header > div:first-child {
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .csdt-data-viewer__inspect,
@@ -177,7 +183,17 @@
   font-weight: 500;
 }
 
-.csdt-data-viewer__controls,
+/* Scope + mode toggles stay in the header for both Inspect and Explore; keep min-width so the row does not clip under overflow:hidden on the panel. */
+.csdt-data-viewer__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
 .csdt-data-viewer__pagination,
 .csdt-pagination__buttons {
   display: flex;

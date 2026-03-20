@@ -312,48 +312,26 @@ Instead, they expose a data-inspection action that opens a large viewer from the
 - canvas remains visible underneath
 - easy back-and-forth between graph and inspector
 
-### Viewer Modes
+### Viewer presentation
 
-The large viewer has two explicit modes:
+The large viewer uses **one** segmented control for how data is shown:
 
-- `Inspect`
-- `Explore`
+- **`Table`** — paginated virtualized grid of rows (truthful inspection: raw/effective columns as modeled).
+- **`Explore`** — Chart Studio chart UI (table chart by default, plus bar/line/etc. when applicable): filters, metrics, grouping, time bucket, etc.
+- **`JSON`** — JSON for the **current page** of rows (same pagination as Table).
 
-#### Inspect
+A separate **`Raw` / `Effective`** toggle applies to the row set for all three (default `Raw`; `Effective` requires an active dashboard context).
 
-Purpose: truthful row inspection.
+Graph node actions still offer quick entry as **Table** and **Explore** (same modes as in the viewer).
 
-Capabilities:
+## Why Table and Explore differ
 
-- `Raw` versus `Effective` toggle
-- default to `Raw`
-- `Table` versus `JSON` toggle
-- all columns in schema order
-- pagination
-- virtualization
-- column metadata reuse from the dataset definition
-
-#### Explore
-
-Purpose: analytical exploration using existing Chart Studio chart mechanics.
-
-Capabilities:
-
-- reuse the current chart stack
-- default chart type is `table`
-- allow grouping, filters, time bucket, metric, sorting, and other existing chart controls
-- suitable for analytical exploration, not raw inspection
-
-## Why Inspect And Explore Are Separate
-
-The current Chart Studio `table` chart is a chart-table, not a raw dataset inspector.
-
-It renders transformed pipeline output rather than raw rows. That is correct for chart exploration, but not sufficient for raw and effective dataset inspection.
+The Chart Studio `table` **chart** is a chart-table: it shows transformed pipeline output, not the same thing as the dedicated inspection grid.
 
 Therefore:
 
-- `Inspect` should use a dedicated data-grid implementation
-- `Explore` should reuse the existing chart implementation
+- **`Table`** uses a dedicated data-grid implementation for row-accurate inspection.
+- **`Explore`** reuses the existing chart implementation for analytical views.
 
 ## Active Context Model
 
@@ -479,7 +457,7 @@ type DevtoolsIssue = {
 3. Build node and edge metadata for datasets, materialized views, relationships, associations, attributes, and issues.
 4. Compute the canonical layout.
 5. Render the graph.
-6. Open `Inspect` or `Explore` viewers on demand from node or edge selection.
+6. Open the data viewer from a node (`Table` or `Explore` shortcuts) or edge selection.
 
 ### Live Sync
 
@@ -539,8 +517,8 @@ Therefore they must appear as full nodes in the main graph.
 - Bun workspace package
 - `@xyflow/react` for the graph canvas
 - `elkjs` for automatic layered layout
-- `@tanstack/react-table` for `Inspect`
-- `@tanstack/react-virtual` for row virtualization in `Inspect`
+- `@tanstack/react-table` for viewer `Table` mode
+- `@tanstack/react-virtual` for row virtualization in `Table` mode
 
 ### Why `@xyflow/react`
 
@@ -550,7 +528,7 @@ This product needs rich custom nodes, field-level anchors, temporary association
 
 The default layout quality is critical. `elkjs` provides stronger automatic graph layout for table-style model surfaces than ad hoc force layouts.
 
-### Why TanStack Table Only For Inspect
+### Why TanStack Table only for the Table viewer mode
 
 TanStack Table is a good fit for:
 
@@ -563,7 +541,7 @@ It should not replace the existing chart stack for analytical exploration.
 
 ### Reuse Of Existing Chart Studio UI
 
-`Explore` mode should reuse the existing Chart Studio UI package:
+Viewer **`Explore`** reuses the existing Chart Studio UI package:
 
 - `Chart`
 - `ChartToolbar`
@@ -577,7 +555,7 @@ This gives immediate reuse of:
 - metric controls
 - table-chart rendering
 
-`Inspect` should not depend on this chart pipeline because raw inspection is not the same as chart transformation.
+The **`Table`** mode should not depend on this chart pipeline because raw inspection is not the same as chart transformation.
 
 ## Reuse Of Existing Schema Metadata
 
@@ -652,12 +630,8 @@ That is acceptable for the intended usage.
 - Nodes show row count, estimated size, and schema with key-first ordering.
 - Nodes default to schema view only and do not render inline row previews.
 - Large data viewer opens from the node and supports:
-  - `Inspect`
-  - `Explore`
-  - `Raw`
-  - `Effective`
-  - `Table`
-  - `JSON`
+  - `Table` / `Explore` / `JSON` (single presentation control)
+  - `Raw` / `Effective`
 - Global search can focus datasets, materialized views, relationships, associations, and columns.
 - Issues appear inline and in a jumpable issues drawer.
 - Live updates are enabled by default and can be paused.
@@ -672,8 +646,8 @@ That is acceptable for the intended usage.
 3. Implement dataset and materialized-view nodes with field rows and badges.
 4. Implement relationship and association edges with field anchors and crow's-foot endpoints.
 5. Integrate `elkjs` default layout and reset behavior.
-6. Implement the large viewer `Inspect` mode with TanStack Table and JSON mode.
-7. Implement `Explore` mode using the existing chart stack.
+6. Implement the large viewer: `Table` (TanStack Table + virtual rows), `JSON` (paged), and `Explore` (chart stack).
+7. Wire graph shortcuts: node **Table** / **Explore** → matching viewer mode.
 8. Add active-context selection and effective-row handling.
 9. Add search, issue drawer, pause, and final visual polish.
 

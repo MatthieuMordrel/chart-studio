@@ -29,17 +29,20 @@ import type {
  */
 const GRID_ROW_HEIGHT_PX = 36
 
+/**
+ * Single viewer presentation: paginated grid, chart UI, or JSON.
+ */
+export type DevtoolsDataView = 'table' | 'explore' | 'json'
+
 type DevtoolsDataViewerProps = {
   context: ChartStudioDevtoolsContextSnapshot | null
-  mode: 'inspect' | 'explore'
+  dataView: DevtoolsDataView
   node: NormalizedNodeVm
   onClose(): void
-  onModeChange(mode: 'inspect' | 'explore'): void
+  onDataViewChange(dataView: DevtoolsDataView): void
   onScopeChange(scope: 'raw' | 'effective'): void
-  onViewModeChange(viewMode: 'table' | 'json'): void
   rows: readonly DevtoolsRow[]
   scope: 'raw' | 'effective'
-  viewMode: 'table' | 'json'
 }
 
 /**
@@ -154,19 +157,17 @@ function DevtoolsExploreChart({
 }
 
 /**
- * Full-screen dataset / materialized-view inspector with paginated table or JSON and Explore chart.
+ * Full-screen dataset / materialized-view viewer: Table (paginated grid), Explore (charts), or JSON.
  */
 export function DevtoolsDataViewer({
   context,
-  mode,
+  dataView,
   node,
   onClose,
-  onModeChange,
+  onDataViewChange,
   onScopeChange,
-  onViewModeChange,
   rows,
   scope,
-  viewMode,
 }: DevtoolsDataViewerProps) {
   const [pageIndex, setPageIndex] = useState(0)
   const pageSize = 100
@@ -174,7 +175,7 @@ export function DevtoolsDataViewer({
 
   useEffect(() => {
     setPageIndex(0)
-  }, [node.id, mode, scope, viewMode])
+  }, [node.id, scope, dataView])
 
   const pageRows = useMemo(
     () => rows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
@@ -223,23 +224,29 @@ export function DevtoolsDataViewer({
             <p className='csdt-muted'>{rows.length.toLocaleString()} rows in {scope} mode</p>
           </div>
 
-          <div className='csdt-data-viewer__controls'>
-            <div className='csdt-segmented'>
+          <div className='csdt-data-viewer__controls' role='toolbar' aria-label='Data viewer'>
+            <div className='csdt-segmented' role='group' aria-label='Presentation'>
               <button
                 type='button'
-                className={mode === 'inspect' ? 'is-active' : undefined}
-                onClick={() => onModeChange('inspect')}>
-                Inspect
+                className={dataView === 'table' ? 'is-active' : undefined}
+                onClick={() => onDataViewChange('table')}>
+                Table
               </button>
               <button
                 type='button'
-                className={mode === 'explore' ? 'is-active' : undefined}
-                onClick={() => onModeChange('explore')}>
+                className={dataView === 'explore' ? 'is-active' : undefined}
+                onClick={() => onDataViewChange('explore')}>
                 Explore
+              </button>
+              <button
+                type='button'
+                className={dataView === 'json' ? 'is-active' : undefined}
+                onClick={() => onDataViewChange('json')}>
+                JSON
               </button>
             </div>
 
-            <div className='csdt-segmented'>
+            <div className='csdt-segmented' role='group' aria-label='Row scope'>
               <button
                 type='button'
                 className={scope === 'raw' ? 'is-active' : undefined}
@@ -255,30 +262,13 @@ export function DevtoolsDataViewer({
               </button>
             </div>
 
-            {mode === 'inspect' && (
-              <div className='csdt-segmented'>
-                <button
-                  type='button'
-                  className={viewMode === 'table' ? 'is-active' : undefined}
-                  onClick={() => onViewModeChange('table')}>
-                  Table
-                </button>
-                <button
-                  type='button'
-                  className={viewMode === 'json' ? 'is-active' : undefined}
-                  onClick={() => onViewModeChange('json')}>
-                  JSON
-                </button>
-              </div>
-            )}
-
             <button type='button' className='csdt-icon-button' onClick={onClose}>
               Close
             </button>
           </div>
         </header>
 
-        {mode === 'explore'
+        {dataView === 'explore'
           ? <DevtoolsExploreChart node={node} rows={rows} />
           : (
             <div className='csdt-data-viewer__inspect'>
@@ -300,7 +290,7 @@ export function DevtoolsDataViewer({
                 </div>
               </div>
 
-              {viewMode === 'json'
+              {dataView === 'json'
                 ? (
                   <div className='csdt-json-viewer__shell'>
                     <pre className='csdt-json-viewer'>
