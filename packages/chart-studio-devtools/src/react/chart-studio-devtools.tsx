@@ -1074,6 +1074,11 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                             setSelectedNodeId(null)
                             setSelectedFieldId(null)
                           }}
+                          onPaneClick={() => {
+                            setSelectedNodeId(null)
+                            setSelectedEdgeId(null)
+                            setSelectedFieldId(null)
+                          }}
                           minZoom={0.2}
                           maxZoom={1.5}
                           proOptions={{hideAttribution: true}}>
