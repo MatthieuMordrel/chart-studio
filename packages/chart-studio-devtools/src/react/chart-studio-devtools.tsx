@@ -929,6 +929,11 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     () => (normalizedSource ? filterGraphVisibleSource(normalizedSource, showMaterializedViews) : null),
     [normalizedSource, showMaterializedViews],
   )
+  /**
+   * Keep layout anchored to the full normalized graph so hiding/showing materialized views
+   * is a pure visibility toggle instead of a relayout trigger.
+   */
+  const layoutSource = normalizedSource
   /** Dashboard shared-filter scope only (see `useDashboard` devtools snapshot). */
   const activeContext = useMemo(
     () => normalizedSource?.contexts[0] ?? null,
@@ -1093,7 +1098,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       fitViewFrameRef.current = null
     }
 
-    if (!displaySource) {
+    if (!layoutSource) {
       fitViewAfterLayoutRef.current = false
       setNodePositions({})
       return
@@ -1102,7 +1107,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     let cancelled = false
     const layoutRunId = ++layoutRunIdRef.current
 
-    void computeGraphLayout(displaySource, visibleExpandedNodeIds, elkLayoutConfig).then((positions) => {
+    void computeGraphLayout(layoutSource, visibleExpandedNodeIds, elkLayoutConfig).then((positions) => {
       if (cancelled || layoutRunId !== layoutRunIdRef.current) {
         return
       }
@@ -1135,7 +1140,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         fitViewFrameRef.current = null
       }
     }
-  }, [displaySource, elkLayoutConfig, flowInstance, layoutNonce, visibleExpandedNodeIds])
+  }, [elkLayoutConfig, flowInstance, layoutNonce, layoutSource, visibleExpandedNodeIds])
 
   const searchResults = useMemo(() => {
     if (!displaySource || deferredSearchQuery.trim().length === 0) {
@@ -1382,7 +1387,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                       onChange={(event) => {
                         setShowMaterializedViews(event.target.checked)
                         persistShowMaterializedViews(event.target.checked)
-                        applyLayoutResetAndFitView()
                       }}
                     />
                     <span>Materialized views</span>
