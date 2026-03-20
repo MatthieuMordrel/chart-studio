@@ -1288,12 +1288,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     let cancelled = false
     const layoutRunId = ++layoutRunIdRef.current
 
-    void computeGraphLayout(
-      layoutSource,
-      visibleExpandedNodeIds,
-      elkLayoutForComputation,
-      visibleMvJoinKeyOverflowRevealedIds,
-    ).then((positions) => {
+    void computeGraphLayout(layoutSource, visibleExpandedNodeIds, elkLayoutForComputation).then((positions) => {
       if (cancelled || layoutRunId !== layoutRunIdRef.current) {
         return
       }
@@ -1326,7 +1321,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         fitViewFrameRef.current = null
       }
     }
-  }, [elkLayoutForComputation, flowInstance, layoutNonce, layoutSource, visibleExpandedNodeIds, visibleMvJoinKeyOverflowRevealedIds])
+  }, [elkLayoutForComputation, flowInstance, layoutNonce, layoutSource, visibleExpandedNodeIds])
 
   const searchResults = useMemo(() => {
     if (!displaySource || deferredSearchQuery.trim().length === 0) {

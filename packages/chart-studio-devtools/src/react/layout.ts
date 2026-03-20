@@ -33,11 +33,16 @@ type ElkNode = {
 
 const elk = new ELK()
 
+/**
+ * Height passed to ELK for each node. Materialized views use the **default** join/key row count only
+ * (`mvJoinKeyOverflowRevealed: false`) so toggling “reveal more join keys” on the canvas does not
+ * change ELK dimensions — the graph does not relayout or shift neighbors; the node grows visually in
+ * the DOM only. Full “show more” expansion still uses the expanded-node set and relayouts.
+ */
 export function estimateNodeHeight(
   source: NormalizedSourceVm,
   nodeId: string,
   expandedNodeIds: ReadonlySet<string>,
-  mvJoinKeyOverflowRevealedIds: ReadonlySet<string> = new Set(),
 ): number {
   const node = source.nodeMap.get(nodeId)
 
@@ -48,7 +53,7 @@ export function estimateNodeHeight(
   const visibleFieldCount = expandedNodeIds.has(nodeId)
     ? node.fields.length
     : getCollapsedVisibleFields(node, source, {
-        mvJoinKeyOverflowRevealed: mvJoinKeyOverflowRevealedIds.has(nodeId),
+        mvJoinKeyOverflowRevealed: node.kind === 'materialized-view' ? false : undefined,
       }).length
   const attributeHeight = node.attributeIds.length > 0 ? NODE_ATTRIBUTE_ROW_HEIGHT : 0
 
@@ -77,7 +82,6 @@ export async function computeGraphLayout(
   source: NormalizedSourceVm,
   expandedNodeIds: ReadonlySet<string>,
   layoutConfig: DevtoolsElkLayoutConfig = DEFAULT_DEVTOOLS_ELK_LAYOUT,
-  mvJoinKeyOverflowRevealedIds: ReadonlySet<string> = new Set(),
 ): Promise<Record<string, {x: number; y: number}>> {
   const normalizedLayout = normalizeDevtoolsElkLayoutConfig(layoutConfig)
 
@@ -87,7 +91,7 @@ export async function computeGraphLayout(
     children: source.nodes.map((node) => ({
       id: node.id,
       width: DEVTOOLS_NODE_WIDTH,
-      height: estimateNodeHeight(source, node.id, expandedNodeIds, mvJoinKeyOverflowRevealedIds),
+      height: estimateNodeHeight(source, node.id, expandedNodeIds),
     })),
     edges: source.edges.map((edge) => ({
       id: edge.id,
