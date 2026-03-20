@@ -36,6 +36,7 @@ import {
 import {computeGraphLayout, DEVTOOLS_NODE_WIDTH, DEVTOOLS_VISIBLE_FIELD_COUNT} from './layout.js'
 import {loadStoredDevtoolsElkLayout, persistDevtoolsElkLayout, type DevtoolsElkLayoutConfig} from './layout-options.js'
 import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
+import {lockDocumentScroll} from './scroll-lock.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
 import {ColumnTypeIcon} from './column-type-icon.js'
@@ -1028,6 +1029,14 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       root.style.removeProperty('--cs-chart-dropdown-backdrop-z-index')
       root.style.removeProperty('--cs-chart-dropdown-panel-z-index')
     }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    return lockDocumentScroll()
   }, [isOpen])
 
   const issuesByTargetId = useMemo(() => {

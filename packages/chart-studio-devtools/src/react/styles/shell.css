@@ -12,6 +12,7 @@
   font-family: inherit;
   font-size: 0.8125rem;
   color: var(--cs-foreground, #172032);
+  overscroll-behavior: none;
 }
 
 /* Thin, theme-aware scrollbars (Firefox scrollbar properties, WebKit pseudos). */
@@ -21,6 +22,7 @@
 .csdt-sidepanel,
 .csdt-issues-drawer,
 .csdt-search__results {
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklch, var(--cs-muted-foreground, #718198) 42%, transparent)
     color-mix(in oklch, var(--cs-muted, #f1f5f9) 55%, var(--cs-background, #fff));

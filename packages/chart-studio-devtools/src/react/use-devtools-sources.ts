@@ -18,7 +18,7 @@ function useExternalSnapshotSources(
   props: ChartStudioDevtoolsProps,
 ): readonly ChartStudioDevtoolsSource[] {
   const readSnapshot = useEffectEvent(() => props.getSnapshot?.() ?? null)
-  const [polledSnapshot, setPolledSnapshot] = useState(() => readSnapshot())
+  const [polledSnapshot, setPolledSnapshot] = useState(() => props.getSnapshot?.() ?? null)
 
   useEffect(() => {
     setPolledSnapshot(readSnapshot())
