@@ -57,6 +57,18 @@ export const DEFAULT_DEVTOOLS_ELK_LAYOUT: DevtoolsElkLayoutConfig = {
   nodePlacementStrategy: 'NETWORK_SIMPLEX',
 }
 
+function deriveEdgeNodeSpacing(config: DevtoolsElkLayoutConfig): number {
+  return Math.max(28, Math.round(config.spacingNodeNode * 0.3))
+}
+
+function deriveEdgeNodeBetweenLayersSpacing(config: DevtoolsElkLayoutConfig): number {
+  return Math.max(26, Math.round(config.spacingBetweenLayers * 0.17))
+}
+
+function deriveEdgeEdgeBetweenLayersSpacing(config: DevtoolsElkLayoutConfig): number {
+  return Math.max(18, Math.round(config.spacingBetweenLayers * 0.12))
+}
+
 /**
  * Slightly opens spacing when many edges share the graph so lines stay readable.
  *
@@ -193,15 +205,25 @@ export function devtoolsElkLayoutToElkOptions(
   config: DevtoolsElkLayoutConfig,
 ): Record<string, string> {
   const p = config.padding
+  const edgeNodeSpacing = deriveEdgeNodeSpacing(config)
+  const edgeNodeBetweenLayersSpacing = deriveEdgeNodeBetweenLayersSpacing(config)
+  const edgeEdgeBetweenLayersSpacing = deriveEdgeEdgeBetweenLayersSpacing(config)
 
   return {
     'elk.algorithm': 'layered',
     'elk.direction': 'RIGHT',
+    'elk.edgeRouting': 'ORTHOGONAL',
     'elk.layered.spacing.nodeNodeBetweenLayers': String(config.spacingBetweenLayers),
+    'elk.layered.spacing.edgeNodeBetweenLayers': String(edgeNodeBetweenLayersSpacing),
+    'elk.layered.spacing.edgeEdgeBetweenLayers': String(edgeEdgeBetweenLayersSpacing),
     'elk.spacing.nodeNode': String(config.spacingNodeNode),
+    'elk.spacing.edgeNode': String(edgeNodeSpacing),
     'elk.padding': `[top=${p},left=${p},bottom=${p},right=${p}]`,
+    'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+    'elk.layered.considerModelOrder.groupModelOrder.cmGroupOrderStrategy': 'ENFORCED',
     'elk.layered.crossingMinimization.strategy': config.crossingMinimizationStrategy,
     'elk.layered.nodePlacement.strategy': config.nodePlacementStrategy,
+    'elk.layered.nodePlacement.favorStraightEdges': 'true',
   }
 }
 

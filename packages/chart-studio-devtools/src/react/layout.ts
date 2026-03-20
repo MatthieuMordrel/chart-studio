@@ -28,10 +28,14 @@ type ElkNode = {
     id: string
     sources: string[]
     targets: string[]
+    layoutOptions?: Record<string, string>
   }>
 }
 
 const elk = new ELK()
+const ELK_MODEL_ORDER_GROUP_KEY = 'elk.layered.considerModelOrder.groupModelOrder.crossingMinimizationId'
+const STRUCTURAL_LAYOUT_GROUP = '0'
+const MATERIALIZED_LAYOUT_GROUP = '1'
 
 /**
  * Height passed to ELK for each node. Materialized views use the **default** join/key row count only
@@ -63,6 +67,14 @@ export function estimateNodeHeight(
     + NODE_FOOTER_HEIGHT
 }
 
+function getNodeLayoutGroup(node: NormalizedSourceVm['nodes'][number]): string {
+  return node.kind === 'materialized-view' ? MATERIALIZED_LAYOUT_GROUP : STRUCTURAL_LAYOUT_GROUP
+}
+
+function getEdgeLayoutGroup(edge: NormalizedSourceVm['edges'][number]): string {
+  return edge.kind === 'materialization' ? MATERIALIZED_LAYOUT_GROUP : STRUCTURAL_LAYOUT_GROUP
+}
+
 function createFallbackPosition(
   index: number,
   layoutConfig: DevtoolsElkLayoutConfig,
@@ -83,22 +95,7 @@ export async function computeGraphLayout(
   expandedNodeIds: ReadonlySet<string>,
   layoutConfig: DevtoolsElkLayoutConfig = DEFAULT_DEVTOOLS_ELK_LAYOUT,
 ): Promise<Record<string, {x: number; y: number}>> {
-  const normalizedLayout = normalizeDevtoolsElkLayoutConfig(layoutConfig)
-
-  const graph: ElkNode = {
-    id: 'chart-studio-devtools',
-    layoutOptions: devtoolsElkLayoutToElkOptions(normalizedLayout),
-    children: source.nodes.map((node) => ({
-      id: node.id,
-      width: DEVTOOLS_NODE_WIDTH,
-      height: estimateNodeHeight(source, node.id, expandedNodeIds),
-    })),
-    edges: source.edges.map((edge) => ({
-      id: edge.id,
-      sources: [edge.sourceNodeId],
-      targets: [edge.targetNodeId],
-    })),
-  }
+  const graph = buildElkLayoutGraph(source, expandedNodeIds, layoutConfig)
 
   try {
     const layout = await elk.layout(graph)
@@ -106,7 +103,7 @@ export async function computeGraphLayout(
     return Object.fromEntries(
       source.nodes.map((node, index) => {
         const layoutNode = layout.children?.find((candidate: ElkNode) => candidate.id === node.id)
-        const fallback = createFallbackPosition(index, normalizedLayout)
+        const fallback = createFallbackPosition(index, normalizeDevtoolsElkLayoutConfig(layoutConfig))
 
         return [node.id, {
           x: layoutNode?.x ?? fallback.x,
@@ -115,8 +112,39 @@ export async function computeGraphLayout(
       }),
     )
   } catch {
+    const normalizedLayout = normalizeDevtoolsElkLayoutConfig(layoutConfig)
+
     return Object.fromEntries(
       source.nodes.map((node, index) => [node.id, createFallbackPosition(index, normalizedLayout)]),
     )
+  }
+}
+
+export function buildElkLayoutGraph(
+  source: NormalizedSourceVm,
+  expandedNodeIds: ReadonlySet<string>,
+  layoutConfig: DevtoolsElkLayoutConfig = DEFAULT_DEVTOOLS_ELK_LAYOUT,
+): ElkNode {
+  const normalizedLayout = normalizeDevtoolsElkLayoutConfig(layoutConfig)
+
+  return {
+    id: 'chart-studio-devtools',
+    layoutOptions: devtoolsElkLayoutToElkOptions(normalizedLayout),
+    children: source.nodes.map((node) => ({
+      id: node.id,
+      width: DEVTOOLS_NODE_WIDTH,
+      height: estimateNodeHeight(source, node.id, expandedNodeIds),
+      layoutOptions: {
+        [ELK_MODEL_ORDER_GROUP_KEY]: getNodeLayoutGroup(node),
+      },
+    })),
+    edges: source.edges.map((edge) => ({
+      id: edge.id,
+      sources: [edge.sourceNodeId],
+      targets: [edge.targetNodeId],
+      layoutOptions: {
+        [ELK_MODEL_ORDER_GROUP_KEY]: getEdgeLayoutGroup(edge),
+      },
+    })),
   }
 }

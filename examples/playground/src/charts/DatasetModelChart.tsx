@@ -497,9 +497,6 @@ const capabilityDemandSchema = projectCapabilityView
   .metric((m) => m.count().defaultCount())
   .chartType((t) => t.allowed('grouped-bar', 'bar').default('grouped-bar'))
 
-/** Resolved dataset metadata used in the diagnostics section of the playground card. */
-const projectPlansDataset = projectPlans.build()
-
 /** Small KPI card used across the dashboard summary section. */
 function SummaryMetric({
   label,
@@ -538,52 +535,6 @@ function DashboardCard({
 }
 
 /** Lightweight metadata row used in the explanatory diagnostics panels. */
-function MetadataLine({label, value}: {label: string; value: string}) {
-  return (
-    <div className='flex items-center justify-between gap-4 text-xs'>
-      <span className='text-muted-foreground'>{label}</span>
-      <code className='rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground'>{value}</code>
-    </div>
-  )
-}
-
-/**
- * Aggregate the most-requested capabilities from the already-materialized
- * project-plan-capability grain.
- *
- * This is intentionally not another chart. It demonstrates that explicit
- * materialized views are also useful for non-chart consumers when that grain is
- * the honest shape of the analysis.
- */
-function topCapabilityDemand(
-  rows: ReadonlyArray<{
-    capabilityId: string
-    capabilityName: string
-    capabilityDomain: string | null
-  }>,
-): Array<{name: string; domain: string; count: number}> {
-  const counts = new Map<string, {name: string; domain: string; count: number}>()
-
-  rows.forEach((row) => {
-    const existing = counts.get(row.capabilityId)
-
-    if (existing) {
-      existing.count += 1
-      return
-    }
-
-    counts.set(row.capabilityId, {
-      name: row.capabilityName,
-      domain: row.capabilityDomain ?? 'Unknown',
-      count: 1,
-    })
-  })
-
-  return [...counts.values()]
-    .sort((left, right) => right.count - left.count)
-    .slice(0, 6)
-}
-
 /** Render one reusable select-style shared filter card. */
 function SharedSelectFilterCard({
   filter,
@@ -907,80 +858,8 @@ function TimeToCompleteCard() {
  * - dashboard-level shared state
  * - explicit materialized views for cross-dataset grains
  */
-function MetadataSection({
-  validation,
-}: {
-  validation: string
-}) {
-  const filteredProjectPlans = useDashboardDataset(deliveryPlanningDashboard, 'projectPlans')
-  const filteredProjectCapabilities = useMemo(
-    () => projectCapabilityView.materialize({
-      ...planningModelData,
-      projectPlans: filteredProjectPlans,
-    }),
-    [filteredProjectPlans],
-  )
-
-  const hottestCapabilities = useMemo(
-    () => topCapabilityDemand(filteredProjectCapabilities),
-    [filteredProjectCapabilities],
-  )
-
-  return (
-    <div className='grid gap-3 lg:grid-cols-3'>
-      <DashboardCard title='Dataset Layer'>
-        <div className='space-y-2'>
-          <MetadataLine label='Project plan key' value={(projectPlansDataset.key ?? []).join(', ')} />
-          <MetadataLine
-            label='Column count'
-            value={integerFormatter.format(Object.keys(projectPlansDataset.columns ?? {}).length)}
-          />
-          <MetadataLine label='Chart registry' value={Object.keys(deliveryPlanningDashboard.charts).join(', ')} />
-        </div>
-      </DashboardCard>
-
-      <DashboardCard title='Dashboard Runtime'>
-        <div className='space-y-2'>
-          <MetadataLine label='Shared filters' value={Object.keys(deliveryPlanningDashboard.sharedFilters).join(', ')} />
-          <MetadataLine label='Model attributes' value={Object.keys(deliveryModel.attributes).join(', ')} />
-          <MetadataLine
-            label='Materialized views'
-            value={[projectPlansWithManager.materialization.id, projectCapabilityView.materialization.id].join(', ')}
-          />
-          <MetadataLine label='Non-chart consumer' value='useDashboardDataset(deliveryPlanningDashboard, "projectPlans")' />
-          {validation !== 'Validated' && (
-            <p className='rounded-lg border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs text-destructive'>{validation}</p>
-          )}
-        </div>
-      </DashboardCard>
-
-      <DashboardCard title='Top Capabilities'>
-        <div className='space-y-1.5'>
-          {hottestCapabilities.map((capability) => (
-            <div
-              key={capability.name}
-              className='flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-1.5'>
-              <div>
-                <div className='text-xs font-medium text-foreground'>{capability.name}</div>
-                <div className='text-[10px] text-muted-foreground'>{capability.domain}</div>
-              </div>
-              <div className='text-[11px] font-semibold text-muted-foreground'>
-                {integerFormatter.format(capability.count)}
-              </div>
-            </div>
-          ))}
-        </div>
-      </DashboardCard>
-    </div>
-  )
-}
-
 /** Compose the full dataset/model/dashboard/materialized-view example into one screen. */
-function DatasetModelDashboard({
-  validation,
-}: {
-  validation: string
-}) {
+function DatasetModelDashboard() {
   return (
     <div className='grid gap-4 xl:grid-cols-[320px_1fr]'>
       <div className='xl:sticky xl:top-6 xl:self-start'>
@@ -998,7 +877,6 @@ function DatasetModelDashboard({
           <MaterializedCapabilityDemandCard />
         </div>
 
-        <MetadataSection validation={validation} />
       </div>
     </div>
   )
@@ -1016,19 +894,9 @@ export function DatasetModelChart() {
     data: planningModelData,
   })
 
-  const validation = useMemo(() => {
-    try {
-      deliveryModel.validateData(planningModelData)
-
-      return 'Validated'
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error)
-    }
-  }, [])
-
   return (
     <DashboardProvider dashboard={dashboard}>
-      <DatasetModelDashboard validation={validation} />
+      <DatasetModelDashboard />
       <ChartStudioDevtools />
     </DashboardProvider>
   )
