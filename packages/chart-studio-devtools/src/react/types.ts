@@ -7,12 +7,18 @@ import type {
 export type AnyMaterializedView = MaterializedViewDefinition<any, any, any, any>
 export type DevtoolsRow = Record<string, unknown>
 
+/**
+ * Minimal chart-builder surface used by devtools (dataset `.chart(...)` chains before `.build()`).
+ */
+export type AnyDatasetChartBuilder = {
+  chartType(define: (builder: any) => any): AnyDatasetChartBuilder
+  build(): unknown
+}
+
 export type AnyDatasetDefinition = {
   key?: readonly string[]
   columns?: Record<string, unknown>
-  chart(id?: string): {
-    build(): unknown
-  }
+  chart(id?: string): AnyDatasetChartBuilder
 }
 
 export type DevtoolsRelationship = {

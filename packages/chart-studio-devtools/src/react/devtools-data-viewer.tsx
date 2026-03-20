@@ -123,19 +123,17 @@ function DevtoolsExploreChart({
   const canvasHeightPx = useExploreCanvasHeight(canvasShellRef)
 
   const schema = useMemo(
-    () => node.definition.chart('devtoolsExplore').build(),
+    () =>
+      node.definition
+        .chart('devtoolsExplore')
+        .chartType((t) => t.default('table'))
+        .build(),
     [node.definition],
   )
   const chart = useChart({
     data: rows,
     schema,
   })
-
-  useEffect(() => {
-    if (chart.chartType !== 'table' && chart.availableChartTypes.includes('table')) {
-      chart.setChartType('table')
-    }
-  }, [chart])
 
   return (
     <div className='csdt-data-viewer__explore'>
