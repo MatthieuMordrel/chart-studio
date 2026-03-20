@@ -361,7 +361,8 @@ The active context should drive:
 - Users can drag nodes during the session.
 - A clear `Reset layout` action returns to the canonical layout.
 - Manual adjustments are temporary.
-- Fresh open or reload returns to the default layout.
+- **Graph layout (ELK)** (expandable under the header) exposes spacing, padding, crossing minimization, and node placement; values map to [ELK layered options](https://eclipse.dev/elk/reference/options.html). Settings persist in `localStorage` as `chart-studio-devtools:elk-layout-v1`. Changing them re-runs the layout on the current model.
+- Fresh open or reload applies the saved ELK settings; node drag positions remain session-only until the next layout run.
 
 ## Hover And Selection Model
 

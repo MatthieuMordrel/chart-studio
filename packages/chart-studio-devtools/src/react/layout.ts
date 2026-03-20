@@ -1,4 +1,10 @@
 import ELK from 'elkjs/lib/elk.bundled.js'
+import {
+  DEFAULT_DEVTOOLS_ELK_LAYOUT,
+  devtoolsElkLayoutToElkOptions,
+  normalizeDevtoolsElkLayoutConfig,
+  type DevtoolsElkLayoutConfig,
+} from './layout-options.js'
 import type {NormalizedSourceVm} from './types.js'
 
 export const DEVTOOLS_NODE_WIDTH = 356
@@ -48,29 +54,31 @@ export function estimateNodeHeight(
     + NODE_FOOTER_HEIGHT
 }
 
-function createFallbackPosition(index: number): {x: number; y: number} {
+function createFallbackPosition(
+  index: number,
+  layoutConfig: DevtoolsElkLayoutConfig,
+): {x: number; y: number} {
   const column = index % 3
   const row = Math.floor(index / 3)
+  const colW = Math.max(400, Math.round(1.85 * layoutConfig.spacingBetweenLayers))
+  const rowH = Math.max(300, Math.round(1.85 * layoutConfig.spacingNodeNode))
 
   return {
-    x: column * 420,
-    y: row * 320,
+    x: column * colW,
+    y: row * rowH,
   }
 }
 
 export async function computeGraphLayout(
   source: NormalizedSourceVm,
   expandedNodeIds: ReadonlySet<string>,
+  layoutConfig: DevtoolsElkLayoutConfig = DEFAULT_DEVTOOLS_ELK_LAYOUT,
 ): Promise<Record<string, {x: number; y: number}>> {
+  const normalizedLayout = normalizeDevtoolsElkLayoutConfig(layoutConfig)
+
   const graph: ElkNode = {
     id: 'chart-studio-devtools',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      'elk.direction': 'RIGHT',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '180',
-      'elk.spacing.nodeNode': '120',
-      'elk.padding': '[top=40,left=40,bottom=40,right=40]',
-    },
+    layoutOptions: devtoolsElkLayoutToElkOptions(normalizedLayout),
     children: source.nodes.map((node) => ({
       id: node.id,
       width: DEVTOOLS_NODE_WIDTH,
@@ -89,7 +97,7 @@ export async function computeGraphLayout(
     return Object.fromEntries(
       source.nodes.map((node, index) => {
         const layoutNode = layout.children?.find((candidate: ElkNode) => candidate.id === node.id)
-        const fallback = createFallbackPosition(index)
+        const fallback = createFallbackPosition(index, normalizedLayout)
 
         return [node.id, {
           x: layoutNode?.x ?? fallback.x,
@@ -99,7 +107,7 @@ export async function computeGraphLayout(
     )
   } catch {
     return Object.fromEntries(
-      source.nodes.map((node, index) => [node.id, createFallbackPosition(index)]),
+      source.nodes.map((node, index) => [node.id, createFallbackPosition(index, normalizedLayout)]),
     )
   }
 }

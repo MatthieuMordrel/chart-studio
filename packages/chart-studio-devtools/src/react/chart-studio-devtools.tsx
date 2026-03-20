@@ -29,7 +29,9 @@ import {
   type ReactFlowInstance,
 } from '@xyflow/react'
 import type {ChartStudioDevtoolsContextSnapshot} from '@matthieumordrel/chart-studio/_internal'
+import {ElkLayoutPanel} from './devtools-elk-layout-panel.js'
 import {computeGraphLayout, DEVTOOLS_NODE_WIDTH, DEVTOOLS_VISIBLE_FIELD_COUNT} from './layout.js'
+import {loadStoredDevtoolsElkLayout, persistDevtoolsElkLayout, type DevtoolsElkLayoutConfig} from './layout-options.js'
 import {normalizeSource} from './normalize.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
@@ -46,7 +48,15 @@ import type {
 } from './types.js'
 
 type FlowNode = Node<{nodeId: string}, 'semantic-node'>
-type FlowEdge = Edge<{edgeId: string}, 'semantic-edge'>
+type FlowEdge = Edge<
+  {edgeId: string; parallelIndex: number; parallelCount: number},
+  'semantic-edge'
+>
+
+/** Base `getSmoothStepPath` offset (matches previous single-edge default). */
+const SMOOTH_STEP_OFFSET_BASE = 18
+/** Extra offset per additional edge between the same two nodes (staggered paths). */
+const SMOOTH_STEP_OFFSET_STRIDE = 14
 
 type ViewerState = {
   nodeId: string
@@ -312,6 +322,13 @@ function SemanticEdge({
     return null
   }
 
+  const parallelIndex = data.parallelIndex ?? 0
+  const parallelCount = data.parallelCount ?? 1
+  const pathOffset = SMOOTH_STEP_OFFSET_BASE + parallelIndex * SMOOTH_STEP_OFFSET_STRIDE
+  const stepPosition = parallelCount <= 1
+    ? 0.5
+    : (parallelIndex + 1) / (parallelCount + 1)
+
   const [path, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -320,7 +337,8 @@ function SemanticEdge({
     targetY,
     targetPosition,
     borderRadius: 28,
-    offset: 18,
+    offset: pathOffset,
+    stepPosition,
   })
   const isFocused = ctx.focusedEdgeIds.has(edge.id)
   const isDimmed = ctx.focusedEdgeIds.size > 0 && !isFocused
@@ -395,25 +413,68 @@ function buildFlowNodes(
   }))
 }
 
+/**
+ * For each directed pair of nodes, assigns a stable index so parallel relationship
+ * lines can use different smooth-step offsets and `stepPosition` (less overlap).
+ *
+ * @param source - Normalized graph snapshot
+ * @returns Map from edge id to its index within the (source → target) bundle and bundle size
+ */
+function computeParallelEdgeMeta(
+  source: NormalizedSourceVm,
+): Map<string, {parallelIndex: number; parallelCount: number}> {
+  const byPair = new Map<string, string[]>()
+
+  for (const edge of source.edges) {
+    const key = `${edge.sourceNodeId}\0${edge.targetNodeId}`
+    const list = byPair.get(key) ?? []
+    list.push(edge.id)
+    byPair.set(key, list)
+  }
+
+  const meta = new Map<string, {parallelIndex: number; parallelCount: number}>()
+
+  for (const ids of byPair.values()) {
+    const sorted = [...ids].sort((a, b) => a.localeCompare(b))
+    const count = sorted.length
+
+    sorted.forEach((id, parallelIndex) => {
+      meta.set(id, {parallelIndex, parallelCount: count})
+    })
+  }
+
+  return meta
+}
+
 function buildFlowEdges(
   source: NormalizedSourceVm,
 ): FlowEdge[] {
-  return source.edges.map((edge) => ({
-    id: edge.id,
-    type: 'semantic-edge',
-    source: edge.sourceNodeId,
-    target: edge.targetNodeId,
-    sourceHandle: edge.sourceHandleId,
-    targetHandle: edge.targetHandleId,
-    selectable: true,
-    data: {edgeId: edge.id},
-    markerStart: edge.kind === 'association' ? 'url(#csdt-marker-many)' : undefined,
-    markerEnd: edge.kind === 'association'
-      ? 'url(#csdt-marker-many)'
-      : edge.kind === 'materialization'
-        ? 'url(#csdt-marker-lineage)'
-        : 'url(#csdt-marker-many)',
-  }))
+  const parallelMeta = computeParallelEdgeMeta(source)
+
+  return source.edges.map((edge) => {
+    const bundle = parallelMeta.get(edge.id) ?? {parallelIndex: 0, parallelCount: 1}
+
+    return {
+      id: edge.id,
+      type: 'semantic-edge',
+      source: edge.sourceNodeId,
+      target: edge.targetNodeId,
+      sourceHandle: edge.sourceHandleId,
+      targetHandle: edge.targetHandleId,
+      selectable: true,
+      data: {
+        edgeId: edge.id,
+        parallelIndex: bundle.parallelIndex,
+        parallelCount: bundle.parallelCount,
+      },
+      markerStart: edge.kind === 'association' ? 'url(#csdt-marker-many)' : undefined,
+      markerEnd: edge.kind === 'association'
+        ? 'url(#csdt-marker-many)'
+        : edge.kind === 'materialization'
+          ? 'url(#csdt-marker-lineage)'
+          : 'url(#csdt-marker-many)',
+    }
+  })
 }
 
 /**
@@ -889,6 +950,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const [showIssues, setShowIssues] = useState(false)
   const [viewer, setViewer] = useState<ViewerState | null>(null)
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set())
+  const [elkLayoutConfig, setElkLayoutConfig] = useState<DevtoolsElkLayoutConfig>(loadStoredDevtoolsElkLayout)
   const [layoutNonce, setLayoutNonce] = useState(0)
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<FlowNode, FlowEdge> | null>(null)
   const visibleSources = pausedSources ?? sources
@@ -973,6 +1035,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   }, [isOpen])
 
   useEffect(() => {
+    persistDevtoolsElkLayout(elkLayoutConfig)
+  }, [elkLayoutConfig])
+
+  useEffect(() => {
     if (!activeSource && selectedSourceId) {
       setSelectedSourceId(null)
     }
@@ -1002,7 +1068,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     let cancelled = false
 
-    void computeGraphLayout(normalizedSource, expandedNodeIds).then((positions) => {
+    void computeGraphLayout(normalizedSource, expandedNodeIds, elkLayoutConfig).then((positions) => {
       if (cancelled) {
         return
       }
@@ -1016,7 +1082,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     return () => {
       cancelled = true
     }
-  }, [expandedNodeIds, layoutNonce, normalizedSource, setNodes])
+  }, [elkLayoutConfig, expandedNodeIds, layoutNonce, normalizedSource, setNodes])
 
   const issuesByTargetId = useMemo(() => {
     if (!normalizedSource) {
@@ -1224,7 +1290,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     window.setTimeout(() => {
       void flowInstance?.fitView({
-        padding: 0.18,
+        padding: 0.22,
         duration: 280,
       })
     }, 80)
@@ -1319,6 +1385,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                   <button type='button' onClick={() => setIsOpen(false)}>Close</button>
                 </div>
               </div>
+
+              {normalizedSource && (
+                <ElkLayoutPanel value={elkLayoutConfig} onChange={setElkLayoutConfig} />
+              )}
             </header>
 
             {!normalizedSource || !canvasContextValue
@@ -1338,6 +1408,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                       <ReactFlowProvider>
                         <ReactFlow
                           fitView
+                          fitViewOptions={{padding: 0.22}}
                           nodes={nodes}
                           edges={edges}
                           nodeTypes={{'semantic-node': SemanticNode}}

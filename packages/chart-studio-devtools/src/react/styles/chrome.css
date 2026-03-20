@@ -264,3 +264,137 @@
   color: var(--cs-muted-foreground, #718198);
   font-size: 0.75rem;
 }
+
+/* ELK graph layout controls */
+
+.csdt-layout-panel {
+  margin-top: 6px;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  border: 1px solid var(--cs-border, rgba(196, 208, 224, 0.85));
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 35%, var(--cs-background, #fff));
+  overflow: hidden;
+}
+
+.csdt-layout-panel__summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--cs-muted-foreground, #5c6b82);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.csdt-layout-panel__summary::-webkit-details-marker {
+  display: none;
+}
+
+.csdt-layout-panel__summary::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 0.65rem;
+  opacity: 0.75;
+  transition: transform 140ms ease;
+}
+
+.csdt-layout-panel[open] .csdt-layout-panel__summary::before {
+  transform: rotate(90deg);
+}
+
+.csdt-layout-panel__body {
+  padding: 0 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.csdt-layout-panel__hint {
+  margin: 0;
+  font-size: 0.625rem;
+  line-height: 1.45;
+  color: var(--cs-muted-foreground, #6c7b91);
+}
+
+.csdt-layout-panel__hint a {
+  color: var(--cs-primary, #4a6aad);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.csdt-layout-panel__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.csdt-layout-panel__presets button {
+  border: 1px solid var(--cs-border, rgba(196, 208, 224, 0.9));
+  background: var(--cs-background, rgba(255, 255, 255, 0.92));
+  color: var(--cs-foreground, #1d293d);
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 0.6875rem;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.csdt-layout-panel__presets button:hover {
+  border-color: var(--cs-primary, rgba(114, 139, 186, 0.56));
+  background: color-mix(in oklch, var(--cs-muted, #f1f5f9) 40%, var(--cs-background, #fff));
+}
+
+.csdt-layout-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px 12px;
+}
+
+.csdt-layout-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.csdt-layout-panel__field--wide {
+  grid-column: 1 / -1;
+}
+
+.csdt-layout-panel__field > span:first-of-type {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cs-muted-foreground, #6c7b91);
+}
+
+.csdt-layout-panel__field input[type='number'],
+.csdt-layout-panel__field select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--cs-border, rgba(196, 208, 224, 0.9));
+  background: var(--cs-background, rgba(255, 255, 255, 0.96));
+  color: var(--cs-foreground, #1d293d);
+  border-radius: calc(var(--cs-radius, 0.25rem) + 4px);
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.csdt-layout-panel__field input:focus,
+.csdt-layout-panel__field select:focus {
+  outline: none;
+  border-color: color-mix(in oklch, var(--cs-primary, #5879ba) 40%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--cs-ring, #5879ba) 12%, transparent);
+}
+
+.csdt-layout-panel__field small {
+  font-size: 0.5625rem;
+  line-height: 1.3;
+}
