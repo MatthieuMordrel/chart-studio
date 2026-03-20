@@ -42,6 +42,7 @@ import {
   isMaterializedViewJoinOrKeyField,
   MV_JOIN_KEY_DEFAULT_CAP,
 } from './graph-field-visibility.js'
+import {useMvJoinKeyClickRevealForSelection} from './use-mv-join-key-click-reveal.js'
 import {computeGraphLayout, DEVTOOLS_NODE_WIDTH} from './layout.js'
 import {
   adjustDevtoolsLayoutForEdgeDensity,
@@ -53,7 +54,7 @@ import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
 import {lockDocumentScroll} from './scroll-lock.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
-import {ArrowUpRight, ChevronDown, ChevronRight, ChevronUp, Database, GitBranch, Layers, Link2, Workflow} from 'lucide-react'
+import {ArrowUpRight, ChevronDown, ChevronRight, ChevronUp, Database, GitBranch, Link2, Workflow} from 'lucide-react'
 import {ColumnTypeIcon} from './column-type-icon.js'
 import {useDevtoolsSources} from './use-devtools-sources.js'
 import type {
@@ -749,12 +750,6 @@ function CollapsibleSection({
   )
 }
 
-function NodeKindIcon({kind}: {kind: 'dataset' | 'materialized-view'}) {
-  return kind === 'materialized-view'
-    ? <Layers size={14} aria-hidden='true' />
-    : <Database size={14} aria-hidden='true' />
-}
-
 function EdgeKindIcon({kind}: {kind: string}) {
   if (kind === 'relationship') return <GitBranch size={13} aria-hidden='true' />
   if (kind === 'association') return <Link2 size={13} aria-hidden='true' />
@@ -799,13 +794,8 @@ function SelectionPanel({
       <section className='csdt-sidepanel'>
         {/* ── Node header ── */}
         <div className='csdt-sp-hero'>
-          <div className='csdt-sp-hero__icon'>
-            <NodeKindIcon kind={selectedNode.kind} />
-          </div>
-          <div className='csdt-sp-hero__text'>
-            <p className='csdt-sp-hero__kind'>{selectedNode.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}</p>
-            <h3 className='csdt-sp-hero__title'>{selectedNode.label}</h3>
-          </div>
+          <p className='csdt-sp-hero__kind'>{selectedNode.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}</p>
+          <h3 className='csdt-sp-hero__title'>{selectedNode.label}</h3>
         </div>
 
         <div className='csdt-sp-stats'>
@@ -943,13 +933,8 @@ function SelectionPanel({
       <section className='csdt-sidepanel'>
         {/* ── Edge header ── */}
         <div className='csdt-sp-hero'>
-          <div className='csdt-sp-hero__icon csdt-sp-hero__icon--edge'>
-            <EdgeKindIcon kind={selectedEdge.kind} />
-          </div>
-          <div className='csdt-sp-hero__text'>
-            <p className='csdt-sp-hero__kind'>{selectedEdge.kind}</p>
-            <h3 className='csdt-sp-hero__title'>{selectedEdge.label}</h3>
-          </div>
+          <p className='csdt-sp-hero__kind'>{selectedEdge.kind}</p>
+          <h3 className='csdt-sp-hero__title'>{selectedEdge.label}</h3>
         </div>
 
         {selectedEdge.kind === 'relationship' && (
@@ -1039,10 +1024,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const [showIssues, setShowIssues] = useState(false)
   const [viewer, setViewer] = useState<ViewerState | null>(null)
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set())
-  /** User clicked the MV body to reveal join/key rows beyond {@link MV_JOIN_KEY_DEFAULT_CAP}. */
-  const [materializedViewJoinKeyRevealedIds, setMaterializedViewJoinKeyRevealedIds] = useState<Set<string>>(
-    () => new Set(),
-  )
   const [elkLayoutConfig, setElkLayoutConfig] = useState<DevtoolsElkLayoutConfig>(loadStoredDevtoolsElkLayout)
   const [layoutNonce, setLayoutNonce] = useState(0)
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<FlowNode, FlowEdge> | null>(null)
@@ -1095,6 +1076,11 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const currentViewer = viewer && displaySource?.nodeMap.has(viewer.nodeId)
     ? viewer
     : null
+
+  const {mvJoinKeyClickRevealNodeId, setMvJoinKeyClickRevealNodeId} = useMvJoinKeyClickRevealForSelection(
+    currentSelectedNodeId,
+  )
+
   const manualExpandedNodeIds = useMemo(() => {
     if (!displaySource) {
       return new Set<string>()
@@ -1203,7 +1189,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     for (const [nodeId, fieldIds] of edgeFieldHighlights) {
       const node = displaySource.nodeMap.get(nodeId)
 
-      if (!node || node.kind !== 'materialized-view' || materializedViewJoinKeyRevealedIds.has(nodeId)) {
+      if (!node || node.kind !== 'materialized-view' || mvJoinKeyClickRevealNodeId === nodeId) {
         continue
       }
 
@@ -1221,11 +1207,16 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
 
     return next
-  }, [displaySource, edgeFieldHighlights, materializedViewJoinKeyRevealedIds])
-  const visibleMvJoinKeyOverflowRevealedIds = useMemo(
-    () => new Set([...materializedViewJoinKeyRevealedIds, ...autoMaterializedViewJoinKeyRevealedIds]),
-    [autoMaterializedViewJoinKeyRevealedIds, materializedViewJoinKeyRevealedIds],
-  )
+  }, [displaySource, edgeFieldHighlights, mvJoinKeyClickRevealNodeId])
+  const visibleMvJoinKeyOverflowRevealedIds = useMemo(() => {
+    const merged = new Set(autoMaterializedViewJoinKeyRevealedIds)
+
+    if (mvJoinKeyClickRevealNodeId != null) {
+      merged.add(mvJoinKeyClickRevealNodeId)
+    }
+
+    return merged
+  }, [autoMaterializedViewJoinKeyRevealedIds, mvJoinKeyClickRevealNodeId])
   const autoExpandedNodeIds = useMemo(() => {
     if (!displaySource || edgeFieldHighlights.size === 0) {
       return new Set<string>()
@@ -1393,16 +1384,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
           if (next.has(nodeId)) {
             next.delete(nodeId)
-            setMaterializedViewJoinKeyRevealedIds((revealed) => {
-              if (!revealed.has(nodeId)) {
-                return revealed
-              }
-
-              const copy = new Set(revealed)
-              copy.delete(nodeId)
-
-              return copy
-            })
+            setMvJoinKeyClickRevealNodeId((previous) => (previous === nodeId ? null : previous))
           } else {
             next.add(nodeId)
           }
@@ -1481,7 +1463,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     startTransition(() => {
       setExpandedNodeIds(() => new Set())
-      setMaterializedViewJoinKeyRevealedIds(() => new Set())
+      setMvJoinKeyClickRevealNodeId(null)
       setLayoutNonce((current) => current + 1)
     })
   }
@@ -1641,7 +1623,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                                 joinKeys.length > MV_JOIN_KEY_DEFAULT_CAP
                                 && !visibleMvJoinKeyOverflowRevealedIds.has(node.id)
                               ) {
-                                setMaterializedViewJoinKeyRevealedIds((prev) => new Set(prev).add(node.id))
+                                setMvJoinKeyClickRevealNodeId(node.id)
                               }
                             }
 
