@@ -1084,7 +1084,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
       return next ?? current
     })
-  }, [normalizedSource, selectedEdgeId, selectedFieldId, selectedNodeId])
+  }, [layoutNonce, normalizedSource, selectedEdgeId, selectedFieldId, selectedNodeId])
 
   const searchResults = useMemo(() => {
     if (!normalizedSource || deferredSearchQuery.trim().length === 0) {
@@ -1218,6 +1218,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
   function resetLayout() {
     startTransition(() => {
+      setExpandedNodeIds(() => new Set())
       setLayoutNonce((current) => current + 1)
     })
 
