@@ -50,9 +50,9 @@ function releasePackages() {
     if (!options.dryRun) {
       runCommand('git', ['push'])
       runCommand('git', ['push', 'origin', `v${nextVersion}`])
-      console.log(`Pushed v${nextVersion} — CI will publish both packages and create the GitHub release.`)
+      console.log(`Pushed v${nextVersion} — CI will publish all packages and create the GitHub release.`)
     } else {
-      console.log(`Dry run: would bump both packages to v${nextVersion} and push the tag.`)
+      console.log(`Dry run: would bump all packages to v${nextVersion} and push the tag.`)
     }
 
     return
@@ -264,8 +264,13 @@ function bumpVersions(level: BumpLevel, options: {write: boolean}): string {
   for (const entry of manifests) {
     entry.manifest.version = nextVersion
 
-    if (entry.workspacePackage.id === 'ui' && entry.manifest.peerDependencies) {
-      entry.manifest.peerDependencies['@matthieumordrel/chart-studio'] = nextVersion
+    if (entry.manifest.peerDependencies) {
+      for (const peerName of Object.keys(entry.manifest.peerDependencies)) {
+        const isInternalPeer = workspacePackages.some(wp => wp.name === peerName)
+        if (isInternalPeer) {
+          entry.manifest.peerDependencies[peerName] = nextVersion
+        }
+      }
     }
 
     writeFileSync(entry.workspacePackage.manifestPath, JSON.stringify(entry.manifest, null, 2) + '\n')

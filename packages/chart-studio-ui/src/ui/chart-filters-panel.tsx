@@ -163,13 +163,14 @@ export function BadgeRow({
   // null = not yet measured (first render shows all for measurement)
   const [visibleCount, setVisibleCount] = useState<number | null>(null)
 
-  // Measure on every badge change. useLayoutEffect runs before paint,
-  // so the user never sees the "all badges" measurement frame.
-  useLayoutEffect(() => {
-    // Reset to show all so we can measure them
+  // Reset visible count during render when badge count changes (avoids useLayoutEffect anti-pattern)
+  const prevBadgeCountRef = useRef(badges.length)
+  if (prevBadgeCountRef.current !== badges.length) {
+    prevBadgeCountRef.current = badges.length
     setVisibleCount(null)
-  }, [badges.length])
+  }
 
+  // Measure after layout to determine how many badges fit in 2 rows.
   useLayoutEffect(() => {
     // Only measure when all badges are rendered (visibleCount === null)
     if (visibleCount !== null) return

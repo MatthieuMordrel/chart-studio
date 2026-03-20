@@ -1,6 +1,5 @@
 import {
   type RefObject,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -172,14 +171,11 @@ export function DevtoolsDataViewer({
   const [pageIndex, setPageIndex] = useState(0)
   const pageSize = 100
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
-
-  useEffect(() => {
-    setPageIndex(0)
-  }, [node.id, scope, dataView])
+  const currentPageIndex = Math.min(pageIndex, pageCount - 1)
 
   const pageRows = useMemo(
-    () => rows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
-    [pageIndex, rows],
+    () => rows.slice(currentPageIndex * pageSize, (currentPageIndex + 1) * pageSize),
+    [currentPageIndex, rows],
   )
 
   const columnHelper = createColumnHelper<DevtoolsRow>()
@@ -273,18 +269,18 @@ export function DevtoolsDataViewer({
           : (
             <div className='csdt-data-viewer__inspect'>
               <div className='csdt-data-viewer__pagination'>
-                <span>Page {pageIndex + 1} of {pageCount}</span>
+                <span>Page {currentPageIndex + 1} of {pageCount}</span>
                 <div className='csdt-pagination__buttons'>
                   <button
                     type='button'
-                    onClick={() => setPageIndex((current) => Math.max(0, current - 1))}
-                    disabled={pageIndex === 0}>
+                    onClick={() => setPageIndex(Math.max(0, currentPageIndex - 1))}
+                    disabled={currentPageIndex === 0}>
                     Previous
                   </button>
                   <button
                     type='button'
-                    onClick={() => setPageIndex((current) => Math.min(pageCount - 1, current + 1))}
-                    disabled={pageIndex >= pageCount - 1}>
+                    onClick={() => setPageIndex(Math.min(pageCount - 1, currentPageIndex + 1))}
+                    disabled={currentPageIndex >= pageCount - 1}>
                     Next
                   </button>
                 </div>

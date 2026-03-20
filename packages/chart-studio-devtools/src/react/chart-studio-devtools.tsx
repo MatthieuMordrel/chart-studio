@@ -20,16 +20,19 @@ import {
   ReactFlow,
   ReactFlowProvider,
   getSmoothStepPath,
-  useEdgesState,
-  useNodesState,
-  type Edge,
   type EdgeProps,
-  type Node,
   type NodeProps,
   type ReactFlowInstance,
 } from '@xyflow/react'
 import type {ChartStudioDevtoolsContextSnapshot} from '@matthieumordrel/chart-studio/_internal'
 import {ElkLayoutPanel} from './devtools-elk-layout-panel.js'
+import {
+  applyFlowNodePositionChanges,
+  buildFlowEdges,
+  buildFlowNodes,
+  type FlowEdge,
+  type FlowNode,
+} from './graph-state.js'
 import {computeGraphLayout, DEVTOOLS_NODE_WIDTH, DEVTOOLS_VISIBLE_FIELD_COUNT} from './layout.js'
 import {loadStoredDevtoolsElkLayout, persistDevtoolsElkLayout, type DevtoolsElkLayoutConfig} from './layout-options.js'
 import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
@@ -46,12 +49,6 @@ import type {
   NormalizedSourceVm,
   SearchItemVm,
 } from './types.js'
-
-type FlowNode = Node<{nodeId: string}, 'semantic-node'>
-type FlowEdge = Edge<
-  {edgeId: string; parallelIndex: number; parallelCount: number},
-  'semantic-edge'
->
 
 /** Base `getSmoothStepPath` offset (matches previous single-edge default). */
 const SMOOTH_STEP_OFFSET_BASE = 18
@@ -440,85 +437,6 @@ function MarkerDefs() {
       </defs>
     </svg>
   )
-}
-
-function buildFlowNodes(
-  source: NormalizedSourceVm,
-  positions: Record<string, {x: number; y: number}>,
-): FlowNode[] {
-  return source.nodes.map((node) => ({
-    id: node.id,
-    type: 'semantic-node',
-    position: positions[node.id] ?? {x: 0, y: 0},
-    draggable: true,
-    selectable: true,
-    data: {nodeId: node.id},
-    width: DEVTOOLS_NODE_WIDTH,
-  }))
-}
-
-/**
- * For each directed pair of nodes, assigns a stable index so parallel relationship
- * lines can use different smooth-step offsets and `stepPosition` (less overlap).
- *
- * @param source - Normalized graph snapshot
- * @returns Map from edge id to its index within the (source → target) bundle and bundle size
- */
-function computeParallelEdgeMeta(
-  source: NormalizedSourceVm,
-): Map<string, {parallelIndex: number; parallelCount: number}> {
-  const byPair = new Map<string, string[]>()
-
-  for (const edge of source.edges) {
-    const key = `${edge.sourceNodeId}\0${edge.targetNodeId}`
-    const list = byPair.get(key) ?? []
-    list.push(edge.id)
-    byPair.set(key, list)
-  }
-
-  const meta = new Map<string, {parallelIndex: number; parallelCount: number}>()
-
-  for (const ids of byPair.values()) {
-    const sorted = [...ids].sort((a, b) => a.localeCompare(b))
-    const count = sorted.length
-
-    sorted.forEach((id, parallelIndex) => {
-      meta.set(id, {parallelIndex, parallelCount: count})
-    })
-  }
-
-  return meta
-}
-
-function buildFlowEdges(
-  source: NormalizedSourceVm,
-): FlowEdge[] {
-  const parallelMeta = computeParallelEdgeMeta(source)
-
-  return source.edges.map((edge) => {
-    const bundle = parallelMeta.get(edge.id) ?? {parallelIndex: 0, parallelCount: 1}
-
-    return {
-      id: edge.id,
-      type: 'semantic-edge',
-      source: edge.sourceNodeId,
-      target: edge.targetNodeId,
-      sourceHandle: edge.sourceHandleId,
-      targetHandle: edge.targetHandleId,
-      selectable: true,
-      data: {
-        edgeId: edge.id,
-        parallelIndex: bundle.parallelIndex,
-        parallelCount: bundle.parallelCount,
-      },
-      markerStart: edge.kind === 'association' ? 'url(#csdt-marker-many)' : undefined,
-      markerEnd: edge.kind === 'association'
-        ? 'url(#csdt-marker-many)'
-        : edge.kind === 'materialization'
-          ? 'url(#csdt-marker-lineage)'
-          : 'url(#csdt-marker-many)',
-    }
-  })
 }
 
 /**
@@ -1016,9 +934,33 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     () => normalizedSource?.contexts[0] ?? null,
     [normalizedSource],
   )
-  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([])
-  const positionsRef = useRef<Record<string, {x: number; y: number}>>({})
+  const currentSelectedNode = selectedNodeId && displaySource?.nodeMap.has(selectedNodeId)
+    ? displaySource.nodeMap.get(selectedNodeId) ?? null
+    : null
+  const currentSelectedNodeId = currentSelectedNode?.id ?? null
+  const currentSelectedFieldId = currentSelectedNode && selectedFieldId
+    && currentSelectedNode.fields.some((field) => field.id === selectedFieldId)
+    ? selectedFieldId
+    : null
+  const currentSelectedEdgeId = selectedEdgeId && displaySource?.edgeMap.has(selectedEdgeId)
+    ? selectedEdgeId
+    : null
+  const currentViewer = viewer && displaySource?.nodeMap.has(viewer.nodeId)
+    ? viewer
+    : null
+  const manualExpandedNodeIds = useMemo(() => {
+    if (!displaySource) {
+      return new Set<string>()
+    }
+
+    return new Set(
+      [...expandedNodeIds].filter((id) => displaySource.nodeMap.has(id)),
+    )
+  }, [displaySource, expandedNodeIds])
+  const [nodePositions, setNodePositions] = useState<Record<string, {x: number; y: number}>>({})
+  const layoutRunIdRef = useRef(0)
+  const fitViewAfterLayoutRef = useRef(false)
+  const fitViewFrameRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!isOpen) {
@@ -1034,7 +976,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         return
       }
 
-      if (viewer) {
+      if (currentViewer) {
         setViewer(null)
         event.preventDefault()
         event.stopPropagation()
@@ -1060,7 +1002,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     return () => {
       document.removeEventListener('keydown', onDocumentKeyDown, true)
     }
-  }, [isOpen, showIssues, viewer])
+  }, [currentViewer, isOpen, showIssues])
 
   /**
    * Chart UI dropdowns portal to `document.body` with default z-index 40/50.
@@ -1083,80 +1025,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
   }, [isOpen])
 
-  /**
-   * Reconcile interactive state (selection, viewer, expanded nodes, active source)
-   * whenever the underlying display source or active source changes. Clears any
-   * references to nodes/edges that no longer exist in the current graph.
-   */
-  useEffect(() => {
-    if (!activeSource && selectedSourceId) {
-      setSelectedSourceId(null)
-    }
-
-    if (activeSource && selectedSourceId == null) {
-      setSelectedSourceId(activeSource.id)
-    }
-
-    if (!displaySource) {
-      return
-    }
-
-    if (selectedNodeId && !displaySource.nodeMap.has(selectedNodeId)) {
-      setSelectedNodeId(null)
-      setSelectedFieldId(null)
-    }
-
-    if (selectedEdgeId && !displaySource.edgeMap.has(selectedEdgeId)) {
-      setSelectedEdgeId(null)
-    }
-
-    if (viewer && !displaySource.nodeMap.has(viewer.nodeId)) {
-      setViewer(null)
-    }
-
-    setExpandedNodeIds((current) => {
-      const next = new Set(
-        [...current].filter((id) => displaySource.nodeMap.has(id)),
-      )
-
-      return next.size === current.size ? current : next
-    })
-  }, [activeSource, displaySource, selectedEdgeId, selectedNodeId, selectedSourceId, viewer])
-
-  useEffect(() => {
-    if (!displaySource) {
-      setNodes([])
-      setEdges([])
-      positionsRef.current = {}
-      return
-    }
-
-    setEdges(buildFlowEdges(displaySource))
-  }, [displaySource, setEdges])
-
-  useEffect(() => {
-    if (!displaySource) {
-      return
-    }
-
-    let cancelled = false
-
-    void computeGraphLayout(displaySource, expandedNodeIds, elkLayoutConfig).then((positions) => {
-      if (cancelled) {
-        return
-      }
-
-      positionsRef.current = positions
-      startTransition(() => {
-        setNodes(buildFlowNodes(displaySource, positions))
-      })
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [displaySource, elkLayoutConfig, expandedNodeIds, layoutNonce, setNodes])
-
   const issuesByTargetId = useMemo(() => {
     if (!displaySource) {
       return new Map<string, readonly string[]>()
@@ -1171,53 +1039,103 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
   const {focusedEdgeIds, focusedNodeIds} = useMemo(
     () => displaySource
-      ? findFocusSets(displaySource, selectedNodeId, selectedEdgeId, selectedFieldId)
+      ? findFocusSets(displaySource, currentSelectedNodeId, currentSelectedEdgeId, currentSelectedFieldId)
       : {focusedEdgeIds: new Set<string>(), focusedNodeIds: new Set<string>()},
-    [displaySource, selectedEdgeId, selectedFieldId, selectedNodeId],
+    [currentSelectedEdgeId, currentSelectedFieldId, currentSelectedNodeId, displaySource],
   )
 
   const edgeFieldHighlights = useMemo(
     () => displaySource
-      ? computeEdgeFieldHighlights(selectedEdgeId, selectedNodeId, selectedFieldId, displaySource)
+      ? computeEdgeFieldHighlights(currentSelectedEdgeId, currentSelectedNodeId, currentSelectedFieldId, displaySource)
       : new Map<string, ReadonlySet<string>>(),
-    [displaySource, selectedEdgeId, selectedFieldId, selectedNodeId],
+    [currentSelectedEdgeId, currentSelectedFieldId, currentSelectedNodeId, displaySource],
   )
+  const autoExpandedNodeIds = useMemo(() => {
+    if (!displaySource || edgeFieldHighlights.size === 0) {
+      return new Set<string>()
+    }
+
+    const next = new Set<string>()
+
+    for (const [nodeId, fieldIds] of edgeFieldHighlights) {
+      const node = displaySource.nodeMap.get(nodeId)
+
+      if (!node || manualExpandedNodeIds.has(nodeId)) {
+        continue
+      }
+
+      for (const fieldId of fieldIds) {
+        const fieldIndex = node.fields.findIndex((field) => field.id === fieldId)
+
+        if (fieldIndex >= DEVTOOLS_VISIBLE_FIELD_COUNT) {
+          next.add(nodeId)
+          break
+        }
+      }
+    }
+
+    return next
+  }, [displaySource, edgeFieldHighlights, manualExpandedNodeIds])
+  const visibleExpandedNodeIds = useMemo(() => {
+    if (autoExpandedNodeIds.size === 0) {
+      return manualExpandedNodeIds
+    }
+
+    return new Set([
+      ...manualExpandedNodeIds,
+      ...autoExpandedNodeIds,
+    ])
+  }, [autoExpandedNodeIds, manualExpandedNodeIds])
 
   useEffect(() => {
-    if (!displaySource || edgeFieldHighlights.size === 0) {
+    if (fitViewFrameRef.current != null) {
+      window.cancelAnimationFrame(fitViewFrameRef.current)
+      fitViewFrameRef.current = null
+    }
+
+    if (!displaySource) {
+      fitViewAfterLayoutRef.current = false
+      setNodePositions({})
       return
     }
 
-    setExpandedNodeIds((current) => {
-      let next: Set<string> | null = null
+    let cancelled = false
+    const layoutRunId = ++layoutRunIdRef.current
 
-      for (const [nodeId, fieldIds] of edgeFieldHighlights) {
-        const node = displaySource.nodeMap.get(nodeId)
-
-        if (!node) {
-          continue
-        }
-
-        for (const fieldId of fieldIds) {
-          const fieldIndex = node.fields.findIndex((field) => field.id === fieldId)
-
-          if (fieldIndex === -1) {
-            continue
-          }
-
-          if (fieldIndex >= DEVTOOLS_VISIBLE_FIELD_COUNT && !current.has(nodeId)) {
-            if (!next) {
-              next = new Set(current)
-            }
-
-            next.add(nodeId)
-          }
-        }
+    void computeGraphLayout(displaySource, visibleExpandedNodeIds, elkLayoutConfig).then((positions) => {
+      if (cancelled || layoutRunId !== layoutRunIdRef.current) {
+        return
       }
 
-      return next ?? current
+      startTransition(() => {
+        setNodePositions(positions)
+      })
+
+      if (!fitViewAfterLayoutRef.current) {
+        return
+      }
+
+      fitViewAfterLayoutRef.current = false
+      fitViewFrameRef.current = window.requestAnimationFrame(() => {
+        if (layoutRunId !== layoutRunIdRef.current) {
+          return
+        }
+
+        void flowInstance?.fitView({
+          padding: FIT_VIEW_PADDING,
+          duration: 280,
+        })
+      })
     })
-  }, [displaySource, edgeFieldHighlights, layoutNonce])
+
+    return () => {
+      cancelled = true
+      if (fitViewFrameRef.current != null) {
+        window.cancelAnimationFrame(fitViewFrameRef.current)
+        fitViewFrameRef.current = null
+      }
+    }
+  }, [displaySource, elkLayoutConfig, flowInstance, layoutNonce, visibleExpandedNodeIds])
 
   const searchResults = useMemo(() => {
     if (!displaySource || deferredSearchQuery.trim().length === 0) {
@@ -1234,6 +1152,15 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       .slice(0, 14)
   }, [deferredSearchQuery, displaySource])
 
+  const flowNodes = useMemo(
+    () => displaySource ? buildFlowNodes(displaySource, nodePositions, currentSelectedNodeId) : [],
+    [currentSelectedNodeId, displaySource, nodePositions],
+  )
+  const flowEdges = useMemo(
+    () => displaySource ? buildFlowEdges(displaySource, currentSelectedEdgeId) : [],
+    [currentSelectedEdgeId, displaySource],
+  )
+
   const canvasContextValue = useMemo<CanvasContextValue | null>(() => {
     if (!displaySource) {
       return null
@@ -1242,9 +1169,9 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     return {
       activeContext,
       edgeHighlightFieldIdsByNodeId: edgeFieldHighlights,
-      expandedNodeIds,
+      expandedNodeIds: visibleExpandedNodeIds,
       focusedEdgeIds,
-      focusedFieldId: selectedFieldId,
+      focusedFieldId: currentSelectedFieldId,
       focusedNodeIds,
       issuesByTargetId,
       onInspectNode(nodeId) {
@@ -1288,21 +1215,21 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
           return next
         })
       },
-      selectedEdgeId,
-      selectedNodeId,
+      selectedEdgeId: currentSelectedEdgeId,
+      selectedNodeId: currentSelectedNodeId,
       source: displaySource,
     }
   }, [
     activeContext,
+    currentSelectedEdgeId,
+    currentSelectedFieldId,
+    currentSelectedNodeId,
     displaySource,
     edgeFieldHighlights,
-    expandedNodeIds,
     focusedEdgeIds,
     focusedNodeIds,
     issuesByTargetId,
-    selectedEdgeId,
-    selectedFieldId,
-    selectedNodeId,
+    visibleExpandedNodeIds,
   ])
 
   function focusSearchItem(item: SearchItemVm) {
@@ -1325,7 +1252,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       return
     }
 
-    const targetNode = nodes.find((node) => node.id === targetNodeId)
+    const targetNode = flowNodes.find((node) => node.id === targetNodeId)
     if (!targetNode || !flowInstance) {
       return
     }
@@ -1354,28 +1281,23 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
    * **Reset layout**, reused when toggling graph visibility (e.g. materialized views).
    */
   function applyLayoutResetAndFitView() {
+    fitViewAfterLayoutRef.current = true
+
     startTransition(() => {
       setExpandedNodeIds(() => new Set())
       setLayoutNonce((current) => current + 1)
     })
-
-    window.setTimeout(() => {
-      void flowInstance?.fitView({
-        padding: FIT_VIEW_PADDING,
-        duration: 280,
-      })
-    }, 80)
   }
 
   function resetLayout() {
     applyLayoutResetAndFitView()
   }
 
-  const viewerNode = viewer && displaySource
-    ? displaySource.nodeMap.get(viewer.nodeId) ?? null
+  const viewerNode = currentViewer && displaySource
+    ? displaySource.nodeMap.get(currentViewer.nodeId) ?? null
     : null
-  const viewerRows = viewerNode && viewer
-    ? getNodeRows(viewerNode, activeContext, viewer.scope)
+  const viewerRows = viewerNode && currentViewer
+    ? getNodeRows(viewerNode, activeContext, currentViewer.scope)
     : []
 
   return (
@@ -1499,14 +1421,20 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                         <ReactFlow
                           fitView
                           fitViewOptions={{padding: FIT_VIEW_PADDING}}
-                          nodes={nodes}
-                          edges={edges}
+                          nodes={flowNodes}
+                          edges={flowEdges}
                           nodeTypes={{'semantic-node': SemanticNode}}
                           edgeTypes={{'semantic-edge': SemanticEdge}}
                           nodesConnectable={false}
                           onInit={setFlowInstance}
-                          onNodesChange={onNodesChange}
-                          onEdgesChange={onEdgesChange}
+                          onNodesChange={(changes) => {
+                            if (!displaySource) {
+                              return
+                            }
+
+                            setNodePositions((current) =>
+                              applyFlowNodePositionChanges(current, changes, displaySource))
+                          }}
                           onNodeClick={(_, node: FlowNode) => {
                             setSelectedNodeId(node.id)
                             setSelectedEdgeId(null)
@@ -1537,11 +1465,11 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
                     <SelectionPanel
                       activeContext={activeContext}
-                      focusedFieldId={selectedFieldId}
+                      focusedFieldId={currentSelectedFieldId}
                       onExploreNode={(nodeId) => canvasContextValue.onExploreNode(nodeId)}
                       onInspectNode={(nodeId) => canvasContextValue.onInspectNode(nodeId)}
-                      selectedEdgeId={selectedEdgeId}
-                      selectedNodeId={selectedNodeId}
+                      selectedEdgeId={currentSelectedEdgeId}
+                      selectedNodeId={currentSelectedNodeId}
                       source={displaySource!}
                     />
                   </CanvasContext.Provider>
@@ -1585,16 +1513,17 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
             )}
           </section>
 
-          {viewer && viewerNode && (
+          {currentViewer && viewerNode && (
             <DevtoolsDataViewer
+              key={`${currentViewer.nodeId}:${currentViewer.scope}:${currentViewer.dataView}`}
               context={activeContext}
-              dataView={viewer.dataView}
+              dataView={currentViewer.dataView}
               node={viewerNode}
               onClose={() => setViewer(null)}
               onDataViewChange={(dataView) => setViewer((current) => current ? {...current, dataView} : current)}
               onScopeChange={(scope) => setViewer((current) => current ? {...current, scope} : current)}
               rows={viewerRows}
-              scope={viewer.scope}
+              scope={currentViewer.scope}
             />
           )}
         </div>
