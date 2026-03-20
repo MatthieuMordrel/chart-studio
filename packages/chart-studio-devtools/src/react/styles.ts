@@ -15,6 +15,54 @@ export const DEVTOOLS_STYLES = `
   color: var(--cs-foreground, #172032);
 }
 
+/* Thin, theme-aware scrollbars (Firefox `scrollbar-*`, WebKit pseudos). */
+.csdt-json-viewer,
+.csdt-grid,
+.csdt-sidepanel,
+.csdt-issues-drawer,
+.csdt-search__results {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--cs-muted-foreground, #718198) 42%, transparent)
+    color-mix(in oklch, var(--cs-muted, #f1f5f9) 55%, var(--cs-background, #fff));
+}
+
+.csdt-json-viewer::-webkit-scrollbar,
+.csdt-grid::-webkit-scrollbar,
+.csdt-sidepanel::-webkit-scrollbar,
+.csdt-issues-drawer::-webkit-scrollbar,
+.csdt-search__results::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.csdt-json-viewer::-webkit-scrollbar-track,
+.csdt-grid::-webkit-scrollbar-track,
+.csdt-sidepanel::-webkit-scrollbar-track,
+.csdt-issues-drawer::-webkit-scrollbar-track,
+.csdt-search__results::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.csdt-json-viewer::-webkit-scrollbar-thumb,
+.csdt-grid::-webkit-scrollbar-thumb,
+.csdt-sidepanel::-webkit-scrollbar-thumb,
+.csdt-issues-drawer::-webkit-scrollbar-thumb,
+.csdt-search__results::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  background-color: color-mix(in oklch, var(--cs-muted-foreground, #718198) 38%, transparent);
+}
+
+.csdt-json-viewer::-webkit-scrollbar-thumb:hover,
+.csdt-grid::-webkit-scrollbar-thumb:hover,
+.csdt-sidepanel::-webkit-scrollbar-thumb:hover,
+.csdt-issues-drawer::-webkit-scrollbar-thumb:hover,
+.csdt-search__results::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklch, var(--cs-muted-foreground, #718198) 58%, transparent);
+}
+
 .csdt-shell__scrim,
 .csdt-data-viewer__backdrop {
   position: absolute;
