@@ -58,6 +58,12 @@ const SMOOTH_STEP_OFFSET_BASE = 18
 /** Extra offset per additional edge between the same two nodes (staggered paths). */
 const SMOOTH_STEP_OFFSET_STRIDE = 14
 
+/**
+ * Viewport margin when fitting the graph (React Flow `fitView` padding). Lower = tighter fit /
+ * larger default zoom; was 0.22 and left noticeable empty bands on wide layouts.
+ */
+const FIT_VIEW_PADDING = 0.08
+
 type ViewerState = {
   nodeId: string
   /** Paginated grid, chart explore UI, or JSON (one control in the viewer header). */
@@ -1380,7 +1386,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     window.setTimeout(() => {
       void flowInstance?.fitView({
-        padding: 0.22,
+        padding: FIT_VIEW_PADDING,
         duration: 280,
       })
     }, 80)
@@ -1513,7 +1519,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                       <ReactFlowProvider>
                         <ReactFlow
                           fitView
-                          fitViewOptions={{padding: 0.22}}
+                          fitViewOptions={{padding: FIT_VIEW_PADDING}}
                           nodes={nodes}
                           edges={edges}
                           nodeTypes={{'semantic-node': SemanticNode}}
