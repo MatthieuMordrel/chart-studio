@@ -3,9 +3,6 @@ import type {DatasetFieldVm, NormalizedEdgeVm, NormalizedNodeVm, NormalizedSourc
 /** Maximum field rows on a collapsed dataset node (after relationship filtering). */
 export const MAX_COLLAPSED_GRAPH_FIELDS = 14
 
-/** First N join/key columns shown on a collapsed materialized-view node before overflow reveal. */
-export const MV_JOIN_KEY_DEFAULT_CAP = 5
-
 /** Shown on isolated nodes with no graph edges and no key/join metadata. */
 const FALLBACK_FIELD_COUNT = 4
 
@@ -99,10 +96,38 @@ function isRelationalMetadataField(field: DatasetFieldVm): boolean {
 }
 
 /**
+ * Primary or foreign key column on a materialized view (structural keys only, no join-projected).
+ */
+export function isMaterializedViewKeyField(field: DatasetFieldVm): boolean {
+  return field.isPrimaryKey || field.isForeignKey
+}
+
+/**
+ * Column projected from another dataset via a materialization join step.
+ */
+export function isMaterializedViewJoinProjectedField(field: DatasetFieldVm): boolean {
+  return field.joinProjection != null
+}
+
+/**
  * Join-projected or primary/foreign key columns on a materialized view (graph-relevant subset).
  */
 export function isMaterializedViewJoinOrKeyField(field: DatasetFieldVm): boolean {
-  return field.joinProjection != null || field.isPrimaryKey || field.isForeignKey
+  return isMaterializedViewKeyField(field) || isMaterializedViewJoinProjectedField(field)
+}
+
+/**
+ * Key fields (PK/FK) on a materialized view, in declaration order.
+ */
+export function getMaterializedViewKeyFields(node: NormalizedNodeVm): readonly DatasetFieldVm[] {
+  return node.fields.filter(isMaterializedViewKeyField)
+}
+
+/**
+ * Join-projected fields on a materialized view, in declaration order.
+ */
+export function getMaterializedViewJoinProjectedFields(node: NormalizedNodeVm): readonly DatasetFieldVm[] {
+  return node.fields.filter(isMaterializedViewJoinProjectedField)
 }
 
 /**
@@ -113,17 +138,16 @@ export function getMaterializedViewJoinKeyFields(node: NormalizedNodeVm): readon
 }
 
 /**
- * Materialized views: join/key columns only; first {@link MV_JOIN_KEY_DEFAULT_CAP} by default, remainder
- * after overflow reveal (node click). Still capped by {@link MAX_COLLAPSED_GRAPH_FIELDS} when many join keys.
+ * Materialized views: by default shows only PK/FK columns. When {@link mvJoinKeyOverflowRevealed}
+ * is true, also includes join-projected columns. Still capped by {@link MAX_COLLAPSED_GRAPH_FIELDS}.
  */
 function getCollapsedVisibleFieldsMaterializedView(
   node: NormalizedNodeVm,
   mvJoinKeyOverflowRevealed: boolean,
 ): readonly DatasetFieldVm[] {
-  const joinKeyFields = getMaterializedViewJoinKeyFields(node)
-  const cap = MV_JOIN_KEY_DEFAULT_CAP
+  if (mvJoinKeyOverflowRevealed) {
+    const joinKeyFields = getMaterializedViewJoinKeyFields(node)
 
-  if (joinKeyFields.length <= cap || mvJoinKeyOverflowRevealed) {
     if (joinKeyFields.length <= MAX_COLLAPSED_GRAPH_FIELDS) {
       return joinKeyFields
     }
@@ -131,18 +155,25 @@ function getCollapsedVisibleFieldsMaterializedView(
     return joinKeyFields.slice(0, MAX_COLLAPSED_GRAPH_FIELDS)
   }
 
-  return joinKeyFields.slice(0, cap)
+  const keyFields = getMaterializedViewKeyFields(node)
+
+  if (keyFields.length <= MAX_COLLAPSED_GRAPH_FIELDS) {
+    return keyFields
+  }
+
+  return keyFields.slice(0, MAX_COLLAPSED_GRAPH_FIELDS)
 }
 
 /**
  * Fields to render on a collapsed graph node: edge endpoints, attribute keys, and PK/FK/join/MV
  * metadata, in the same order as {@link NormalizedNodeVm.fields}.
  *
- * For {@link NormalizedNodeVm.kind} `"materialized-view"`, only join + PK/FK columns, with a default cap
- * unless {@link GraphFieldVisibilityOptions.mvJoinKeyOverflowRevealed} is true.
+ * For {@link NormalizedNodeVm.kind} `"materialized-view"`, only PK/FK columns by default.
+ * When {@link GraphFieldVisibilityOptions.mvJoinKeyOverflowRevealed} is true, join-projected columns
+ * are also included (subject to {@link MAX_COLLAPSED_GRAPH_FIELDS}).
  */
 export type GraphFieldVisibilityOptions = {
-  /** When true, all join/key fields on the MV are shown (subject to {@link MAX_COLLAPSED_GRAPH_FIELDS}). */
+  /** When true, join-projected fields on the MV are shown alongside PK/FK (subject to {@link MAX_COLLAPSED_GRAPH_FIELDS}). */
   mvJoinKeyOverflowRevealed?: boolean
 }
 

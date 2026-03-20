@@ -14,13 +14,32 @@ import type {
   ChartStudioDevtoolsSource,
 } from './types.js'
 
+const EMPTY_SOURCES: readonly ChartStudioDevtoolsSource[] = []
+const EMPTY_SNAPSHOTS = [] as const
+
+function noopSubscribe(): () => void {
+  return () => {}
+}
+
+function getEmptySnapshots() {
+  return EMPTY_SNAPSHOTS
+}
+
 function useExternalSnapshotSources(
   props: ChartStudioDevtoolsProps,
 ): readonly ChartStudioDevtoolsSource[] {
+  const externalMode = typeof props.getSnapshot === 'function'
   const readSnapshot = useEffectEvent(() => props.getSnapshot?.() ?? null)
-  const [polledSnapshot, setPolledSnapshot] = useState(() => props.getSnapshot?.() ?? null)
+  const [polledSnapshot, setPolledSnapshot] = useState<ChartStudioDevtoolsSource['snapshot'] | null>(
+    () => props.getSnapshot?.() ?? null,
+  )
 
   useEffect(() => {
+    if (!externalMode) {
+      setPolledSnapshot(null)
+      return
+    }
+
     setPolledSnapshot(readSnapshot())
 
     if (props.subscribe) {
@@ -36,11 +55,11 @@ function useExternalSnapshotSources(
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [props.pollIntervalMs, props.subscribe, readSnapshot])
+  }, [externalMode, props.pollIntervalMs, props.subscribe, readSnapshot])
 
   return useMemo(() => {
     if (!polledSnapshot) {
-      return []
+      return EMPTY_SOURCES
     }
 
     return [{
@@ -51,15 +70,19 @@ function useExternalSnapshotSources(
   }, [polledSnapshot])
 }
 
-function useInternalStoreSources(): readonly ChartStudioDevtoolsSource[] {
+function useInternalStoreSources(enabled: boolean): readonly ChartStudioDevtoolsSource[] {
   const snapshots = useSyncExternalStore(
-    subscribeChartStudioDevtoolsSnapshots,
-    getChartStudioDevtoolsSnapshots,
-    getChartStudioDevtoolsSnapshots,
+    enabled ? subscribeChartStudioDevtoolsSnapshots : noopSubscribe,
+    enabled ? getChartStudioDevtoolsSnapshots : getEmptySnapshots,
+    enabled ? getChartStudioDevtoolsSnapshots : getEmptySnapshots,
   )
 
-  return useMemo(() =>
-    snapshots.map((snapshot) => ({
+  return useMemo(() => {
+    if (snapshots.length === 0) {
+      return EMPTY_SOURCES
+    }
+
+    return snapshots.map((snapshot) => ({
       id: snapshot.id,
       label: snapshot.label,
       snapshot: {
@@ -69,16 +92,15 @@ function useInternalStoreSources(): readonly ChartStudioDevtoolsSource[] {
         contexts: snapshot.contexts,
         issues: snapshot.issues,
       },
-    })) as unknown as ChartStudioDevtoolsSource[],
-  [snapshots])
+    }))
+  }, [snapshots])
 }
 
 export function useDevtoolsSources(
   props: ChartStudioDevtoolsProps,
 ): readonly ChartStudioDevtoolsSource[] {
-  if (props.getSnapshot) {
-    return useExternalSnapshotSources(props)
-  }
+  const externalSources = useExternalSnapshotSources(props)
+  const internalSources = useInternalStoreSources(!props.getSnapshot)
 
-  return useInternalStoreSources()
+  return props.getSnapshot ? externalSources : internalSources
 }

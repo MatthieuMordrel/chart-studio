@@ -2,6 +2,7 @@ import type {MaterializedViewDefinition} from '@matthieumordrel/chart-studio'
 import type {
   ChartStudioDevtoolsContextSnapshot,
   ChartStudioDevtoolsIssue,
+  ChartStudioDevtoolsSnapshot,
 } from '@matthieumordrel/chart-studio/_internal'
 
 export type AnyMaterializedView = MaterializedViewDefinition<any, any, any, any>
@@ -89,8 +90,10 @@ export type AnyDevtoolsModel = {
   attributes: Record<string, DevtoolsAttribute>
 }
 
+type DevtoolsSnapshotModel = AnyDevtoolsModel | ChartStudioDevtoolsSnapshot['model']
+
 export type ChartStudioDevtoolsInputSnapshot = {
-  model: AnyDevtoolsModel
+  model: DevtoolsSnapshotModel
   data: Record<string, readonly DevtoolsRow[]>
   materializedViews?: Record<string, AnyMaterializedView>
   contexts?: readonly ChartStudioDevtoolsContextSnapshot[]

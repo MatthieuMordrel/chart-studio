@@ -8,7 +8,8 @@
   ],
   "scripts": {
     "build": "bun run ./scripts/build-packages.ts",
-    "typecheck": "bunx tsc --noEmit -p tsconfig.json",
+    "typecheck": "bun run ./scripts/typecheck-workspace.ts",
+    "typecheck:packages": "bun run ./scripts/typecheck-packages.ts",
     "test": "vitest run",
     "smoke:test": "bun run ./scripts/smoke-test-packages.ts",
     "release": "bun run ./scripts/release-packages.ts",

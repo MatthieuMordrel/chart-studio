@@ -13,7 +13,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import type {CSSProperties, ReactNode} from 'react'
+import type {CSSProperties} from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -38,9 +38,9 @@ import {
 } from './graph-state.js'
 import {
   getCollapsedVisibleFields,
-  getMaterializedViewJoinKeyFields,
+  getMaterializedViewJoinProjectedFields,
   isMaterializedViewJoinOrKeyField,
-  MV_JOIN_KEY_DEFAULT_CAP,
+  isMaterializedViewJoinProjectedField,
 } from './graph-field-visibility.js'
 import {useMvJoinKeyClickRevealForSelection} from './use-mv-join-key-click-reveal.js'
 import {computeGraphLayout, DEVTOOLS_NODE_WIDTH} from './layout.js'
@@ -54,15 +54,22 @@ import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
 import {lockDocumentScroll} from './scroll-lock.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
-import {ArrowUpRight, ChevronDown, ChevronRight, ChevronUp, Database, GitBranch, Link2, Workflow} from 'lucide-react'
+import {ArrowUpRight, ChevronDown, ChevronUp} from 'lucide-react'
 import {ColumnTypeIcon} from './column-type-icon.js'
 import {useDevtoolsSources} from './use-devtools-sources.js'
+import {
+  FieldRoleBadges,
+  SelectionPanel,
+  formatBytes,
+  getNodeRows,
+} from './devtools-details.js'
+import {
+  computeEdgeFieldHighlights,
+  findFocusSets,
+} from './selection-utils.js'
 import type {
   ChartStudioDevtoolsProps,
-  DatasetFieldJoinProjection,
-  DatasetFieldVm,
   NormalizedEdgeVm,
-  NormalizedNodeVm,
   NormalizedSourceVm,
   SearchItemVm,
 } from './types.js'
@@ -154,72 +161,6 @@ function useCanvasContext(): CanvasContextValue {
   return value
 }
 
-/**
- * Readable label for a dataset id (matches devtools humanize style elsewhere).
- */
-function humanizeDatasetId(datasetId: string): string {
-  return datasetId
-    .replace(/[_-]+/g, ' ')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .trim()
-    .split(/\s+/)
-    .filter((part) => part.length > 0)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-/**
- * Tooltip for materialized-view join / traversal columns.
- */
-function joinProjectionTitle(j: DatasetFieldJoinProjection): string {
-  const viaKind = j.stepKind === 'through-association'
-    ? 'association'
-    : 'relationship'
-
-  return [
-    `From ${j.targetDataset}`,
-    `${viaKind} “${j.via}”`,
-    `alias “${j.alias}”`,
-  ].join(' · ')
-}
-
-function mvBaseDatasetTitle(datasetId: string): string {
-  return `Column carried from base dataset “${datasetId}” (the \`from(...)\` grain before join / expansion steps).`
-}
-
-function FieldRoleBadges({ field }: { field: DatasetFieldVm }) {
-  return (
-    <>
-      {field.joinProjection && (
-        <span className='csdt-badge csdt-badge--join' title={joinProjectionTitle(field.joinProjection)}>
-          {humanizeDatasetId(field.joinProjection.targetDataset)}
-        </span>
-      )}
-      {field.isAssociationField && <span className='csdt-badge'>N:N</span>}
-      {field.mvBaseDatasetId && (
-        <span className='csdt-badge csdt-badge--mv-base' title={mvBaseDatasetTitle(field.mvBaseDatasetId)}>
-          {humanizeDatasetId(field.mvBaseDatasetId)}
-        </span>
-      )}
-      {field.isDerived && <span className='csdt-badge'>Derived</span>}
-      {field.isPrimaryKey && <span className='csdt-badge'>PK</span>}
-      {field.isForeignKey && <span className='csdt-badge'>FK</span>}
-    </>
-  )
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`
-  }
-
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
 function getEdgeBadge(edge: NormalizedEdgeVm, selected: boolean): string {
   if (selected) {
     return edge.label
@@ -234,20 +175,6 @@ function getEdgeBadge(edge: NormalizedEdgeVm, selected: boolean): string {
   }
 
   return edge.inferred ? '1:N*' : '1:N'
-}
-
-function getNodeRows(
-  node: NormalizedNodeVm,
-  context: ChartStudioDevtoolsContextSnapshot | null,
-  scope: 'raw' | 'effective',
-): readonly Record<string, unknown>[] {
-  if (scope === 'raw' || !context) {
-    return node.rawRows
-  }
-
-  return context.effectiveDatasets?.[node.datasetId]
-    ?? context.effectiveMaterializedViews?.[node.datasetId]
-    ?? node.rawRows
 }
 
 function SemanticNode({
@@ -265,9 +192,6 @@ function SemanticNode({
     mvJoinKeyOverflowRevealed: ctx.mvJoinKeyOverflowRevealedIds.has(node.id),
   })
   const visibleFields = expanded ? node.fields : collapsedFields
-  const showExpandForMaterializedView =
-    expanded
-    || node.fields.some((field) => !isMaterializedViewJoinOrKeyField(field))
   const issueMessages = ctx.issuesByTargetId.get(node.id) ?? []
   const isSelected = ctx.selectedNodeId === node.id
   const isFocused = ctx.focusedNodeIds.has(node.id)
@@ -355,7 +279,7 @@ function SemanticNode({
         ))}
       </div>
 
-      {(expanded || (node.kind === 'materialized-view' ? showExpandForMaterializedView : node.fields.length > collapsedFields.length)) && (
+      {(expanded || node.fields.length > collapsedFields.length) && (
         <button
           type='button'
           className='csdt-node__expand nodrag'
@@ -471,553 +395,6 @@ function MarkerDefs() {
   )
 }
 
-/**
- * @param nodeId - Dataset / view node id
- * @param fieldId - Column id on that node
- */
-function addFieldToHighlightMap(
-  byNode: Map<string, Set<string>>,
-  nodeId: string,
-  fieldId: string,
-): void {
-  let set = byNode.get(nodeId)
-
-  if (!set) {
-    set = new Set()
-    byNode.set(nodeId, set)
-  }
-
-  set.add(fieldId)
-}
-
-/**
- * Field ids on each node that participate in a single graph edge (for row highlighting).
- */
-function fieldHighlightsForEdge(edge: NormalizedEdgeVm): ReadonlyMap<string, ReadonlySet<string>> {
-  const byNode = new Map<string, Set<string>>()
-
-  if (edge.kind === 'relationship' || edge.kind === 'association') {
-    addFieldToHighlightMap(byNode, edge.sourceNodeId, edge.fromFieldId)
-    addFieldToHighlightMap(byNode, edge.targetNodeId, edge.toFieldId)
-  } else if (edge.kind === 'materialization') {
-    const sourceFieldId = edge.sourceHandleId.endsWith('::out')
-      ? edge.sourceHandleId.slice(0, -'::out'.length)
-      : edge.sourceHandleId
-
-    addFieldToHighlightMap(byNode, edge.sourceNodeId, sourceFieldId)
-
-    if (edge.projectedFieldIds.length > 0) {
-      for (const fieldId of edge.projectedFieldIds) {
-        addFieldToHighlightMap(byNode, edge.targetNodeId, fieldId)
-      }
-    } else {
-      const targetFieldId = edge.targetHandleId.endsWith('::in')
-        ? edge.targetHandleId.slice(0, -'::in'.length)
-        : edge.targetHandleId
-
-      addFieldToHighlightMap(byNode, edge.targetNodeId, targetFieldId)
-    }
-  }
-
-  return new Map([...byNode.entries()].map(([id, set]) => [id, set]))
-}
-
-function mergeFieldHighlightMaps(
-  maps: ReadonlyArray<ReadonlyMap<string, ReadonlySet<string>>>,
-): ReadonlyMap<string, ReadonlySet<string>> {
-  const merged = new Map<string, Set<string>>()
-
-  for (const map of maps) {
-    for (const [nodeId, fieldIds] of map) {
-      let set = merged.get(nodeId)
-
-      if (!set) {
-        set = new Set()
-        merged.set(nodeId, set)
-      }
-
-      for (const fieldId of fieldIds) {
-        set.add(fieldId)
-      }
-    }
-  }
-
-  return new Map([...merged.entries()].map(([id, set]) => [id, set]))
-}
-
-/**
- * Returns whether the given column participates in this edge on the graph.
- */
-function edgeTouchesField(edge: NormalizedEdgeVm, nodeId: string, fieldId: string): boolean {
-  if (edge.kind === 'relationship' || edge.kind === 'association') {
-    return (
-      (edge.sourceNodeId === nodeId && edge.fromFieldId === fieldId)
-      || (edge.targetNodeId === nodeId && edge.toFieldId === fieldId)
-    )
-  }
-
-  if (edge.kind === 'materialization') {
-    const sourceFieldId = edge.sourceHandleId.endsWith('::out')
-      ? edge.sourceHandleId.slice(0, -'::out'.length)
-      : edge.sourceHandleId
-
-    if (edge.sourceNodeId === nodeId && sourceFieldId === fieldId) {
-      return true
-    }
-
-    if (edge.targetNodeId !== nodeId) {
-      return false
-    }
-
-    if (edge.projectedFieldIds.length > 0) {
-      return edge.projectedFieldIds.includes(fieldId)
-    }
-
-    const targetFieldId = edge.targetHandleId.endsWith('::in')
-      ? edge.targetHandleId.slice(0, -'::in'.length)
-      : edge.targetHandleId
-
-    return targetFieldId === fieldId
-  }
-
-  return false
-}
-
-/**
- * Graph edges that connect through the given column on {@link nodeId}.
- */
-function findEdgesForField(
-  nodeId: string,
-  fieldId: string,
-  source: NormalizedSourceVm,
-): readonly NormalizedEdgeVm[] {
-  return source.edges.filter((edge) => edgeTouchesField(edge, nodeId, fieldId))
-}
-
-/**
- * All graph edges that connect to this dataset / view node.
- */
-function findEdgesForNode(nodeId: string, source: NormalizedSourceVm): readonly NormalizedEdgeVm[] {
-  return source.edges.filter((edge) =>
-    edge.sourceNodeId === nodeId || edge.targetNodeId === nodeId,
-  )
-}
-
-/**
- * Maps each endpoint node id to field ids to pulse-highlight on the canvas:
- * selected edge, every edge for a selected column, or every edge for a selected node (whole table).
- */
-function computeEdgeFieldHighlights(
-  selectedEdgeId: string | null,
-  selectedNodeId: string | null,
-  selectedFieldId: string | null,
-  source: NormalizedSourceVm,
-): ReadonlyMap<string, ReadonlySet<string>> {
-  if (selectedEdgeId) {
-    const edge = source.edgeMap.get(selectedEdgeId)
-
-    if (!edge) {
-      return new Map()
-    }
-
-    return fieldHighlightsForEdge(edge)
-  }
-
-  if (selectedNodeId && selectedFieldId) {
-    const edges = findEdgesForField(selectedNodeId, selectedFieldId, source)
-
-    if (edges.length === 0) {
-      return new Map()
-    }
-
-    return mergeFieldHighlightMaps(edges.map((edge) => fieldHighlightsForEdge(edge)))
-  }
-
-  if (selectedNodeId) {
-    const connectedEdges = findEdgesForNode(selectedNodeId, source)
-
-    if (connectedEdges.length === 0) {
-      return new Map()
-    }
-
-    return mergeFieldHighlightMaps(connectedEdges.map((edge) => fieldHighlightsForEdge(edge)))
-  }
-
-  return new Map()
-}
-
-function findFocusSets(
-  source: NormalizedSourceVm,
-  selectedNodeId: string | null,
-  selectedEdgeId: string | null,
-  selectedFieldId: string | null,
-): {
-  focusedEdgeIds: ReadonlySet<string>
-  focusedNodeIds: ReadonlySet<string>
-} {
-  if (selectedEdgeId) {
-    const edge = source.edgeMap.get(selectedEdgeId)
-    if (!edge) {
-      return {focusedEdgeIds: new Set(), focusedNodeIds: new Set()}
-    }
-
-    return {
-      focusedEdgeIds: new Set([edge.id]),
-      focusedNodeIds: new Set([edge.sourceNodeId, edge.targetNodeId]),
-    }
-  }
-
-  if (selectedNodeId) {
-    if (selectedFieldId) {
-      const edges = findEdgesForField(selectedNodeId, selectedFieldId, source)
-
-      if (edges.length === 0) {
-        return {
-          focusedEdgeIds: new Set(),
-          focusedNodeIds: new Set([selectedNodeId]),
-        }
-      }
-
-      const nodeIds = new Set<string>()
-
-      for (const edge of edges) {
-        nodeIds.add(edge.sourceNodeId)
-        nodeIds.add(edge.targetNodeId)
-      }
-
-      return {
-        focusedEdgeIds: new Set(edges.map((edge) => edge.id)),
-        focusedNodeIds: nodeIds,
-      }
-    }
-
-    const connectedEdges = findEdgesForNode(selectedNodeId, source)
-
-    return {
-      focusedEdgeIds: new Set(connectedEdges.map((edge) => edge.id)),
-      focusedNodeIds: new Set([
-        selectedNodeId,
-        ...connectedEdges.map((edge) => edge.sourceNodeId),
-        ...connectedEdges.map((edge) => edge.targetNodeId),
-      ]),
-    }
-  }
-
-  return {
-    focusedEdgeIds: new Set(),
-    focusedNodeIds: new Set(),
-  }
-}
-
-/**
- * One-line description of an edge for the column inspector list.
- */
-function describeEdgeSummary(edge: NormalizedEdgeVm): string {
-  if (edge.kind === 'relationship') {
-    return `${edge.fromDatasetId}.${edge.fromFieldId} → ${edge.toDatasetId}.${edge.toFieldId}`
-  }
-
-  if (edge.kind === 'association') {
-    return `${edge.fromDatasetId}.${edge.fromFieldId} ↔ ${edge.toDatasetId}.${edge.toFieldId}`
-  }
-
-  return `${edge.label} · ${edge.materializationKind}`
-}
-
-function CollapsibleSection({
-  children,
-  defaultOpen = true,
-  title,
-}: {
-  children: ReactNode
-  defaultOpen?: boolean
-  title: string
-}) {
-  const [open, setOpen] = useState(defaultOpen)
-
-  return (
-    <div className={`csdt-sp-section${open ? ' is-open' : ''}`}>
-      <button
-        type='button'
-        className='csdt-sp-section__trigger'
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}>
-        <ChevronRight size={12} className='csdt-sp-section__chevron' />
-        <span>{title}</span>
-      </button>
-      {open && <div className='csdt-sp-section__body'>{children}</div>}
-    </div>
-  )
-}
-
-function EdgeKindIcon({kind}: {kind: string}) {
-  if (kind === 'relationship') return <GitBranch size={13} aria-hidden='true' />
-  if (kind === 'association') return <Link2 size={13} aria-hidden='true' />
-  return <Workflow size={13} aria-hidden='true' />
-}
-
-function SelectionPanel({
-  activeContext,
-  focusedFieldId,
-  onInspectNode,
-  selectedEdgeId,
-  selectedNodeId,
-  source,
-}: {
-  activeContext: ChartStudioDevtoolsContextSnapshot | null
-  focusedFieldId: string | null
-  onInspectNode(nodeId: string): void
-  selectedEdgeId: string | null
-  selectedNodeId: string | null
-  source: NormalizedSourceVm
-}) {
-  const selectedNode = selectedNodeId ? source.nodeMap.get(selectedNodeId) ?? null : null
-  const selectedEdge = selectedEdgeId ? source.edgeMap.get(selectedEdgeId) ?? null : null
-
-  if (selectedNode) {
-    const effectiveRows = getNodeRows(selectedNode, activeContext, 'effective')
-    const selectedField = focusedFieldId
-      ? selectedNode.fields.find((field) => field.id === focusedFieldId) ?? null
-      : null
-    const fieldRelationshipEdges = focusedFieldId && selectedField
-      ? findEdgesForField(selectedNode.id, focusedFieldId, source)
-      : []
-
-    /* ── Column view (separate from dataset) ── */
-    if (selectedField) {
-      return (
-        <section className='csdt-sidepanel'>
-          <div className='csdt-sp-hero'>
-            <h3 className='csdt-sp-hero__title'>{selectedField.label}</h3>
-            <span className='csdt-node__type'>Column</span>
-          </div>
-
-          <p className='csdt-sp-breadcrumb'>{selectedNode.label}</p>
-
-          <div className='csdt-sp-column-card'>
-            <div className='csdt-sp-column-card__header'>
-              <ColumnTypeIcon type={selectedField.type} />
-              <span className='csdt-sp-column-card__type'>{selectedField.type}</span>
-              <div className='csdt-field__badges'>
-                <FieldRoleBadges field={selectedField} />
-              </div>
-            </div>
-
-            <dl className='csdt-sp-props'>
-              {selectedField.formatHint && (
-                <div className='csdt-sp-prop'>
-                  <dt>Format</dt>
-                  <dd>{selectedField.formatHint}</dd>
-                </div>
-              )}
-              {selectedField.inferenceHint && (
-                <div className='csdt-sp-prop'>
-                  <dt>Inference</dt>
-                  <dd>{selectedField.inferenceHint}</dd>
-                </div>
-              )}
-              {selectedField.type === 'boolean' && (selectedField.trueLabel || selectedField.falseLabel) && (
-                <div className='csdt-sp-prop'>
-                  <dt>Labels</dt>
-                  <dd>{selectedField.trueLabel ?? 'true'} / {selectedField.falseLabel ?? 'false'}</dd>
-                </div>
-              )}
-              {selectedField.isDerived && (
-                <div className='csdt-sp-prop'>
-                  <dt>Derived</dt>
-                  <dd>{selectedField.derivedSummary ?? 'Per-row accessor'}</dd>
-                </div>
-              )}
-              {selectedField.mvBaseDatasetId && (
-                <div className='csdt-sp-prop'>
-                  <dt>Base grain</dt>
-                  <dd>{humanizeDatasetId(selectedField.mvBaseDatasetId)}</dd>
-                </div>
-              )}
-              {selectedField.joinProjection && (
-                <div className='csdt-sp-prop'>
-                  <dt>Joined from</dt>
-                  <dd>{joinProjectionTitle(selectedField.joinProjection)}</dd>
-                </div>
-              )}
-            </dl>
-          </div>
-
-          <CollapsibleSection title={`Relationships \u00b7 ${fieldRelationshipEdges.length}`}>
-            {fieldRelationshipEdges.length > 0
-              ? (
-                <ul className='csdt-sp-edge-list'>
-                  {fieldRelationshipEdges.map((edge) => (
-                    <li key={edge.id} className='csdt-sp-edge-item'>
-                      <EdgeKindIcon kind={edge.kind} />
-                      <div className='csdt-sp-edge-item__text'>
-                        <span className='csdt-sp-edge-item__kind'>{edge.kind}</span>
-                        <span className='csdt-sp-edge-item__desc'>{describeEdgeSummary(edge)}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )
-              : <p className='csdt-sp-empty-hint'>No graph edges for this column.</p>}
-          </CollapsibleSection>
-        </section>
-      )
-    }
-
-    /* ── Dataset / materialized view ── */
-    return (
-      <section className='csdt-sidepanel'>
-        <div className='csdt-sp-hero'>
-          <h3 className='csdt-sp-hero__title'>{selectedNode.label}</h3>
-          <span className='csdt-node__type'>
-            {selectedNode.kind === 'materialized-view' ? 'Materialized view' : 'Dataset'}
-          </span>
-        </div>
-
-        <div className='csdt-sp-stats'>
-          <div className='csdt-sp-stat'>
-            <span className='csdt-sp-stat__value'>{selectedNode.rowCount.toLocaleString()}</span>
-            <span className='csdt-sp-stat__label'>Raw rows</span>
-          </div>
-          <div className='csdt-sp-stat'>
-            <span className='csdt-sp-stat__value'>{effectiveRows.length.toLocaleString()}</span>
-            <span className='csdt-sp-stat__label'>Effective</span>
-          </div>
-          {selectedNode.estimatedBytes > 0 && (
-            <div className='csdt-sp-stat'>
-              <span className='csdt-sp-stat__value'>{formatBytes(selectedNode.estimatedBytes)}</span>
-              <span className='csdt-sp-stat__label'>Size</span>
-            </div>
-          )}
-        </div>
-
-        <button type='button' className='csdt-sp-action' onClick={() => onInspectNode(selectedNode.id)}>
-          <ArrowUpRight size={13} />
-          <span>Open data viewer</span>
-        </button>
-
-        {/* ── Attributes ── */}
-        <CollapsibleSection title={`Attributes \u00b7 ${selectedNode.attributeIds.length}`}>
-          {selectedNode.attributeIds.length > 0
-            ? (
-              <div className='csdt-sp-chips'>
-                {selectedNode.attributeIds.map((attributeId) => (
-                  <span key={attributeId} className='csdt-attribute-chip'>
-                    {attributeId}
-                  </span>
-                ))}
-              </div>
-            )
-            : <p className='csdt-sp-empty-hint'>None</p>}
-        </CollapsibleSection>
-
-        {/* ── Schema ── */}
-        <CollapsibleSection title={`Schema \u00b7 ${selectedNode.fields.length}`}>
-          <div className='csdt-sp-field-list'>
-            {selectedNode.fields.map((field) => (
-              <div key={field.id} className='csdt-sp-field'>
-                <div className='csdt-sp-field__main'>
-                  <ColumnTypeIcon type={field.type} />
-                  <span className='csdt-sp-field__name'>{field.label}</span>
-                </div>
-                <div className='csdt-field__badges'>
-                  <FieldRoleBadges field={field} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CollapsibleSection>
-      </section>
-    )
-  }
-
-  if (selectedEdge) {
-    const edgeLabel =
-      selectedEdge.kind === 'relationship' ? 'Relationship'
-        : selectedEdge.kind === 'association' ? 'Association'
-          : 'Materialization'
-
-    return (
-      <section className='csdt-sidepanel'>
-        <div className='csdt-sp-hero'>
-          <h3 className='csdt-sp-hero__title'>{selectedEdge.label}</h3>
-          <span className='csdt-node__type'>{edgeLabel}</span>
-        </div>
-
-        {selectedEdge.kind === 'relationship' && (
-          <div className='csdt-sp-detail-card'>
-            <div className='csdt-sp-path'>
-              <span className='csdt-sp-path__endpoint'>{selectedEdge.fromDatasetId}<strong>.{selectedEdge.fromFieldId}</strong></span>
-              <span className='csdt-sp-path__arrow'>{'\u2192'}</span>
-              <span className='csdt-sp-path__endpoint'>{selectedEdge.toDatasetId}<strong>.{selectedEdge.toFieldId}</strong></span>
-            </div>
-            <span className={`csdt-sp-status-pill${selectedEdge.inferred ? ' csdt-sp-status-pill--inferred' : ''}`}>
-              {selectedEdge.inferred ? 'Inferred' : 'Declared'}
-            </span>
-          </div>
-        )}
-
-        {selectedEdge.kind === 'association' && (
-          <>
-            <div className='csdt-sp-detail-card'>
-              <div className='csdt-sp-path'>
-                <span className='csdt-sp-path__endpoint'>{selectedEdge.fromDatasetId}<strong>.{selectedEdge.fromFieldId}</strong></span>
-                <span className='csdt-sp-path__arrow'>{'\u2194'}</span>
-                <span className='csdt-sp-path__endpoint'>{selectedEdge.toDatasetId}<strong>.{selectedEdge.toFieldId}</strong></span>
-              </div>
-              <span className='csdt-sp-status-pill'>
-                {selectedEdge.backing === 'explicit' ? 'Explicit edges' : `Derived \u00b7 ${selectedEdge.derivedFromDatasetId}`}
-              </span>
-            </div>
-
-            {selectedEdge.previewPairs.length > 0 && (
-              <CollapsibleSection title={`Preview \u00b7 ${selectedEdge.previewPairs.length} pairs`}>
-                <div className='csdt-sp-preview-grid'>
-                  {selectedEdge.previewPairs.map((pair, index) => (
-                    <div key={`${pair.from}:${pair.to}:${index}`} className='csdt-sp-preview-row'>
-                      <span>{pair.from}</span>
-                      <span className='csdt-sp-preview-row__arrow'>{'\u2192'}</span>
-                      <span>{pair.to}</span>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
-            )}
-          </>
-        )}
-
-        {selectedEdge.kind === 'materialization' && (
-          <div className='csdt-sp-detail-card'>
-            <div className='csdt-sp-path'>
-              <span className='csdt-sp-path__endpoint'>{selectedEdge.sourceNodeId}</span>
-              <span className='csdt-sp-path__arrow'>{'\u2192'}</span>
-              <span className='csdt-sp-path__endpoint'>{selectedEdge.viewId}</span>
-            </div>
-            {selectedEdge.projectedFieldIds.length > 0 && (
-              <div className='csdt-sp-chips' style={{marginTop: 8}}>
-                {selectedEdge.projectedFieldIds.map((fid) => (
-                  <span key={fid} className='csdt-attribute-chip'>{fid}</span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-    )
-  }
-
-  return (
-    <section className='csdt-sidepanel is-empty'>
-      <div className='csdt-sp-empty'>
-        <div className='csdt-sp-empty__icon'>
-          <Database size={20} />
-        </div>
-        <p>Select an element to inspect</p>
-      </div>
-    </section>
-  )
-}
-
 export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const sources = useDevtoolsSources(props)
   const [isOpen, setIsOpen] = useState(props.defaultOpen ?? false)
@@ -1066,7 +443,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   )
   /** Dashboard shared-filter scope only (see `useDashboard` devtools snapshot). */
   const activeContext = useMemo(
-    () => normalizedSource?.contexts[0] ?? null,
+    () =>
+      normalizedSource?.contexts.find((context) => context.kind === 'dashboard')
+      ?? normalizedSource?.contexts[0]
+      ?? null,
     [normalizedSource],
   )
   const currentSelectedNode = selectedNodeId && displaySource?.nodeMap.has(selectedNodeId)
@@ -1200,13 +580,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         continue
       }
 
-      const joinKeys = getMaterializedViewJoinKeyFields(node)
-      const firstN = new Set(joinKeys.slice(0, MV_JOIN_KEY_DEFAULT_CAP).map((field) => field.id))
-
       for (const fieldId of fieldIds) {
         const field = node.fields.find((candidate) => candidate.id === fieldId)
 
-        if (field && isMaterializedViewJoinOrKeyField(field) && !firstN.has(fieldId)) {
+        if (field && isMaterializedViewJoinProjectedField(field)) {
           next.add(nodeId)
           break
         }
@@ -1619,10 +996,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                             const n = displaySource?.nodeMap.get(node.id)
 
                             if (n?.kind === 'materialized-view') {
-                              const joinKeys = getMaterializedViewJoinKeyFields(n)
+                              const joinProjected = getMaterializedViewJoinProjectedFields(n)
 
                               if (
-                                joinKeys.length > MV_JOIN_KEY_DEFAULT_CAP
+                                joinProjected.length > 0
                                 && !visibleMvJoinKeyOverflowRevealedIds.has(node.id)
                               ) {
                                 setMvJoinKeyClickRevealNodeId(node.id)
