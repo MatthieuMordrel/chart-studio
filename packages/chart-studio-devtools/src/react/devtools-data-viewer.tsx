@@ -22,6 +22,11 @@ import type {
   NormalizedNodeVm,
 } from './types.js'
 
+/**
+ * Row height for the inspect grid (must match `.csdt-grid__row` / header in styles).
+ */
+const GRID_ROW_HEIGHT_PX = 36
+
 type DevtoolsDataViewerProps = {
   context: ChartStudioDevtoolsContextSnapshot | null
   mode: 'inspect' | 'explore'
@@ -35,6 +40,9 @@ type DevtoolsDataViewerProps = {
   viewMode: 'table' | 'json'
 }
 
+/**
+ * Formats a cell value for the inspect table (booleans use field labels, null as em dash).
+ */
 function formatRowValue(
   value: unknown,
   node: NormalizedNodeVm,
@@ -95,6 +103,9 @@ function DevtoolsExploreChart({
   )
 }
 
+/**
+ * Full-screen dataset / materialized-view inspector with paginated table or JSON and Explore chart.
+ */
 export function DevtoolsDataViewer({
   context,
   mode,
@@ -141,7 +152,13 @@ export function DevtoolsDataViewer({
   const rowVirtualizer = useVirtualizer({
     count: table.getRowModel().rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 36,
+    estimateSize: () => GRID_ROW_HEIGHT_PX,
+    /**
+     * Scroll content begins with an in-flow sticky header; virtual rows live in a sibling
+     * below it. `scrollMargin` aligns measurement coordinates with the scroll container so
+     * range detection matches DOM positions (see translate in the row renderer).
+     */
+    scrollMargin: GRID_ROW_HEIGHT_PX,
     overscan: 8,
   })
 
@@ -248,13 +265,15 @@ export function DevtoolsDataViewer({
 
               {viewMode === 'json'
                 ? (
-                  <pre className='csdt-json-viewer'>
-                    {JSON.stringify(pageRows, null, 2)}
-                  </pre>
+                  <div className='csdt-json-viewer__shell'>
+                    <pre className='csdt-json-viewer'>
+                      {JSON.stringify(pageRows, null, 2)}
+                    </pre>
+                  </div>
                 )
                 : (
                   <div ref={scrollRef} className='csdt-grid'>
-                    <div className='csdt-grid__table' style={{height: `${rowVirtualizer.getTotalSize()}px`}}>
+                    <div className='csdt-grid__inner'>
                       <div className='csdt-grid__row csdt-grid__row--header'>
                         {table.getFlatHeaders().map((header) => (
                           <div
@@ -266,29 +285,35 @@ export function DevtoolsDataViewer({
                         ))}
                       </div>
 
-                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        const row = table.getRowModel().rows[virtualRow.index]
+                      <div
+                        className='csdt-grid__body'
+                        style={{height: `${rowVirtualizer.getTotalSize()}px`}}>
+                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                          const row = table.getRowModel().rows[virtualRow.index]
 
-                        if (!row) {
-                          return null
-                        }
+                          if (!row) {
+                            return null
+                          }
 
-                        return (
-                          <div
-                            key={row.id}
-                            className='csdt-grid__row'
-                            style={{transform: `translateY(${virtualRow.start + 36}px)`}}>
-                            {row.getVisibleCells().map((cell) => (
-                              <div
-                                key={cell.id}
-                                className='csdt-grid__cell'
-                                style={{width: node.fields.length <= 6 ? `${100 / node.fields.length}%` : 160, flex: node.fields.length <= 6 ? undefined : '0 0 auto'}}>
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      })}
+                          return (
+                            <div
+                              key={row.id}
+                              className='csdt-grid__row'
+                              style={{
+                                transform: `translateY(${virtualRow.start - GRID_ROW_HEIGHT_PX}px)`,
+                              }}>
+                              {row.getVisibleCells().map((cell) => (
+                                <div
+                                  key={cell.id}
+                                  className='csdt-grid__cell'
+                                  style={{width: node.fields.length <= 6 ? `${100 / node.fields.length}%` : 160, flex: node.fields.length <= 6 ? undefined : '0 0 auto'}}>
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}

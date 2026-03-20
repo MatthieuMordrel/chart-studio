@@ -734,7 +734,13 @@ export const DEVTOOLS_STYLES = `
   flex: 1;
 }
 
-.csdt-json-viewer,
+.csdt-data-viewer__inspect {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.csdt-json-viewer__shell,
 .csdt-grid {
   flex: 1;
   min-height: 0;
@@ -743,9 +749,17 @@ export const DEVTOOLS_STYLES = `
   background: var(--cs-card, rgba(251, 252, 254, 0.98));
 }
 
+.csdt-json-viewer__shell {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .csdt-json-viewer {
   margin: 0;
   padding: 12px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   font-family: "SFMono-Regular", ui-monospace, monospace;
   font-size: 0.75rem;
@@ -757,15 +771,24 @@ export const DEVTOOLS_STYLES = `
   overflow: auto;
 }
 
-.csdt-grid__table {
+.csdt-grid__inner {
   position: relative;
   min-width: 100%;
+  width: max-content;
+}
+
+.csdt-grid__body {
+  position: relative;
+  width: 100%;
 }
 
 .csdt-grid__row {
   position: absolute;
+  left: 0;
   display: flex;
+  box-sizing: border-box;
   min-width: 100%;
+  width: max-content;
   min-height: 36px;
   border-bottom: 1px solid var(--cs-border, rgba(231, 236, 243, 0.95));
 }
@@ -775,7 +798,6 @@ export const DEVTOOLS_STYLES = `
   top: 0;
   z-index: 2;
   transform: none !important;
-  background: var(--cs-muted, rgba(245, 248, 251, 0.98));
   font-weight: 500;
 }
 
@@ -791,6 +813,8 @@ export const DEVTOOLS_STYLES = `
 .csdt-grid__cell--header {
   white-space: normal;
   word-break: break-word;
+  background: var(--cs-muted, rgba(245, 248, 251, 0.98));
+  box-shadow: inset 0 -1px 0 var(--cs-border, rgba(231, 236, 243, 0.95));
 }
 
 .csdt-grid__header {

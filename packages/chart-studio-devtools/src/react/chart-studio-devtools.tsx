@@ -568,6 +568,48 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const positionsRef = useRef<Record<string, {x: number; y: number}>>({})
 
   useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    /**
+     * Escape closes nested UI first (data viewer, issues drawer), then the devtools shell.
+     * Uses capture so React Flow / host app handlers do not swallow the key.
+     */
+    function onDocumentKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      if (viewer) {
+        setViewer(null)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+
+      if (showIssues) {
+        setShowIssues(false)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+
+      setIsOpen(false)
+      setViewer(null)
+      setShowIssues(false)
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    document.addEventListener('keydown', onDocumentKeyDown, true)
+
+    return () => {
+      document.removeEventListener('keydown', onDocumentKeyDown, true)
+    }
+  }, [isOpen, showIssues, viewer])
+
+  useEffect(() => {
     if (!activeSource && selectedSourceId) {
       setSelectedSourceId(null)
     }
@@ -805,10 +847,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
             <path d='M4 10 L10 5.5 L16 2' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' opacity='0.9' />
           </svg>
           <span className='csdt-launcher__text'>
-            <span>Devtools</span>
-            {visibleSources.length > 0 && (
-              <span className='csdt-launcher__badge'>{visibleSources.length}</span>
-            )}
+            <span>Chart Studio</span>
           </span>
         </button>
       )}

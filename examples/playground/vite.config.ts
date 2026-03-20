@@ -9,13 +9,14 @@ const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('.', import.meta.url))
 const coreSrc = path.resolve(repoRoot, 'packages/chart-studio/src')
 const uiSrc = path.resolve(repoRoot, 'packages/chart-studio-ui/src')
+const devtoolsSrc = path.resolve(repoRoot, 'packages/chart-studio-devtools/src')
 
 /** Explicitly watch the library source directories so HMR works for files outside the Vite root. */
 function watchLibrarySource(): Plugin {
   return {
     name: 'watch-library-source',
     configureServer(server) {
-      server.watcher.add([coreSrc, uiSrc])
+      server.watcher.add([coreSrc, uiSrc, devtoolsSrc])
     },
   }
 }
@@ -61,6 +62,16 @@ export default defineConfig({
         replacement: fileURLToPath(new URL('../../packages/chart-studio-ui/src/index.ts', import.meta.url)),
       },
       {
+        find: /^@matthieumordrel\/chart-studio-devtools\/react$/,
+        replacement: fileURLToPath(
+          new URL('../../packages/chart-studio-devtools/src/react/index.ts', import.meta.url),
+        ),
+      },
+      {
+        find: /^@matthieumordrel\/chart-studio-devtools$/,
+        replacement: fileURLToPath(new URL('../../packages/chart-studio-devtools/src/index.ts', import.meta.url)),
+      },
+      {
         find: /^@matthieumordrel\/chart-studio$/,
         replacement: fileURLToPath(new URL('../../packages/chart-studio/src/index.ts', import.meta.url)),
       },
@@ -73,6 +84,8 @@ export default defineConfig({
       '@matthieumordrel/chart-studio',
       '@matthieumordrel/chart-studio/_internal',
       '@matthieumordrel/chart-studio-ui',
+      '@matthieumordrel/chart-studio-devtools',
+      '@matthieumordrel/chart-studio-devtools/react',
     ],
   },
   server: {
