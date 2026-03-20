@@ -1,6 +1,4 @@
 import {
-  type RefObject,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -17,6 +15,7 @@ import {useVirtualizer} from '@tanstack/react-virtual'
 import type {
   ChartStudioDevtoolsContextSnapshot,
 } from '@matthieumordrel/chart-studio/_internal'
+import {useElementSize} from '@matthieumordrel/chart-studio/_internal'
 import {ColumnTypeIcon} from './column-type-icon.js'
 import type {
   DevtoolsRow,
@@ -75,45 +74,6 @@ function formatRowValue(
   return String(value)
 }
 
-/**
- * Syncs chart canvas pixel height to the explore panel’s remaining space.
- */
-function useExploreCanvasHeight(containerRef: RefObject<HTMLDivElement | null>) {
-  const [height, setHeight] = useState(320)
-
-  useLayoutEffect(() => {
-    const el = containerRef.current
-
-    if (!el) {
-      return
-    }
-
-    function read() {
-      const container = containerRef.current
-
-      if (!container) {
-        return
-      }
-
-      const next = Math.floor(container.getBoundingClientRect().height)
-
-      if (next > 0) {
-        setHeight((current) => (current === next ? current : next))
-      }
-    }
-
-    read()
-    const observer = new ResizeObserver(read)
-    observer.observe(el)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [])
-
-  return Math.max(200, height)
-}
-
 function DevtoolsExploreChart({
   node,
   rows,
@@ -121,8 +81,11 @@ function DevtoolsExploreChart({
   node: NormalizedNodeVm
   rows: readonly DevtoolsRow[]
 }) {
-  const canvasShellRef = useRef<HTMLDivElement>(null)
-  const canvasHeightPx = useExploreCanvasHeight(canvasShellRef)
+  const {ref: canvasShellRef, size: canvasShellSize} = useElementSize<HTMLDivElement>({
+    width: 0,
+    height: 320,
+  })
+  const canvasHeightPx = Math.max(200, Math.floor(canvasShellSize.height))
 
   const schema = useMemo(
     () =>

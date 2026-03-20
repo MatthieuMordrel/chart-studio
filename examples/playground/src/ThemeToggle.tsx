@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState} from 'react'
+import {useClickOutside} from '@matthieumordrel/chart-studio/_internal'
 
 export type Mode = 'light' | 'dark'
 
@@ -350,6 +351,88 @@ function applyThemePreset(themeName: string, mode: Mode) {
   window.localStorage.setItem(THEME_KEY, themeName)
 }
 
+type PlaygroundThemeState = {
+  mode: Mode
+  radius: number
+  themeName: string
+}
+
+function getInitialThemeState(): PlaygroundThemeState {
+  return {
+    mode: getStored(MODE_KEY, 'light'),
+    radius: getStoredNumber(RADIUS_KEY, 0.25),
+    themeName: getStored(THEME_KEY, 'default'),
+  }
+}
+
+function applyThemeState(state: PlaygroundThemeState) {
+  applyMode(state.mode)
+  applyRadius(state.radius)
+  applyThemePreset(state.themeName, state.mode)
+}
+
+/**
+ * Manages the playground theme controls while applying DOM updates in the same
+ * event that changed them instead of relaying those interactions through Effects.
+ *
+ * This keeps `mode`, `radius`, and `themeName` as ordinary UI state while the
+ * actual document synchronization remains a single mount-time effect plus
+ * explicit event-driven setters.
+ *
+ * @returns The current theme state and event-safe setters for each control
+ *
+ * @example
+ * ```tsx
+ * const {mode, setMode} = usePlaygroundThemeState()
+ *
+ * <button type="button" onClick={() => setMode('dark')}>
+ *   Dark
+ * </button>
+ * ```
+ */
+function usePlaygroundThemeState() {
+  const [themeState, setThemeState] = useState<PlaygroundThemeState>(getInitialThemeState)
+
+  useEffect(() => {
+    applyThemeState(getInitialThemeState())
+  }, [])
+
+  function setMode(mode: Mode) {
+    setThemeState((current) => ({...current, mode}))
+    applyMode(mode)
+    applyThemePreset(themeState.themeName, mode)
+  }
+
+  function setRadius(radius: number) {
+    setThemeState((current) => ({...current, radius}))
+    applyRadius(radius)
+  }
+
+  function setThemeName(themeName: string) {
+    setThemeState((current) => ({...current, themeName}))
+    applyThemePreset(themeName, themeState.mode)
+  }
+
+  function reset() {
+    const nextState: PlaygroundThemeState = {
+      mode: 'light',
+      radius: 0.25,
+      themeName: 'default',
+    }
+
+    setThemeState(nextState)
+    applyThemeState(nextState)
+  }
+
+  return {
+    ...themeState,
+    reset,
+    setMode,
+    setRadius,
+    setThemeName,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Radius presets
 // ---------------------------------------------------------------------------
@@ -463,29 +546,22 @@ function buildCssPreview(themeName: string, mode: Mode, radius: number): string 
  * Demonstrates how consumers can override chart-studio's CSS variables.
  */
 export function ThemeToggle() {
-  const [mode, setMode] = useState<Mode>(() => getStored(MODE_KEY, 'light'))
-  const [radius, setRadius] = useState(() => getStoredNumber(RADIUS_KEY, 0.25))
-  const [themeName, setThemeName] = useState<string>(() => getStored(THEME_KEY, 'default'))
+  const {
+    mode,
+    radius,
+    reset,
+    setMode,
+    setRadius,
+    setThemeName,
+    themeName,
+  } = usePlaygroundThemeState()
   const [open, setOpen] = useState(false)
   const [showCss, setShowCss] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => applyMode(mode), [mode])
-  useEffect(() => applyRadius(radius), [radius])
-  // Re-apply theme vars when mode or theme changes (since vars differ per mode)
-  useEffect(() => applyThemePreset(themeName, mode), [themeName, mode])
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+  useClickOutside(panelRef, () => {
+    setOpen(false)
+  }, open)
 
   const activePreset = THEME_PRESETS.find((t) => t.name === themeName) ?? THEME_PRESETS[0]
 
@@ -623,11 +699,7 @@ export function ThemeToggle() {
           {(mode !== 'light' || radius !== 0.25 || themeName !== 'default') && (
             <button
               type="button"
-              onClick={() => {
-                setMode('light')
-                setRadius(0.25)
-                setThemeName('default')
-              }}
+              onClick={reset}
               className="mt-3 w-full rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               Reset to defaults

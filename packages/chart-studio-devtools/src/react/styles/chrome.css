@@ -88,7 +88,6 @@
 .csdt-segmented button,
 .csdt-sidepanel button,
 .csdt-issues-drawer button,
-.csdt-node__footer button,
 .csdt-data-viewer button,
 .csdt-icon-button {
   border: 1px solid var(--cs-border, rgba(196, 208, 224, 0.9));
@@ -113,7 +112,6 @@
 .csdt-segmented button:hover,
 .csdt-sidepanel button:hover,
 .csdt-issues-drawer button:hover,
-.csdt-node__footer button:hover,
 .csdt-data-viewer button:hover,
 .csdt-icon-button:hover {
   border-color: var(--cs-primary, rgba(114, 139, 186, 0.56));

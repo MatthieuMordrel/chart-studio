@@ -48,3 +48,10 @@ export {
   type ModelRuntimeMetadata,
 } from './core/model-inference.js'
 export {applyFilters} from './core/pipeline.js'
+export {
+  useClickOutside,
+  useDocumentEvent,
+  useElementSize,
+  useRootCssVariable,
+  type ElementSize,
+} from './core/react-dom-hooks.js'

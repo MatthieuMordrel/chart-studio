@@ -249,16 +249,46 @@
   color: var(--cs-primary, #2a4a6f);
 }
 
-.csdt-node__footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+.csdt-node__inspect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: calc(var(--cs-radius, 0.25rem) + 2px);
+  background: transparent;
+  color: var(--cs-muted-foreground, #738197);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
 }
 
-.csdt-node__footer button {
-  flex: 1 1 80px;
-  padding: 4px 8px;
+.csdt-node__inspect:hover {
+  color: var(--cs-foreground, #172032);
+  background: var(--cs-muted, rgba(241, 245, 249, 0.9));
+  border-color: var(--cs-border, rgba(210, 221, 235, 0.9));
+}
+
+.csdt-node__expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 5px 0;
+  border: none;
+  background: none;
+  color: var(--cs-muted-foreground, #738197);
+  font: inherit;
   font-size: 0.6875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.csdt-node__expand:hover {
+  color: var(--cs-primary, #5879ba);
 }
 
 /* Invisible but present so React Flow can anchor edges to source/target handle ids. */

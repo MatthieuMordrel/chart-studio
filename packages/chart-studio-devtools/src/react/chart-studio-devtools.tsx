@@ -1,5 +1,9 @@
 import '@xyflow/react/dist/base.css'
 import {
+  useDocumentEvent,
+  type ChartStudioDevtoolsContextSnapshot,
+} from '@matthieumordrel/chart-studio/_internal'
+import {
   createContext,
   startTransition,
   useContext,
@@ -24,7 +28,6 @@ import {
   type NodeProps,
   type ReactFlowInstance,
 } from '@xyflow/react'
-import type {ChartStudioDevtoolsContextSnapshot} from '@matthieumordrel/chart-studio/_internal'
 import {ElkLayoutPanel} from './devtools-elk-layout-panel.js'
 import {
   applyFlowNodePositionChanges,
@@ -39,6 +42,7 @@ import {filterGraphVisibleSource, normalizeSource} from './normalize.js'
 import {lockDocumentScroll} from './scroll-lock.js'
 import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
+import {ArrowUpRight, ChevronDown, ChevronUp} from 'lucide-react'
 import {ColumnTypeIcon} from './column-type-icon.js'
 import {useDevtoolsSources} from './use-devtools-sources.js'
 import type {
@@ -78,7 +82,6 @@ type CanvasContextValue = {
   focusedNodeIds: ReadonlySet<string>
   issuesByTargetId: ReadonlyMap<string, readonly string[]>
   onInspectNode(nodeId: string): void
-  onExploreNode(nodeId: string): void
   onSelectEdge(edgeId: string): void
   onSelectNode(nodeId: string, fieldId?: string): void
   onToggleNodeExpand(nodeId: string): void
@@ -272,6 +275,16 @@ function SemanticNode({
             {issueMessages.length > 0 && (
               <span className='csdt-node__issue-count'>{issueMessages.length}</span>
             )}
+            <button
+              type='button'
+              className='csdt-node__inspect nodrag'
+              title='Open data viewer'
+              onClick={(event) => {
+                event.stopPropagation()
+                ctx.onInspectNode(node.id)
+              }}>
+              <ArrowUpRight size={13} />
+            </button>
           </div>
         </div>
         <p>{node.fields.length} columns · {node.rowCount.toLocaleString()} rows · {formatBytes(node.estimatedBytes)}</p>
@@ -324,19 +337,16 @@ function SemanticNode({
         ))}
       </div>
 
-      <div className='csdt-node__footer'>
-        <button type='button' className='nodrag' onClick={() => ctx.onInspectNode(node.id)}>
-          Table
+      {node.fields.length > DEVTOOLS_VISIBLE_FIELD_COUNT && (
+        <button
+          type='button'
+          className='csdt-node__expand nodrag'
+          onClick={() => ctx.onToggleNodeExpand(node.id)}>
+          {expanded
+            ? <><ChevronUp size={12} /> Show less</>
+            : <><ChevronDown size={12} /> {node.fields.length - DEVTOOLS_VISIBLE_FIELD_COUNT} more fields</>}
         </button>
-        <button type='button' className='nodrag' onClick={() => ctx.onExploreNode(node.id)}>
-          Explore
-        </button>
-        {node.fields.length > DEVTOOLS_VISIBLE_FIELD_COUNT && (
-          <button type='button' className='nodrag' onClick={() => ctx.onToggleNodeExpand(node.id)}>
-            {expanded ? 'Collapse' : `+${node.fields.length - DEVTOOLS_VISIBLE_FIELD_COUNT} more`}
-          </button>
-        )}
-      </div>
+      )}
     </div>
   )
 }
@@ -696,7 +706,6 @@ function describeEdgeSummary(edge: NormalizedEdgeVm): string {
 function SelectionPanel({
   activeContext,
   focusedFieldId,
-  onExploreNode,
   onInspectNode,
   selectedEdgeId,
   selectedNodeId,
@@ -704,7 +713,6 @@ function SelectionPanel({
 }: {
   activeContext: ChartStudioDevtoolsContextSnapshot | null
   focusedFieldId: string | null
-  onExploreNode(nodeId: string): void
   onInspectNode(nodeId: string): void
   selectedEdgeId: string | null
   selectedNodeId: string | null
@@ -800,8 +808,9 @@ function SelectionPanel({
         )}
 
         <div className='csdt-sidepanel__actions'>
-          <button type='button' onClick={() => onInspectNode(selectedNode.id)}>Table</button>
-          <button type='button' onClick={() => onExploreNode(selectedNode.id)}>Explore</button>
+          <button type='button' onClick={() => onInspectNode(selectedNode.id)}>
+            <ArrowUpRight size={13} /> Open data viewer
+          </button>
         </div>
 
         <div className='csdt-sidepanel__section'>
@@ -968,47 +977,35 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const fitViewAfterLayoutRef = useRef(false)
   const fitViewFrameRef = useRef<number | null>(null)
 
-  useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
+  useDocumentEvent('keydown', (event) => {
     /**
      * Escape closes nested UI first (data viewer, issues drawer), then the devtools shell.
      * Uses capture so React Flow / host app handlers do not swallow the key.
      */
-    function onDocumentKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') {
-        return
-      }
+    if (event.key !== 'Escape') {
+      return
+    }
 
-      if (currentViewer) {
-        setViewer(null)
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
-
-      if (showIssues) {
-        setShowIssues(false)
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
-
-      setIsOpen(false)
+    if (currentViewer) {
       setViewer(null)
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
+    if (showIssues) {
       setShowIssues(false)
       event.preventDefault()
       event.stopPropagation()
+      return
     }
 
-    document.addEventListener('keydown', onDocumentKeyDown, true)
-
-    return () => {
-      document.removeEventListener('keydown', onDocumentKeyDown, true)
-    }
-  }, [currentViewer, isOpen, showIssues])
+    setIsOpen(false)
+    setViewer(null)
+    setShowIssues(false)
+    event.preventDefault()
+    event.stopPropagation()
+  }, true, isOpen)
 
   /**
    * Chart UI dropdowns portal to `document.body` with default z-index 40/50.
@@ -1194,15 +1191,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         setViewer({
           nodeId,
           dataView: 'table',
-          scope: 'raw',
-        })
-      },
-      onExploreNode(nodeId) {
-        setSelectedNodeId(nodeId)
-        setSelectedEdgeId(null)
-        setViewer({
-          nodeId,
-          dataView: 'explore',
           scope: 'raw',
         })
       },
@@ -1479,7 +1467,6 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                     <SelectionPanel
                       activeContext={activeContext}
                       focusedFieldId={currentSelectedFieldId}
-                      onExploreNode={(nodeId) => canvasContextValue.onExploreNode(nodeId)}
                       onInspectNode={(nodeId) => canvasContextValue.onInspectNode(nodeId)}
                       selectedEdgeId={currentSelectedEdgeId}
                       selectedNodeId={currentSelectedNodeId}

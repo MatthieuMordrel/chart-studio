@@ -39,6 +39,12 @@
   gap: 6px;
 }
 
+.csdt-sidepanel__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .csdt-sidepanel__column-detail {
   padding-bottom: 4px;
   border-bottom: 1px solid color-mix(in oklch, var(--cs-border, #d3ddea) 70%, transparent);

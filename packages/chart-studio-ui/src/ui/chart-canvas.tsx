@@ -5,7 +5,7 @@
  * Automatically switches between chart types based on the chart instance state.
  */
 
-import {type ComponentType, type ReactNode, useEffect, useRef, useState} from 'react'
+import {type ComponentType, type ReactNode} from 'react'
 import {
   Area,
   AreaChart,
@@ -29,6 +29,8 @@ import {
   getSeriesColor,
   resolveShowDataLabels,
   shouldAllowDecimalTicks,
+  useElementSize,
+  useRootCssVariable,
   DATA_LABEL_DEFAULTS,
   type ChartValueSurface,
   type DataLabelStyle,
@@ -255,23 +257,9 @@ const CARTESIAN_X_AXIS_PADDING = {left: 12, right: 12} as const
  * Avoids the ResponsiveContainer issues with flexbox/grid layouts.
  */
 function useContainerWidth() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
+  const {ref, size} = useElementSize<HTMLDivElement>()
 
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (entry) setWidth(entry.contentRect.width)
-    })
-
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  return {ref, width}
+  return {ref, width: size.width}
 }
 
 /**
@@ -281,30 +269,20 @@ function useContainerWidth() {
  * when the consumer changes `--radius` at runtime.
  */
 function useCssBarRadius(): number {
-  const [radiusPx, setRadiusPx] = useState(4)
+  const radiusToken = useRootCssVariable('--cs-radius', '0.5')
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-    const root = document.documentElement
+  if (typeof document === 'undefined') {
+    return 4
+  }
 
-    function read() {
-      const style = getComputedStyle(root)
-      const raw = style.getPropertyValue('--cs-radius').trim()
-      if (!raw) return
-      const rem = parseFloat(raw)
-      if (Number.isNaN(rem)) return
-      const fontSize = parseFloat(style.fontSize) || 16
-      setRadiusPx(Math.max(0, Math.round((rem * fontSize) / 2)))
-    }
+  const rem = parseFloat(radiusToken)
 
-    read()
+  if (Number.isNaN(rem)) {
+    return 4
+  }
 
-    const observer = new MutationObserver(read)
-    observer.observe(root, {attributes: true, attributeFilter: ['style', 'class', 'data-theme']})
-    return () => observer.disconnect()
-  }, [])
-
-  return radiusPx
+  const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  return Math.max(0, Math.round((rem * rootFontSize) / 2))
 }
 
 /** Renders the appropriate recharts chart based on the chart instance state.
