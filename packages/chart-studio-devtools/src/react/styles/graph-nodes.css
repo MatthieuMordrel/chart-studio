@@ -161,6 +161,15 @@
   background: var(--cs-muted, #f1f5f9);
 }
 
+/** Persistent background tint for primary-key columns (theme primary, same family as node chips). */
+.csdt-field.is-primary-key {
+  background: color-mix(in oklch, var(--cs-primary, #5d81cb) 8%, var(--cs-background, #fff));
+}
+
+.csdt-field.is-primary-key:hover {
+  background: color-mix(in oklch, var(--cs-primary, #5d81cb) 12%, var(--cs-muted, #f1f5f9));
+}
+
 .csdt-field.is-field-focused {
   border-color: color-mix(in oklch, var(--cs-primary, #5d81cb) 40%, transparent);
   box-shadow: 0 0 0 2px color-mix(in oklch, var(--cs-ring, #5d81cb) 10%, transparent);

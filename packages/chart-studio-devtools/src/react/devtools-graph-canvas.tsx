@@ -223,6 +223,7 @@ const SemanticNodeCard = memo(function SemanticNodeCard({
             type='button'
             className={[
               'csdt-field nodrag',
+              field.isPrimaryKey ? 'is-primary-key' : undefined,
               focusedFieldId === field.id && fieldFocusNodeId === node.id ? 'is-field-focused' : undefined,
               edgeHighlightFieldIds?.has(field.id) ? 'is-edge-highlight' : undefined,
             ].filter(Boolean).join(' ')}
