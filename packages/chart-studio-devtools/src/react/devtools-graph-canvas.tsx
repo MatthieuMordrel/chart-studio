@@ -44,6 +44,7 @@ import {
   getMaterializedViewJoinProjectedFields,
 } from './graph-field-visibility.js'
 import {computeCanvasFieldOrderByNodeId} from './graph-field-layout.js'
+import {DEVTOOLS_NODE_WIDTH} from './layout.js'
 import {ColumnTypeIcon} from './column-type-icon.js'
 import {FieldRoleBadges, formatBytes} from './devtools-details.js'
 import type {
@@ -97,6 +98,8 @@ export type CanvasContextValue = {
 type DevtoolsGraphCanvasProps = {
   canvasContextValue: CanvasContextValue
   displaySource: NormalizedSourceVm
+  edgeRoutes: Readonly<Record<string, readonly FlowNodePosition[]>>
+  layoutNodePositions: Readonly<Record<string, FlowNodePosition>>
   nodePositions: Readonly<Record<string, FlowNodePosition>>
   onFlowInstanceChange: Dispatch<SetStateAction<ReactFlowInstance<FlowNode, FlowEdge> | null>>
   onNodePositionsChange: Dispatch<SetStateAction<Record<string, FlowNodePosition>>>
@@ -104,6 +107,7 @@ type DevtoolsGraphCanvasProps = {
 }
 
 type CanvasRenderContextValue = CanvasContextValue & {
+  nodeBoundsById: ReadonlyMap<string, {left: number; right: number; top: number; bottom: number}>
   orderedFieldIdsByNodeId: ReadonlyMap<string, readonly string[]>
 }
 
@@ -310,6 +314,273 @@ function orderVisibleFields(
   )
 }
 
+const CANVAS_NODE_HEADER_HEIGHT = 62
+const CANVAS_NODE_ATTRIBUTE_ROW_HEIGHT = 22
+const CANVAS_NODE_FIELD_ROW_HEIGHT = 26
+const CANVAS_NODE_FOOTER_HEIGHT = 32
+const EDGE_ROUTE_HANDLE_OFFSET = 18
+const EDGE_ROUTE_OBSTACLE_PADDING = 12
+
+type CanvasRect = {left: number; right: number; top: number; bottom: number}
+
+function estimateCanvasNodeHeight(
+  node: NormalizedNodeVm,
+  source: NormalizedSourceVm,
+  expandedNodeIds: ReadonlySet<string>,
+  mvJoinKeyOverflowRevealedIds: ReadonlySet<string>,
+): number {
+  const visibleFieldCount = expandedNodeIds.has(node.id)
+    ? node.fields.length
+    : getCollapsedVisibleFields(node, source, {
+        mvJoinKeyOverflowRevealed: node.kind === 'materialized-view'
+          ? mvJoinKeyOverflowRevealedIds.has(node.id)
+          : undefined,
+      }).length
+  const attributeHeight = node.attributeIds.length > 0 ? CANVAS_NODE_ATTRIBUTE_ROW_HEIGHT : 0
+
+  return CANVAS_NODE_HEADER_HEIGHT
+    + attributeHeight
+    + (visibleFieldCount * CANVAS_NODE_FIELD_ROW_HEIGHT)
+    + CANVAS_NODE_FOOTER_HEIGHT
+}
+
+function expandRect(
+  rect: CanvasRect,
+  padding: number,
+): CanvasRect {
+  return {
+    left: rect.left - padding,
+    right: rect.right + padding,
+    top: rect.top - padding,
+    bottom: rect.bottom + padding,
+  }
+}
+
+function pointInsideRect(
+  point: FlowNodePosition,
+  rect: CanvasRect,
+): boolean {
+  return point.x > rect.left
+    && point.x < rect.right
+    && point.y > rect.top
+    && point.y < rect.bottom
+}
+
+function rangesOverlap(
+  start: number,
+  end: number,
+  rangeStart: number,
+  rangeEnd: number,
+): boolean {
+  return Math.max(Math.min(start, end), rangeStart) < Math.min(Math.max(start, end), rangeEnd)
+}
+
+function isHorizontalSegmentClear(
+  y: number,
+  startX: number,
+  endX: number,
+  obstacles: readonly CanvasRect[],
+): boolean {
+  return obstacles.every((rect) =>
+    !(y > rect.top && y < rect.bottom && rangesOverlap(startX, endX, rect.left, rect.right)),
+  )
+}
+
+function isVerticalSegmentClear(
+  x: number,
+  startY: number,
+  endY: number,
+  obstacles: readonly CanvasRect[],
+): boolean {
+  return obstacles.every((rect) =>
+    !(x > rect.left && x < rect.right && rangesOverlap(startY, endY, rect.top, rect.bottom)),
+  )
+}
+
+function dedupeNumbers(values: readonly number[]): number[] {
+  return [...new Set(values.filter((value) => Number.isFinite(value)).map((value) => Math.round(value * 100) / 100))]
+}
+
+function simplifyOrthogonalPoints(
+  points: readonly FlowNodePosition[],
+): FlowNodePosition[] {
+  const deduped = points.filter((point, index) =>
+    index === 0
+    || point.x !== points[index - 1]!.x
+    || point.y !== points[index - 1]!.y,
+  )
+
+  if (deduped.length < 3) {
+    return deduped
+  }
+
+  const simplified: FlowNodePosition[] = [deduped[0]!]
+
+  for (let index = 1; index < deduped.length - 1; index += 1) {
+    const previous = simplified[simplified.length - 1]!
+    const current = deduped[index]!
+    const next = deduped[index + 1]!
+    const isCollinear = (previous.x === current.x && current.x === next.x)
+      || (previous.y === current.y && current.y === next.y)
+
+    if (!isCollinear) {
+      simplified.push(current)
+    }
+  }
+
+  simplified.push(deduped[deduped.length - 1]!)
+
+  return simplified
+}
+
+function buildOrthogonalLanePath(
+  sourcePoint: FlowNodePosition,
+  sourceExit: FlowNodePosition,
+  targetEntry: FlowNodePosition,
+  targetPoint: FlowNodePosition,
+  obstacles: readonly CanvasRect[],
+): readonly FlowNodePosition[] | null {
+  const candidateLaneYs = dedupeNumbers([
+    sourceExit.y,
+    targetEntry.y,
+    ...obstacles.flatMap((rect) => [rect.top, rect.bottom]),
+  ])
+
+  let bestPath: readonly FlowNodePosition[] | null = null
+  let bestCost = Number.POSITIVE_INFINITY
+
+  for (const laneY of candidateLaneYs) {
+    if (
+      !isVerticalSegmentClear(sourceExit.x, sourceExit.y, laneY, obstacles)
+      || !isHorizontalSegmentClear(laneY, sourceExit.x, targetEntry.x, obstacles)
+      || !isVerticalSegmentClear(targetEntry.x, targetEntry.y, laneY, obstacles)
+    ) {
+      continue
+    }
+
+    const path = simplifyOrthogonalPoints([
+      sourcePoint,
+      sourceExit,
+      {x: sourceExit.x, y: laneY},
+      {x: targetEntry.x, y: laneY},
+      targetEntry,
+      targetPoint,
+    ])
+    const cost = Math.abs(laneY - sourceExit.y)
+      + Math.abs(targetEntry.x - sourceExit.x)
+      + Math.abs(targetEntry.y - laneY)
+
+    if (cost < bestCost) {
+      bestPath = path
+      bestCost = cost
+    }
+  }
+
+  if (bestPath) {
+    return bestPath
+  }
+
+  const candidateLaneXs = dedupeNumbers([
+    sourceExit.x,
+    targetEntry.x,
+    ...obstacles.flatMap((rect) => [rect.left, rect.right]),
+  ])
+
+  for (const laneX of candidateLaneXs) {
+    if (
+      !isHorizontalSegmentClear(sourceExit.y, sourceExit.x, laneX, obstacles)
+      || !isVerticalSegmentClear(laneX, sourceExit.y, targetEntry.y, obstacles)
+      || !isHorizontalSegmentClear(targetEntry.y, laneX, targetEntry.x, obstacles)
+    ) {
+      continue
+    }
+
+    const path = simplifyOrthogonalPoints([
+      sourcePoint,
+      sourceExit,
+      {x: laneX, y: sourceExit.y},
+      {x: laneX, y: targetEntry.y},
+      targetEntry,
+      targetPoint,
+    ])
+    const cost = Math.abs(laneX - sourceExit.x)
+      + Math.abs(targetEntry.y - sourceExit.y)
+      + Math.abs(targetEntry.x - laneX)
+
+    if (cost < bestCost) {
+      bestPath = path
+      bestCost = cost
+    }
+  }
+
+  return bestPath
+}
+
+function buildAnchoredRoutePoints(
+  sourcePoint: FlowNodePosition,
+  routePoints: readonly FlowNodePosition[],
+  targetPoint: FlowNodePosition,
+): readonly FlowNodePosition[] {
+  if (routePoints.length <= 2) {
+    return simplifyOrthogonalPoints([sourcePoint, targetPoint])
+  }
+
+  return simplifyOrthogonalPoints([
+    sourcePoint,
+    ...routePoints.slice(1, -1),
+    targetPoint,
+  ])
+}
+
+function buildPolylinePath(points: readonly FlowNodePosition[]): string {
+  return points.map((point, index) =>
+    `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`,
+  ).join(' ')
+}
+
+function getPolylineMidpoint(
+  points: readonly FlowNodePosition[],
+): {x: number; y: number} {
+  if (points.length === 0) {
+    return {x: 0, y: 0}
+  }
+
+  if (points.length === 1) {
+    return points[0]!
+  }
+
+  const segmentLengths = points.slice(1).map((point, index) =>
+    Math.hypot(point.x - points[index]!.x, point.y - points[index]!.y),
+  )
+  const totalLength = segmentLengths.reduce((sum, length) => sum + length, 0)
+
+  if (totalLength === 0) {
+    return points[0]!
+  }
+
+  let traversed = 0
+  const halfway = totalLength / 2
+
+  for (const [index, segmentLength] of segmentLengths.entries()) {
+    const start = points[index]!
+    const end = points[index + 1]!
+
+    if (traversed + segmentLength >= halfway) {
+      const distanceIntoSegment = halfway - traversed
+      const ratio = segmentLength === 0 ? 0 : distanceIntoSegment / segmentLength
+
+      return {
+        x: start.x + ((end.x - start.x) * ratio),
+        y: start.y + ((end.y - start.y) * ratio),
+      }
+    }
+
+    traversed += segmentLength
+  }
+
+  return points[points.length - 1]!
+}
+
 const SemanticNode = memo(function SemanticNode({
   data,
   dragging = false,
@@ -393,8 +664,48 @@ const SemanticEdge = memo(function SemanticEdge({
   const stepPosition = parallelCount <= 1
     ? 0.5
     : (parallelIndex + 1) / (parallelCount + 1)
+  const routePoints = data.routePoints ?? null
+  const routedPathPoints = useMemo(() => {
+    const sourcePoint = {x: sourceX, y: sourceY}
+    const targetPoint = {x: targetX, y: targetY}
+    const sourceExit = {
+      x: sourceX + (sourcePosition === Position.Left ? -EDGE_ROUTE_HANDLE_OFFSET : EDGE_ROUTE_HANDLE_OFFSET),
+      y: sourceY,
+    }
+    const targetEntry = {
+      x: targetX + (targetPosition === Position.Left ? -EDGE_ROUTE_HANDLE_OFFSET : EDGE_ROUTE_HANDLE_OFFSET),
+      y: targetY,
+    }
+    const obstacles = [...ctx.nodeBoundsById.entries()]
+      .filter(([nodeId]) => nodeId !== edge.sourceNodeId && nodeId !== edge.targetNodeId)
+      .map(([, rect]) => expandRect(rect, EDGE_ROUTE_OBSTACLE_PADDING))
+      .filter((rect) =>
+        !pointInsideRect(sourceExit, rect)
+        && !pointInsideRect(targetEntry, rect),
+      )
 
-  const [path, labelX, labelY] = getSmoothStepPath({
+    return buildOrthogonalLanePath(
+      sourcePoint,
+      sourceExit,
+      targetEntry,
+      targetPoint,
+      obstacles,
+    )
+      ?? (routePoints ? buildAnchoredRoutePoints(sourcePoint, routePoints, targetPoint) : null)
+  }, [
+    ctx.nodeBoundsById,
+    edge.sourceNodeId,
+    edge.targetNodeId,
+    routePoints,
+    sourcePosition,
+    sourceX,
+    sourceY,
+    targetPosition,
+    targetX,
+    targetY,
+  ])
+  const routedLabelPoint = routedPathPoints ? getPolylineMidpoint(routedPathPoints) : null
+  const [fallbackPath, fallbackLabelX, fallbackLabelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -405,6 +716,9 @@ const SemanticEdge = memo(function SemanticEdge({
     offset: pathOffset,
     stepPosition,
   })
+  const path = routedPathPoints ? buildPolylinePath(routedPathPoints) : fallbackPath
+  const labelX = routedLabelPoint?.x ?? fallbackLabelX
+  const labelY = routedLabelPoint?.y ?? fallbackLabelY
   const isFocused = ctx.focusedEdgeIds.has(edge.id)
   const isDimmed = ctx.focusedEdgeIds.size > 0 && !isFocused
 
@@ -474,6 +788,8 @@ const EDGE_TYPES = {'semantic-edge': SemanticEdge} as const
 export const DevtoolsGraphCanvas = memo(function DevtoolsGraphCanvas({
   canvasContextValue,
   displaySource,
+  edgeRoutes,
+  layoutNodePositions,
   nodePositions,
   onFlowInstanceChange,
   onNodePositionsChange,
@@ -498,26 +814,55 @@ export const DevtoolsGraphCanvas = memo(function DevtoolsGraphCanvas({
     const nextEdges = buildFlowEdges(
       displaySource,
       canvasContextValue.selectedEdgeId,
-      nodePositions,
-      previousExternalEdgesRef.current,
+      {
+        nodePositions,
+        layoutNodePositions,
+        edgeRoutes,
+        previousEdges: previousExternalEdgesRef.current,
+      },
     )
 
     previousExternalEdgesRef.current = nextEdges
 
     return nextEdges
-  }, [canvasContextValue.selectedEdgeId, displaySource, nodePositions])
+  }, [canvasContextValue.selectedEdgeId, displaySource, edgeRoutes, layoutNodePositions, nodePositions])
   const [nodes, setNodes] = useState<FlowNode[]>(() => externalNodes)
   const nodesRef = useRef(nodes)
   const orderedFieldIdsByNodeId = useMemo(
     () => computeCanvasFieldOrderByNodeId(displaySource, nodePositions, canvasContextValue.expandedNodeIds),
     [canvasContextValue.expandedNodeIds, displaySource, nodePositions],
   )
+  const nodeBoundsById = useMemo(
+    () => new Map(displaySource.nodes.map((node) => {
+      const position = nodePositions[node.id] ?? {x: 0, y: 0}
+      const height = estimateCanvasNodeHeight(
+        node,
+        displaySource,
+        canvasContextValue.expandedNodeIds,
+        canvasContextValue.mvJoinKeyOverflowRevealedIds,
+      )
+
+      return [node.id, {
+        left: position.x,
+        right: position.x + DEVTOOLS_NODE_WIDTH,
+        top: position.y,
+        bottom: position.y + height,
+      }] as const
+    })),
+    [
+      canvasContextValue.expandedNodeIds,
+      canvasContextValue.mvJoinKeyOverflowRevealedIds,
+      displaySource,
+      nodePositions,
+    ],
+  )
   const renderContextValue = useMemo<CanvasRenderContextValue>(
     () => ({
       ...canvasContextValue,
+      nodeBoundsById,
       orderedFieldIdsByNodeId,
     }),
-    [canvasContextValue, orderedFieldIdsByNodeId],
+    [canvasContextValue, nodeBoundsById, orderedFieldIdsByNodeId],
   )
 
   useEffect(() => {

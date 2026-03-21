@@ -3,7 +3,7 @@ import {
   defineDataset,
 } from '@matthieumordrel/chart-studio'
 import {describe, expect, it} from 'vitest'
-import {buildElkLayoutGraph} from './layout.js'
+import {buildElkLayoutGraph, extractElkEdgeRoutes} from './layout.js'
 import {normalizeSource} from './normalize.js'
 
 function createNormalizedGraph() {
@@ -69,5 +69,36 @@ describe('layout', () => {
     expect(graph.children?.find((node) => node.id === 'jobsWithOwner')?.layoutOptions?.['elk.layered.considerModelOrder.groupModelOrder.crossingMinimizationId']).toBe('1')
     expect(graph.edges?.find((edge) => edge.id === 'jobs.ownerId -> owners.id')?.layoutOptions?.['elk.layered.considerModelOrder.groupModelOrder.crossingMinimizationId']).toBe('0')
     expect(graph.edges?.find((edge) => edge.id.includes('jobsWithOwner:base'))?.layoutOptions?.['elk.layered.considerModelOrder.groupModelOrder.crossingMinimizationId']).toBe('1')
+  })
+
+  it('extracts orthogonal edge routes from ELK layout sections', () => {
+    const routes = extractElkEdgeRoutes({
+      edges: [
+        {
+          id: 'owners.id -> jobs.ownerId',
+          sources: ['owners'],
+          targets: ['jobs'],
+          sections: [
+            {
+              startPoint: {x: 276, y: 88},
+              bendPoints: [
+                {x: 340, y: 88},
+                {x: 340, y: 12},
+              ],
+              endPoint: {x: 420, y: 12},
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(routes).toEqual({
+      'owners.id -> jobs.ownerId': [
+        {x: 276, y: 88},
+        {x: 340, y: 88},
+        {x: 340, y: 12},
+        {x: 420, y: 12},
+      ],
+    })
   })
 })

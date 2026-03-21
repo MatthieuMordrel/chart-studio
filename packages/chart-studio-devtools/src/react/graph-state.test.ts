@@ -107,19 +107,19 @@ describe('graph-state', () => {
     const leftToRightEdge = buildFlowEdges(
       source,
       null,
-      {
+      {nodePositions: {
         [relationship.sourceNodeId]: {x: 40, y: 40},
         [relationship.targetNodeId]: {x: 420, y: 40},
-      },
+      }},
     ).find((edge) => edge.id === relationship.id)
 
     const rightToLeftEdge = buildFlowEdges(
       source,
       null,
-      {
+      {nodePositions: {
         [relationship.sourceNodeId]: {x: 420, y: 40},
         [relationship.targetNodeId]: {x: 40, y: 40},
-      },
+      }},
     ).find((edge) => edge.id === relationship.id)
 
     expect(leftToRightEdge?.sourceHandle).toBe(toFlowHandleId(relationship.sourceHandleId, 'right'))
@@ -165,7 +165,7 @@ describe('graph-state', () => {
       jobsWithOwner: {x: 50, y: 60},
     }
     const initialNodes = buildFlowNodes(source, initialPositions, null)
-    const initialEdges = buildFlowEdges(source, null, initialPositions)
+    const initialEdges = buildFlowEdges(source, null, {nodePositions: initialPositions})
 
     const nextNodes = buildFlowNodes(
       source,
@@ -176,7 +176,10 @@ describe('graph-state', () => {
       null,
       initialNodes,
     )
-    const nextEdges = buildFlowEdges(source, null, initialPositions, initialEdges)
+    const nextEdges = buildFlowEdges(source, null, {
+      nodePositions: initialPositions,
+      previousEdges: initialEdges,
+    })
 
     expect(nextNodes).not.toBe(initialNodes)
     expect(nextNodes.find((node) => node.id === 'owners')).not.toBe(initialNodes.find((node) => node.id === 'owners'))
@@ -184,6 +187,46 @@ describe('graph-state', () => {
     expect(nextNodes.find((node) => node.id === 'jobsWithOwner')).toBe(initialNodes.find((node) => node.id === 'jobsWithOwner'))
     expect(nextEdges).toBe(initialEdges)
     expect(nextEdges[0]).toBe(initialEdges[0])
+  })
+
+  it('uses routed ELK edge points until a connected node is moved', () => {
+    const source = createNormalizedGraph()
+    const relationship = source.edges.find((edge) => edge.kind === 'relationship')
+
+    if (!relationship) {
+      throw new Error('Expected a relationship edge in the normalized test graph.')
+    }
+
+    const layoutNodePositions = {
+      [relationship.sourceNodeId]: {x: 40, y: 40},
+      [relationship.targetNodeId]: {x: 420, y: 40},
+    }
+    const edgeRoutes = {
+      [relationship.id]: [
+        {x: 316, y: 88},
+        {x: 360, y: 88},
+        {x: 360, y: 18},
+        {x: 420, y: 18},
+      ],
+    }
+
+    const routedEdge = buildFlowEdges(source, null, {
+      nodePositions: layoutNodePositions,
+      layoutNodePositions,
+      edgeRoutes,
+    }).find((edge) => edge.id === relationship.id)
+
+    const draggedEdge = buildFlowEdges(source, null, {
+      nodePositions: {
+        ...layoutNodePositions,
+        [relationship.sourceNodeId]: {x: 140, y: 40},
+      },
+      layoutNodePositions,
+      edgeRoutes,
+    }).find((edge) => edge.id === relationship.id)
+
+    expect(routedEdge?.data?.routePoints).toEqual(edgeRoutes[relationship.id])
+    expect(draggedEdge?.data?.routePoints).toBeNull()
   })
 
   it('keeps a local drag position when external node metadata changes without a new layout', () => {

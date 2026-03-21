@@ -8,7 +8,12 @@ import type {NormalizedSourceVm} from './types.js'
 
 export type FlowNode = Node<{nodeId: string}, 'semantic-node'>
 export type FlowEdge = Edge<
-  {edgeId: string; parallelIndex: number; parallelCount: number},
+  {
+    edgeId: string
+    parallelIndex: number
+    parallelCount: number
+    routePoints: readonly FlowNodePosition[] | null
+  },
   'semantic-edge'
 >
 
@@ -29,6 +34,13 @@ export function toFlowHandleId(
   side: HandleSide,
 ): string {
   return `${handleId}::${side}`
+}
+
+export type BuildFlowEdgesOptions = {
+  nodePositions?: Readonly<Record<string, FlowNodePosition>>
+  layoutNodePositions?: Readonly<Record<string, FlowNodePosition>>
+  edgeRoutes?: Readonly<Record<string, readonly FlowNodePosition[]>>
+  previousEdges?: readonly FlowEdge[]
 }
 
 function hasSamePosition(
@@ -224,11 +236,54 @@ function resolveEdgeHandleSides(
   }
 }
 
+function hasSameRoutePoints(
+  left: readonly FlowNodePosition[] | null | undefined,
+  right: readonly FlowNodePosition[] | null | undefined,
+): boolean {
+  if (!left || !right) {
+    return left === right
+  }
+
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((point, index) =>
+    point.x === right[index]?.x && point.y === right[index]?.y,
+  )
+}
+
+function resolveRoutedEdgePoints(
+  edge: NormalizedSourceVm['edges'][number],
+  nodePositions: Readonly<Record<string, FlowNodePosition>>,
+  layoutNodePositions: Readonly<Record<string, FlowNodePosition>>,
+  edgeRoutes: Readonly<Record<string, readonly FlowNodePosition[]>>,
+): readonly FlowNodePosition[] | null {
+  const routePoints = edgeRoutes[edge.id]
+
+  if (!routePoints || routePoints.length < 2) {
+    return null
+  }
+
+  if (
+    !hasSamePosition(nodePositions[edge.sourceNodeId], layoutNodePositions[edge.sourceNodeId])
+    || !hasSamePosition(nodePositions[edge.targetNodeId], layoutNodePositions[edge.targetNodeId])
+  ) {
+    return null
+  }
+
+  return routePoints
+}
+
 export function buildFlowEdges(
   source: NormalizedSourceVm,
   selectedEdgeId: string | null,
-  positions: Readonly<Record<string, FlowNodePosition>> = {},
-  previousEdges: readonly FlowEdge[] = [],
+  {
+    nodePositions = {},
+    layoutNodePositions = nodePositions,
+    edgeRoutes = {},
+    previousEdges = [],
+  }: BuildFlowEdgesOptions = {},
 ): FlowEdge[] {
   const parallelMeta = computeParallelEdgeMeta(source)
   const previousEdgesById = new Map(previousEdges.map((edge) => [edge.id, edge]))
@@ -236,9 +291,15 @@ export function buildFlowEdges(
 
   const nextEdges = source.edges.map((edge, index) => {
     const bundle = parallelMeta.get(edge.id) ?? {parallelIndex: 0, parallelCount: 1}
-    const {sourceSide, targetSide} = resolveEdgeHandleSides(edge, positions)
+    const {sourceSide, targetSide} = resolveEdgeHandleSides(edge, nodePositions)
     const sourceHandle = toFlowHandleId(edge.sourceHandleId, sourceSide)
     const targetHandle = toFlowHandleId(edge.targetHandleId, targetSide)
+    const routePoints = resolveRoutedEdgePoints(
+      edge,
+      nodePositions,
+      layoutNodePositions,
+      edgeRoutes,
+    )
     const selected = edge.id === selectedEdgeId
     const markerStart = edge.kind === 'association' ? 'url(#csdt-marker-many)' : undefined
     const markerEnd = edge.kind === 'association'
@@ -260,6 +321,7 @@ export function buildFlowEdges(
       && previousEdge.data?.edgeId === edge.id
       && previousEdge.data.parallelIndex === bundle.parallelIndex
       && previousEdge.data.parallelCount === bundle.parallelCount
+      && hasSameRoutePoints(previousEdge.data.routePoints, routePoints)
       && previousEdge.markerStart === markerStart
       && previousEdge.markerEnd === markerEnd
     ) {
@@ -285,6 +347,7 @@ export function buildFlowEdges(
         edgeId: edge.id,
         parallelIndex: bundle.parallelIndex,
         parallelCount: bundle.parallelCount,
+        routePoints,
       },
       markerStart,
       markerEnd,

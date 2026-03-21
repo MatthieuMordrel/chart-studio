@@ -22,7 +22,11 @@ import {
   isMaterializedViewJoinProjectedField,
 } from './graph-field-visibility.js'
 import {useMvJoinKeyClickRevealForSelection} from './use-mv-join-key-click-reveal.js'
-import {computeGraphLayout, DEVTOOLS_NODE_WIDTH} from './layout.js'
+import {
+  computeGraphLayout,
+  DEVTOOLS_NODE_WIDTH,
+  type GraphLayoutResult,
+} from './layout.js'
 import {
   adjustDevtoolsLayoutForEdgeDensity,
   loadStoredDevtoolsElkLayout,
@@ -182,6 +186,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     )
   }, [displaySource, expandedNodeIds])
   const [nodePositions, setNodePositions] = useState<Record<string, FlowNodePosition>>({})
+  const [lastComputedLayout, setLastComputedLayout] = useState<GraphLayoutResult | null>(null)
   const layoutRunIdRef = useRef(0)
   const fitViewAfterLayoutRef = useRef(false)
   const fitViewFrameRef = useRef<number | null>(null)
@@ -404,6 +409,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     if (!layoutSource) {
       fitViewAfterLayoutRef.current = false
+      setLastComputedLayout(null)
       setNodePositions({})
       return
     }
@@ -411,13 +417,14 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     let cancelled = false
     const layoutRunId = ++layoutRunIdRef.current
 
-    void computeGraphLayout(layoutSource, visibleExpandedNodeIds, elkLayoutForComputation).then((positions) => {
+    void computeGraphLayout(layoutSource, visibleExpandedNodeIds, elkLayoutForComputation).then((layout) => {
       if (cancelled || layoutRunId !== layoutRunIdRef.current) {
         return
       }
 
       startTransition(() => {
-        setNodePositions(positions)
+        setLastComputedLayout(layout)
+        setNodePositions(layout.nodePositions)
       })
 
       if (!fitViewAfterLayoutRef.current) {
@@ -750,6 +757,8 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                   <DevtoolsGraphCanvas
                     canvasContextValue={canvasContextValue}
                     displaySource={displaySource!}
+                    edgeRoutes={lastComputedLayout?.edgeRoutes ?? {}}
+                    layoutNodePositions={lastComputedLayout?.nodePositions ?? {}}
                     nodePositions={nodePositions}
                     onFlowInstanceChange={setFlowInstance}
                     onNodePositionsChange={setNodePositions}

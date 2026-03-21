@@ -16,6 +16,12 @@ const NODE_ATTRIBUTE_ROW_HEIGHT = 22
 const NODE_FIELD_ROW_HEIGHT = 26
 const NODE_FOOTER_HEIGHT = 32
 
+type ElkEdgeSection = {
+  startPoint?: {x: number; y: number}
+  endPoint?: {x: number; y: number}
+  bendPoints?: Array<{x: number; y: number}>
+}
+
 type ElkNode = {
   id: string
   width?: number
@@ -29,7 +35,18 @@ type ElkNode = {
     sources: string[]
     targets: string[]
     layoutOptions?: Record<string, string>
+    sections?: ElkEdgeSection[]
   }>
+}
+
+export type GraphPoint = {
+  x: number
+  y: number
+}
+
+export type GraphLayoutResult = {
+  nodePositions: Record<string, GraphPoint>
+  edgeRoutes: Record<string, readonly GraphPoint[]>
 }
 
 const elk = new ELK()
@@ -94,13 +111,12 @@ export async function computeGraphLayout(
   source: NormalizedSourceVm,
   expandedNodeIds: ReadonlySet<string>,
   layoutConfig: DevtoolsElkLayoutConfig = DEFAULT_DEVTOOLS_ELK_LAYOUT,
-): Promise<Record<string, {x: number; y: number}>> {
+): Promise<GraphLayoutResult> {
   const graph = buildElkLayoutGraph(source, expandedNodeIds, layoutConfig)
 
   try {
     const layout = await elk.layout(graph)
-
-    return Object.fromEntries(
+    const nodePositions = Object.fromEntries(
       source.nodes.map((node, index) => {
         const layoutNode = layout.children?.find((candidate: ElkNode) => candidate.id === node.id)
         const fallback = createFallbackPosition(index, normalizeDevtoolsElkLayoutConfig(layoutConfig))
@@ -111,13 +127,66 @@ export async function computeGraphLayout(
         }]
       }),
     )
+
+    return {
+      nodePositions,
+      edgeRoutes: extractElkEdgeRoutes(layout),
+    }
   } catch {
     const normalizedLayout = normalizeDevtoolsElkLayoutConfig(layoutConfig)
 
-    return Object.fromEntries(
-      source.nodes.map((node, index) => [node.id, createFallbackPosition(index, normalizedLayout)]),
-    )
+    return {
+      nodePositions: Object.fromEntries(
+        source.nodes.map((node, index) => [node.id, createFallbackPosition(index, normalizedLayout)]),
+      ),
+      edgeRoutes: {},
+    }
   }
+}
+
+function appendDistinctPoint(
+  points: GraphPoint[],
+  point: GraphPoint | null | undefined,
+): void {
+  if (!point) {
+    return
+  }
+
+  const previous = points[points.length - 1]
+
+  if (previous?.x === point.x && previous.y === point.y) {
+    return
+  }
+
+  points.push({x: point.x, y: point.y})
+}
+
+function extractRoutePoints(
+  sections: readonly ElkEdgeSection[] | undefined,
+): readonly GraphPoint[] {
+  const points: GraphPoint[] = []
+
+  for (const section of sections ?? []) {
+    appendDistinctPoint(points, section.startPoint)
+
+    for (const bendPoint of section.bendPoints ?? []) {
+      appendDistinctPoint(points, bendPoint)
+    }
+
+    appendDistinctPoint(points, section.endPoint)
+  }
+
+  return points
+}
+
+export function extractElkEdgeRoutes(
+  layout: Pick<ElkNode, 'edges'>,
+): Record<string, readonly GraphPoint[]> {
+  return Object.fromEntries(
+    (layout.edges ?? [])
+      .map((edge) => [edge.id, extractRoutePoints(edge.sections)] as const)
+      .filter((entry) => entry[1].length >= 2),
+  )
 }
 
 export function buildElkLayoutGraph(
