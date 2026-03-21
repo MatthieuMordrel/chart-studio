@@ -35,7 +35,11 @@ import {DEVTOOLS_STYLES} from './styles.js'
 import {DevtoolsDataViewer} from './devtools-data-viewer.js'
 import {useDevtoolsSources} from './use-devtools-sources.js'
 import {SelectionPanel, getNodeRows} from './devtools-details.js'
-import {computeEdgeFieldHighlights, findFocusSets} from './selection-utils.js'
+import {
+  computeEdgeFieldHighlights,
+  findFocusSets,
+  resolveCanvasFocusFromHoverAndSelection,
+} from './selection-utils.js'
 import {
   DevtoolsGraphCanvas,
   FIT_VIEW_PADDING,
@@ -99,6 +103,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
+  /** Transient graph hover for relationship/key highlights (selection panel stays click-driven). */
+  const [hoverEdgeId, setHoverEdgeId] = useState<string | null>(null)
+  const [hoverNodeId, setHoverNodeId] = useState<string | null>(null)
+  const [hoverFieldId, setHoverFieldId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const deferredSearchQuery = useDeferredValue(searchQuery)
   const [showIssues, setShowIssues] = useState(false)
@@ -201,6 +209,9 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
       return
     }
 
+    setHoverEdgeId(null)
+    setHoverNodeId(null)
+    setHoverFieldId(null)
     setIsOpen(false)
     setViewer(null)
     setShowIssues(false)
@@ -249,14 +260,53 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }, new Map<string, readonly string[]>())
   }, [displaySource])
 
-  const {focusedEdgeIds, focusedNodeIds} = useMemo(
-    () => displaySource
-      ? findFocusSets(displaySource, currentSelectedNodeId, currentSelectedEdgeId, currentSelectedFieldId)
-      : {focusedEdgeIds: new Set<string>(), focusedNodeIds: new Set<string>()},
-    [currentSelectedEdgeId, currentSelectedFieldId, currentSelectedNodeId, displaySource],
+  const canvasFocusIds = useMemo(
+    () => resolveCanvasFocusFromHoverAndSelection(
+      {edgeId: hoverEdgeId, nodeId: hoverNodeId, fieldId: hoverFieldId},
+      {
+        edgeId: currentSelectedEdgeId,
+        nodeId: currentSelectedNodeId,
+        fieldId: currentSelectedFieldId,
+      },
+      displaySource,
+    ),
+    [
+      currentSelectedEdgeId,
+      currentSelectedFieldId,
+      currentSelectedNodeId,
+      displaySource,
+      hoverEdgeId,
+      hoverFieldId,
+      hoverNodeId,
+    ],
   )
 
-  const edgeFieldHighlights = useMemo(
+  const {focusedEdgeIds, focusedNodeIds} = useMemo(
+    () => displaySource
+      ? findFocusSets(
+        displaySource,
+        canvasFocusIds.nodeId,
+        canvasFocusIds.edgeId,
+        canvasFocusIds.fieldId,
+      )
+      : {focusedEdgeIds: new Set<string>(), focusedNodeIds: new Set<string>()},
+    [canvasFocusIds.edgeId, canvasFocusIds.fieldId, canvasFocusIds.nodeId, displaySource],
+  )
+
+  const canvasEdgeFieldHighlights = useMemo(
+    () => displaySource
+      ? computeEdgeFieldHighlights(
+        canvasFocusIds.edgeId,
+        canvasFocusIds.nodeId,
+        canvasFocusIds.fieldId,
+        displaySource,
+      )
+      : new Map<string, ReadonlySet<string>>(),
+    [canvasFocusIds.edgeId, canvasFocusIds.fieldId, canvasFocusIds.nodeId, displaySource],
+  )
+
+  /** Selection-only: drives auto-expand / MV join reveal, not hover preview. */
+  const selectionEdgeFieldHighlights = useMemo(
     () => displaySource
       ? computeEdgeFieldHighlights(currentSelectedEdgeId, currentSelectedNodeId, currentSelectedFieldId, displaySource)
       : new Map<string, ReadonlySet<string>>(),
@@ -265,11 +315,11 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   const autoMaterializedViewJoinKeyRevealedIds = useMemo(() => {
     const next = new Set<string>()
 
-    if (!displaySource || edgeFieldHighlights.size === 0) {
+    if (!displaySource || selectionEdgeFieldHighlights.size === 0) {
       return next
     }
 
-    for (const [nodeId, fieldIds] of edgeFieldHighlights) {
+    for (const [nodeId, fieldIds] of selectionEdgeFieldHighlights) {
       const node = displaySource.nodeMap.get(nodeId)
 
       if (!node || node.kind !== 'materialized-view' || mvJoinKeyClickRevealNodeId === nodeId) {
@@ -287,7 +337,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
 
     return next
-  }, [displaySource, edgeFieldHighlights, mvJoinKeyClickRevealNodeId])
+  }, [displaySource, mvJoinKeyClickRevealNodeId, selectionEdgeFieldHighlights])
   const visibleMvJoinKeyOverflowRevealedIds = useMemo(() => {
     const merged = new Set(autoMaterializedViewJoinKeyRevealedIds)
 
@@ -298,13 +348,13 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     return merged
   }, [autoMaterializedViewJoinKeyRevealedIds, mvJoinKeyClickRevealNodeId])
   const autoExpandedNodeIds = useMemo(() => {
-    if (!displaySource || edgeFieldHighlights.size === 0) {
+    if (!displaySource || selectionEdgeFieldHighlights.size === 0) {
       return new Set<string>()
     }
 
     const next = new Set<string>()
 
-    for (const [nodeId, fieldIds] of edgeFieldHighlights) {
+    for (const [nodeId, fieldIds] of selectionEdgeFieldHighlights) {
       const node = displaySource.nodeMap.get(nodeId)
 
       if (!node || manualExpandedNodeIds.has(nodeId)) {
@@ -334,7 +384,7 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
 
     return next
-  }, [displaySource, edgeFieldHighlights, manualExpandedNodeIds, visibleMvJoinKeyOverflowRevealedIds])
+  }, [displaySource, manualExpandedNodeIds, selectionEdgeFieldHighlights, visibleMvJoinKeyOverflowRevealedIds])
   const visibleExpandedNodeIds = useMemo(() => {
     if (autoExpandedNodeIds.size === 0) {
       return manualExpandedNodeIds
@@ -418,19 +468,45 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
 
     return {
       activeContext,
-      edgeHighlightFieldIdsByNodeId: edgeFieldHighlights,
+      edgeHighlightFieldIdsByNodeId: canvasEdgeFieldHighlights,
       expandedNodeIds: visibleExpandedNodeIds,
+      fieldFocusNodeId: canvasFocusIds.fieldId != null && canvasFocusIds.nodeId != null
+        ? canvasFocusIds.nodeId
+        : null,
       focusedEdgeIds,
-      focusedFieldId: currentSelectedFieldId,
+      focusedFieldId: canvasFocusIds.fieldId,
       focusedNodeIds,
       issuesByTargetId,
       mvJoinKeyOverflowRevealedIds: visibleMvJoinKeyOverflowRevealedIds,
+      onClearHover() {
+        setHoverEdgeId(null)
+        setHoverNodeId(null)
+        setHoverFieldId(null)
+      },
       onClearSelection() {
         setSelectedNodeId(null)
         setSelectedEdgeId(null)
         setSelectedFieldId(null)
+        setHoverEdgeId(null)
+        setHoverNodeId(null)
+        setHoverFieldId(null)
+      },
+      onHoverEdge(edgeId) {
+        setHoverEdgeId(edgeId)
+        if (edgeId != null) {
+          setHoverNodeId(null)
+          setHoverFieldId(null)
+        }
+      },
+      onHoverField(nodeId, fieldId) {
+        setHoverEdgeId(null)
+        setHoverNodeId(nodeId)
+        setHoverFieldId(fieldId)
       },
       onInspectNode(nodeId) {
+        setHoverEdgeId(null)
+        setHoverNodeId(null)
+        setHoverFieldId(null)
         setSelectedNodeId(nodeId)
         setSelectedEdgeId(null)
         setViewer({
@@ -440,11 +516,17 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
         })
       },
       onSelectEdge(edgeId) {
+        setHoverEdgeId(null)
+        setHoverNodeId(null)
+        setHoverFieldId(null)
         setSelectedEdgeId(edgeId)
         setSelectedNodeId(null)
         setSelectedFieldId(null)
       },
       onSelectNode(nodeId, fieldId) {
+        setHoverEdgeId(null)
+        setHoverNodeId(null)
+        setHoverFieldId(null)
         setSelectedNodeId(nodeId)
         setSelectedEdgeId(null)
         setSelectedFieldId(fieldId ?? null)
@@ -469,11 +551,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
     }
   }, [
     activeContext,
-    currentSelectedEdgeId,
-    currentSelectedFieldId,
-    currentSelectedNodeId,
+    canvasEdgeFieldHighlights,
+    canvasFocusIds.fieldId,
+    canvasFocusIds.nodeId,
     displaySource,
-    edgeFieldHighlights,
     focusedEdgeIds,
     focusedNodeIds,
     issuesByTargetId,
@@ -482,6 +563,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
   ])
 
   function focusSearchItem(item: SearchItemVm) {
+    setHoverEdgeId(null)
+    setHoverNodeId(null)
+    setHoverFieldId(null)
+
     if (item.edgeId) {
       setSelectedEdgeId(item.edgeId)
       setSelectedNodeId(null)
@@ -700,6 +785,10 @@ export function ChartStudioDevtools(props: ChartStudioDevtoolsProps) {
                       <button
                         type='button'
                         onClick={() => {
+                          setHoverEdgeId(null)
+                          setHoverNodeId(null)
+                          setHoverFieldId(null)
+
                           if (displaySource.nodeMap.has(issue.targetId)) {
                             setSelectedNodeId(issue.targetId)
                             setSelectedEdgeId(null)

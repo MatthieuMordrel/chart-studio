@@ -178,6 +178,47 @@ export function computeEdgeFieldHighlights(
   return new Map()
 }
 
+/**
+ * Ids used to compute graph focus highlights (dimming, edge/field pulses) on the devtools canvas.
+ */
+export type CanvasFocusIds = {
+  edgeId: string | null
+  nodeId: string | null
+  fieldId: string | null
+}
+
+/**
+ * Picks which node/edge/field drives canvas highlights: hover preview wins over click selection
+ * so relationships and keys light up on pointer-over without changing the selection panel.
+ *
+ * @param hover - Transient hover state from the graph (edge or field row)
+ * @param selection - Pinned selection from clicks / search / issues
+ * @param source - Normalized snapshot (validates ids)
+ */
+export function resolveCanvasFocusFromHoverAndSelection(
+  hover: CanvasFocusIds,
+  selection: CanvasFocusIds,
+  source: NormalizedSourceVm | null,
+): CanvasFocusIds {
+  if (hover.edgeId && source?.edgeMap.has(hover.edgeId)) {
+    return {edgeId: hover.edgeId, nodeId: null, fieldId: null}
+  }
+
+  if (hover.nodeId && hover.fieldId) {
+    const node = source?.nodeMap.get(hover.nodeId)
+
+    if (node?.fields.some((field) => field.id === hover.fieldId)) {
+      return {edgeId: null, nodeId: hover.nodeId, fieldId: hover.fieldId}
+    }
+  }
+
+  return {
+    edgeId: selection.edgeId,
+    nodeId: selection.nodeId,
+    fieldId: selection.fieldId,
+  }
+}
+
 export function findFocusSets(
   source: NormalizedSourceVm,
   selectedNodeId: string | null,

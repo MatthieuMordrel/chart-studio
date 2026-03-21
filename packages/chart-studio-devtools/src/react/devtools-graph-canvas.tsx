@@ -72,13 +72,18 @@ export type CanvasContextValue = {
   activeContext: ChartStudioDevtoolsContextSnapshot | null
   edgeHighlightFieldIdsByNodeId: ReadonlyMap<string, ReadonlySet<string>>
   expandedNodeIds: ReadonlySet<string>
+  /** Node that owns {@link focusedFieldId} for column focus styling (hover or selection). */
+  fieldFocusNodeId: string | null
   focusedEdgeIds: ReadonlySet<string>
   focusedFieldId: string | null
   focusedNodeIds: ReadonlySet<string>
   issuesByTargetId: ReadonlyMap<string, readonly string[]>
   /** Manual ∪ auto: MV join/key overflow is visible (beyond the first cap of join/key rows). */
   mvJoinKeyOverflowRevealedIds: ReadonlySet<string>
+  onClearHover(): void
   onClearSelection(): void
+  onHoverEdge(edgeId: string | null): void
+  onHoverField(nodeId: string | null, fieldId: string | null): void
   onInspectNode(nodeId: string): void
   onSelectEdge(edgeId: string): void
   onSelectNode(nodeId: string, fieldId?: string): void
@@ -132,6 +137,7 @@ function getEdgeBadge(edge: NormalizedEdgeVm, selected: boolean): string {
 type SemanticNodeCardProps = {
   edgeHighlightFieldIds: ReadonlySet<string> | undefined
   expanded: boolean
+  fieldFocusNodeId: string | null
   focusedFieldId: string | null
   isDimmed: boolean
   isDragging: boolean
@@ -141,6 +147,7 @@ type SemanticNodeCardProps = {
   node: NormalizedNodeVm
   visibleFieldCount: number
   visibleFields: readonly NormalizedFieldVm[]
+  onHoverField(nodeId: string | null, fieldId: string | null): void
   onInspectNode(nodeId: string): void
   onSelectNode(nodeId: string, fieldId?: string): void
   onToggleNodeExpand(nodeId: string): void
@@ -149,6 +156,7 @@ type SemanticNodeCardProps = {
 const SemanticNodeCard = memo(function SemanticNodeCard({
   edgeHighlightFieldIds,
   expanded,
+  fieldFocusNodeId,
   focusedFieldId,
   isDimmed,
   isDragging,
@@ -158,6 +166,7 @@ const SemanticNodeCard = memo(function SemanticNodeCard({
   node,
   visibleFieldCount,
   visibleFields,
+  onHoverField,
   onInspectNode,
   onSelectNode,
   onToggleNodeExpand,
@@ -214,12 +223,18 @@ const SemanticNodeCard = memo(function SemanticNodeCard({
             type='button'
             className={[
               'csdt-field nodrag',
-              focusedFieldId === field.id && isSelected ? 'is-field-focused' : undefined,
+              focusedFieldId === field.id && fieldFocusNodeId === node.id ? 'is-field-focused' : undefined,
               edgeHighlightFieldIds?.has(field.id) ? 'is-edge-highlight' : undefined,
             ].filter(Boolean).join(' ')}
             onClick={(event) => {
               event.stopPropagation()
               onSelectNode(node.id, field.id)
+            }}
+            onMouseEnter={() => {
+              onHoverField(node.id, field.id)
+            }}
+            onMouseLeave={() => {
+              onHoverField(null, null)
             }}>
             <Handle
               className='csdt-handle'
@@ -313,6 +328,7 @@ const SemanticNode = memo(function SemanticNode({
     <SemanticNodeCard
       edgeHighlightFieldIds={edgeHighlightFieldIds}
       expanded={expanded}
+      fieldFocusNodeId={ctx.fieldFocusNodeId}
       focusedFieldId={ctx.focusedFieldId}
       isDimmed={isDimmed}
       isDragging={dragging}
@@ -322,6 +338,7 @@ const SemanticNode = memo(function SemanticNode({
       node={node}
       visibleFieldCount={collapsedFields.length}
       visibleFields={visibleFields}
+      onHoverField={ctx.onHoverField}
       onInspectNode={ctx.onInspectNode}
       onSelectNode={ctx.onSelectNode}
       onToggleNodeExpand={ctx.onToggleNodeExpand}
@@ -404,7 +421,10 @@ const SemanticEdge = memo(function SemanticEdge({
           style={{
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
           }}
-          onClick={() => ctx.onSelectEdge(edge.id)}>
+          onClick={() => ctx.onSelectEdge(edge.id)}
+          onMouseEnter={() => {
+            ctx.onHoverEdge(edge.id)
+          }}>
           {getEdgeBadge(edge, !!selected)}
         </button>
       </EdgeLabelRenderer>
@@ -537,12 +557,30 @@ export const DevtoolsGraphCanvas = memo(function DevtoolsGraphCanvas({
     canvasContextValue.onClearSelection()
   }, [canvasContextValue])
 
+  const handleEdgeMouseEnter = useCallback(
+    (_event: unknown, edge: FlowEdge) => {
+      canvasContextValue.onHoverEdge(edge.id)
+    },
+    [canvasContextValue],
+  )
+
+  const handleEdgeMouseLeave = useCallback(
+    (_event: unknown, _edge: FlowEdge) => {
+      canvasContextValue.onHoverEdge(null)
+    },
+    [canvasContextValue],
+  )
+
+  const handleCanvasPointerLeave = useCallback(() => {
+    canvasContextValue.onClearHover()
+  }, [canvasContextValue])
+
   return (
     <>
       <MarkerDefs />
 
       <CanvasContext.Provider value={renderContextValue}>
-        <div className='csdt-canvas'>
+        <div className='csdt-canvas' onPointerLeave={handleCanvasPointerLeave}>
           <ReactFlowProvider>
             <ReactFlow
               fitView
@@ -557,6 +595,8 @@ export const DevtoolsGraphCanvas = memo(function DevtoolsGraphCanvas({
               onNodeDragStop={handleNodeDragStop}
               onNodeClick={handleNodeClick}
               onEdgeClick={handleEdgeClick}
+              onEdgeMouseEnter={handleEdgeMouseEnter}
+              onEdgeMouseLeave={handleEdgeMouseLeave}
               onPaneClick={handlePaneClick}
               minZoom={0.2}
               maxZoom={1.5}

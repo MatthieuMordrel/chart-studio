@@ -1,4 +1,5 @@
 import {
+  DashboardProvider,
   defineDashboard,
   defineDataModel,
   defineDataset,
@@ -7,6 +8,7 @@ import {
   useDashboardDataset,
   useDashboardSharedFilter,
 } from '@matthieumordrel/chart-studio'
+import {ChartStudioDevtools} from '@matthieumordrel/chart-studio-devtools/react'
 import {Chart, ChartCanvas} from '@matthieumordrel/chart-studio-ui'
 import type {ReactNode} from 'react'
 
@@ -243,78 +245,81 @@ export function TypedInferredDashboardChart() {
   const teacherFilter = useDashboardSharedFilter(dashboard, 'teacher')
 
   return (
-    <div className='space-y-4'>
-      {teacherFilter.kind === 'select' && (
-        <div className='flex flex-wrap items-center gap-2'>
-          <span className='text-xs font-medium text-muted-foreground'>Teacher</span>
-          <button
-            type='button'
-            onClick={() => teacherFilter.clear()}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
-              teacherFilter.values.size === 0
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-foreground hover:border-primary/40'
-            }`}>
-            All
-          </button>
+    <DashboardProvider dashboard={dashboard}>
+      <div className='space-y-4'>
+        {teacherFilter.kind === 'select' && (
+          <div className='flex flex-wrap items-center gap-2'>
+            <span className='text-xs font-medium text-muted-foreground'>Teacher</span>
+            <button
+              type='button'
+              onClick={() => teacherFilter.clear()}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
+                teacherFilter.values.size === 0
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background text-foreground hover:border-primary/40'
+              }`}>
+              All
+            </button>
 
-          {teacherFilter.options.map((option) => {
-            const isActive = teacherFilter.values.has(option.value)
+            {teacherFilter.options.map((option) => {
+              const isActive = teacherFilter.values.has(option.value)
 
-            return (
-              <button
-                key={option.value}
-                type='button'
-                onClick={() => teacherFilter.toggleValue(option.value)}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
-                  isActive
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground hover:border-primary/40'
-                }`}>
-                {option.label}
-              </button>
-            )
-          })}
+              return (
+                <button
+                  key={option.value}
+                  type='button'
+                  onClick={() => teacherFilter.toggleValue(option.value)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
+                    isActive
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground hover:border-primary/40'
+                  }`}>
+                  {option.label}
+                </button>
+              )
+            })}
 
-          <span className='ml-auto text-xs text-muted-foreground'>
-            {filteredTests.length} tests · {filteredMeetings.length} meetings
-          </span>
+            <span className='ml-auto text-xs text-muted-foreground'>
+              {filteredTests.length} tests · {filteredMeetings.length} meetings
+            </span>
+          </div>
+        )}
+
+        <div className='grid gap-4 lg:grid-cols-2'>
+          <DashboardPanel
+            title='Avg Score by Subject'
+            subtitle='Subject from teachers, scores from students'>
+            <Chart chart={avgScoreBySubject}>
+              <ChartCanvas height={260} />
+            </Chart>
+          </DashboardPanel>
+
+          <DashboardPanel
+            title='Tests by Month'
+            subtitle='Test count grouped by subject'>
+            <Chart chart={testsByMonth}>
+              <ChartCanvas height={260} />
+            </Chart>
+          </DashboardPanel>
+
+          <DashboardPanel
+            title='Meeting Status'
+            subtitle='Completed, scheduled, and cancelled'>
+            <Chart chart={meetingsByStatus}>
+              <ChartCanvas height={260} showDataLabels />
+            </Chart>
+          </DashboardPanel>
+
+          <DashboardPanel
+            title='Meeting Time by Teacher'
+            subtitle='Total minutes from parent meetings'>
+            <Chart chart={meetingsByTeacher}>
+              <ChartCanvas height={260} />
+            </Chart>
+          </DashboardPanel>
         </div>
-      )}
-
-      <div className='grid gap-4 lg:grid-cols-2'>
-        <DashboardPanel
-          title='Avg Score by Subject'
-          subtitle='Subject from teachers, scores from students'>
-          <Chart chart={avgScoreBySubject}>
-            <ChartCanvas height={260} />
-          </Chart>
-        </DashboardPanel>
-
-        <DashboardPanel
-          title='Tests by Month'
-          subtitle='Test count grouped by subject'>
-          <Chart chart={testsByMonth}>
-            <ChartCanvas height={260} />
-          </Chart>
-        </DashboardPanel>
-
-        <DashboardPanel
-          title='Meeting Status'
-          subtitle='Completed, scheduled, and cancelled'>
-          <Chart chart={meetingsByStatus}>
-            <ChartCanvas height={260} showDataLabels />
-          </Chart>
-        </DashboardPanel>
-
-        <DashboardPanel
-          title='Meeting Time by Teacher'
-          subtitle='Total minutes from parent meetings'>
-          <Chart chart={meetingsByTeacher}>
-            <ChartCanvas height={260} />
-          </Chart>
-        </DashboardPanel>
       </div>
-    </div>
+      <ChartStudioDevtools />
+    </DashboardProvider>
   )
 }
