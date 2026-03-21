@@ -11,22 +11,12 @@ Composable charting for React with two adoption paths:
 
 Choose the path that matches your app:
 
-### 1. Headless core
+| Path | Description | What you get | Requirements | When to use |
+|------|-------------|--------------|--------------|-------------|
+| **Headless core** | Chart state and data plumbing without a bundled UI; you bring your own controls and chart renderer. | `useChart`; optional `schema` via `defineDataset(...).chart(...)`; transformed chart data; filtering, grouping, metrics, and time bucketing. | `react` >= 18.2.0 | You already have a design system or chart library and only need chart state and data plumbing. |
+| **Ready-made UI** | Headless runtime plus `@matthieumordrel/chart-studio-ui` so the package can render controls and a Recharts canvas. | Everything from the headless path; `<Chart>`, `<ChartToolbar>`, `<ChartCanvas>`; granular controls from `@matthieumordrel/chart-studio-ui`. | `react` >= 18.2.0, `react-dom` >= 18.2.0, `recharts` >= 3.0.0 (v2 is **not** supported), `lucide-react` >= 0.577.0, `tailwindcss` >= 4.0.0 | You want ready-made controls and a Recharts-based canvas without building that UI yourself. |
 
-Use this if you already have your own design system or chart renderer.
-
-You get:
-
-- `useChart`
-- optional `schema` via `defineDataset(...).chart(...)`
-- transformed chart data
-- filtering, grouping, metrics, and time bucketing logic
-
-Requirements:
-
-- `react` >= 18.2.0
-
-Install:
+### Headless — install and import
 
 ```bash
 bun add @matthieumordrel/chart-studio react
@@ -38,38 +28,13 @@ To install from the `alpha` dist-tag instead (when you publish prereleases there
 bun add @matthieumordrel/chart-studio@alpha react
 ```
 
-Import from:
-
 ```tsx
 import { useChart } from '@matthieumordrel/chart-studio'
 ```
 
-### 2. Ready-made UI
+### UI — install and import
 
-Use this if you want the package to render the controls and chart for you.
-
-This path now uses two packages:
-
-- `@matthieumordrel/chart-studio` for the headless runtime
-- `@matthieumordrel/chart-studio-ui` for the optional React UI layer
-
-You get:
-
-- everything from the headless core
-- `<Chart>`
-- `<ChartToolbar>`
-- `<ChartCanvas>`
-- granular UI controls from `@matthieumordrel/chart-studio-ui`
-
-Requirements:
-
-- `react` >= 18.2.0
-- `react-dom` >= 18.2.0
-- `recharts` >= 3.0.0 (v2 is **not** supported)
-- `lucide-react` >= 0.577.0
-- `tailwindcss` >= 4.0.0
-
-Install:
+Uses `@matthieumordrel/chart-studio` for the headless runtime and `@matthieumordrel/chart-studio-ui` for the optional React UI layer.
 
 ```bash
 bun add @matthieumordrel/chart-studio @matthieumordrel/chart-studio-ui react react-dom recharts lucide-react tailwindcss
@@ -77,14 +42,12 @@ bun add @matthieumordrel/chart-studio @matthieumordrel/chart-studio-ui react rea
 
 Prereleases published under the `alpha` dist-tag: add `@alpha` to both package names. Default npm installs use `latest`.
 
-Then import the package theme once in your app stylesheet:
+Import the package theme once in your app stylesheet:
 
 ```css
 @import 'tailwindcss';
 @import '@matthieumordrel/chart-studio-ui/theme.css';
 ```
-
-Import from:
 
 ```tsx
 import { useChart } from '@matthieumordrel/chart-studio'

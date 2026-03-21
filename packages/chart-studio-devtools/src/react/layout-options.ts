@@ -50,9 +50,9 @@ export type DevtoolsElkLayoutConfig = {
 }
 
 export const DEFAULT_DEVTOOLS_ELK_LAYOUT: DevtoolsElkLayoutConfig = {
-  spacingBetweenLayers: 188,
-  spacingNodeNode: 112,
-  padding: 38,
+  spacingBetweenLayers: 156,
+  spacingNodeNode: 84,
+  padding: 24,
   crossingMinimizationStrategy: 'MEDIAN_LAYER_SWEEP',
   nodePlacementStrategy: 'NETWORK_SIMPLEX',
 }
@@ -94,9 +94,9 @@ export function adjustDevtoolsLayoutForEdgeDensity(
 
   return normalizeDevtoolsElkLayoutConfig({
     ...normalized,
-    spacingBetweenLayers: Math.round(Math.max(normalized.spacingBetweenLayers * 1.14, 228)),
-    spacingNodeNode: Math.round(Math.max(normalized.spacingNodeNode * 1.12, 132)),
-    padding: Math.round(Math.max(normalized.padding * 1.08, 44)),
+    spacingBetweenLayers: Math.round(Math.max(normalized.spacingBetweenLayers * 1.08, 184)),
+    spacingNodeNode: Math.round(Math.max(normalized.spacingNodeNode * 1.08, 96)),
+    padding: Math.round(Math.max(normalized.padding * 1.06, 28)),
   })
 }
 
@@ -104,9 +104,9 @@ export const DEVTOOLS_ELK_LAYOUT_PRESETS = {
   compact: {
     label: 'Compact',
     config: {
-      spacingBetweenLayers: 148,
-      spacingNodeNode: 92,
-      padding: 30,
+      spacingBetweenLayers: 132,
+      spacingNodeNode: 72,
+      padding: 20,
       crossingMinimizationStrategy: 'LAYER_SWEEP',
       nodePlacementStrategy: 'NETWORK_SIMPLEX',
     } satisfies DevtoolsElkLayoutConfig,
@@ -118,9 +118,9 @@ export const DEVTOOLS_ELK_LAYOUT_PRESETS = {
   spacious: {
     label: 'Spacious',
     config: {
-      spacingBetweenLayers: 340,
-      spacingNodeNode: 220,
-      padding: 80,
+      spacingBetweenLayers: 280,
+      spacingNodeNode: 180,
+      padding: 64,
       crossingMinimizationStrategy: 'MEDIAN_LAYER_SWEEP',
       nodePlacementStrategy: 'NETWORK_SIMPLEX',
     } satisfies DevtoolsElkLayoutConfig,
