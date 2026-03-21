@@ -17,6 +17,20 @@ export type FlowNodePosition = {
   y: number
 }
 
+type HandleSide = 'left' | 'right'
+
+/**
+ * Avoid side flips when nodes are nearly vertically stacked and differ by only a few pixels.
+ */
+const SIDE_AWARE_HANDLE_X_THRESHOLD = 24
+
+export function toFlowHandleId(
+  handleId: string,
+  side: HandleSide,
+): string {
+  return `${handleId}::${side}`
+}
+
 function hasSamePosition(
   left: FlowNodePosition | undefined,
   right: FlowNodePosition | undefined,
@@ -181,9 +195,39 @@ function computeParallelEdgeMeta(
   return meta
 }
 
+function resolveEdgeHandleSides(
+  edge: NormalizedSourceVm['edges'][number],
+  positions: Readonly<Record<string, FlowNodePosition>>,
+): {sourceSide: HandleSide; targetSide: HandleSide} {
+  const sourcePosition = positions[edge.sourceNodeId]
+  const targetPosition = positions[edge.targetNodeId]
+
+  if (!sourcePosition || !targetPosition) {
+    return {
+      sourceSide: 'right',
+      targetSide: 'left',
+    }
+  }
+
+  const deltaX = targetPosition.x - sourcePosition.x
+
+  if (deltaX < -SIDE_AWARE_HANDLE_X_THRESHOLD) {
+    return {
+      sourceSide: 'left',
+      targetSide: 'right',
+    }
+  }
+
+  return {
+    sourceSide: 'right',
+    targetSide: 'left',
+  }
+}
+
 export function buildFlowEdges(
   source: NormalizedSourceVm,
   selectedEdgeId: string | null,
+  positions: Readonly<Record<string, FlowNodePosition>> = {},
   previousEdges: readonly FlowEdge[] = [],
 ): FlowEdge[] {
   const parallelMeta = computeParallelEdgeMeta(source)
@@ -192,6 +236,9 @@ export function buildFlowEdges(
 
   const nextEdges = source.edges.map((edge, index) => {
     const bundle = parallelMeta.get(edge.id) ?? {parallelIndex: 0, parallelCount: 1}
+    const {sourceSide, targetSide} = resolveEdgeHandleSides(edge, positions)
+    const sourceHandle = toFlowHandleId(edge.sourceHandleId, sourceSide)
+    const targetHandle = toFlowHandleId(edge.targetHandleId, targetSide)
     const selected = edge.id === selectedEdgeId
     const markerStart = edge.kind === 'association' ? 'url(#csdt-marker-many)' : undefined
     const markerEnd = edge.kind === 'association'
@@ -206,8 +253,8 @@ export function buildFlowEdges(
       && previousEdge.type === 'semantic-edge'
       && previousEdge.source === edge.sourceNodeId
       && previousEdge.target === edge.targetNodeId
-      && previousEdge.sourceHandle === edge.sourceHandleId
-      && previousEdge.targetHandle === edge.targetHandleId
+      && previousEdge.sourceHandle === sourceHandle
+      && previousEdge.targetHandle === targetHandle
       && previousEdge.selectable
       && previousEdge.selected === selected
       && previousEdge.data?.edgeId === edge.id
@@ -230,8 +277,8 @@ export function buildFlowEdges(
       type: 'semantic-edge' as const,
       source: edge.sourceNodeId,
       target: edge.targetNodeId,
-      sourceHandle: edge.sourceHandleId,
-      targetHandle: edge.targetHandleId,
+      sourceHandle,
+      targetHandle,
       selectable: true,
       selected,
       data: {

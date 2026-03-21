@@ -34,6 +34,7 @@ import {
   extractFlowNodePositions,
   mergeFlowNodePositions,
   syncFlowNodesWithExternalState,
+  toFlowHandleId,
   type FlowEdge,
   type FlowNode,
   type FlowNodePosition,
@@ -241,7 +242,13 @@ const SemanticNodeCard = memo(function SemanticNodeCard({
               className='csdt-handle'
               position={Position.Left}
               type='target'
-              id={field.targetHandleId}
+              id={toFlowHandleId(field.targetHandleId, 'left')}
+            />
+            <Handle
+              className='csdt-handle'
+              position={Position.Left}
+              type='source'
+              id={toFlowHandleId(field.sourceHandleId, 'left')}
             />
             <span className='csdt-field__main'>
               <ColumnTypeIcon type={field.type} />
@@ -254,7 +261,13 @@ const SemanticNodeCard = memo(function SemanticNodeCard({
               className='csdt-handle'
               position={Position.Right}
               type='source'
-              id={field.sourceHandleId}
+              id={toFlowHandleId(field.sourceHandleId, 'right')}
+            />
+            <Handle
+              className='csdt-handle'
+              position={Position.Right}
+              type='target'
+              id={toFlowHandleId(field.targetHandleId, 'right')}
             />
           </button>
         ))}
@@ -485,13 +498,14 @@ export const DevtoolsGraphCanvas = memo(function DevtoolsGraphCanvas({
     const nextEdges = buildFlowEdges(
       displaySource,
       canvasContextValue.selectedEdgeId,
+      nodePositions,
       previousExternalEdgesRef.current,
     )
 
     previousExternalEdgesRef.current = nextEdges
 
     return nextEdges
-  }, [canvasContextValue.selectedEdgeId, displaySource])
+  }, [canvasContextValue.selectedEdgeId, displaySource, nodePositions])
   const [nodes, setNodes] = useState<FlowNode[]>(() => externalNodes)
   const nodesRef = useRef(nodes)
   const orderedFieldIdsByNodeId = useMemo(

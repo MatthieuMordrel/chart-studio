@@ -15,6 +15,7 @@ import {
   extractFlowNodePositions,
   mergeFlowNodePositions,
   syncFlowNodesWithExternalState,
+  toFlowHandleId,
   type FlowNode,
 } from './graph-state.js'
 import {
@@ -95,6 +96,38 @@ describe('graph-state', () => {
     expect(buildFlowEdges(source, null).map((edge) => edge.id).toSorted()).toEqual(fullEdgeIds)
   })
 
+  it('routes relationship edges through the side facing the connected node', () => {
+    const source = createNormalizedGraph()
+    const relationship = source.edges.find((edge) => edge.kind === 'relationship')
+
+    if (!relationship) {
+      throw new Error('Expected a relationship edge in the normalized test graph.')
+    }
+
+    const leftToRightEdge = buildFlowEdges(
+      source,
+      null,
+      {
+        [relationship.sourceNodeId]: {x: 40, y: 40},
+        [relationship.targetNodeId]: {x: 420, y: 40},
+      },
+    ).find((edge) => edge.id === relationship.id)
+
+    const rightToLeftEdge = buildFlowEdges(
+      source,
+      null,
+      {
+        [relationship.sourceNodeId]: {x: 420, y: 40},
+        [relationship.targetNodeId]: {x: 40, y: 40},
+      },
+    ).find((edge) => edge.id === relationship.id)
+
+    expect(leftToRightEdge?.sourceHandle).toBe(toFlowHandleId(relationship.sourceHandleId, 'right'))
+    expect(leftToRightEdge?.targetHandle).toBe(toFlowHandleId(relationship.targetHandleId, 'left'))
+    expect(rightToLeftEdge?.sourceHandle).toBe(toFlowHandleId(relationship.sourceHandleId, 'left'))
+    expect(rightToLeftEdge?.targetHandle).toBe(toFlowHandleId(relationship.targetHandleId, 'right'))
+  })
+
   it('ignores structural React Flow changes and only updates visible node positions', () => {
     const source = createNormalizedGraph()
     const hiddenSource = filterGraphVisibleSource(source, false)
@@ -132,7 +165,7 @@ describe('graph-state', () => {
       jobsWithOwner: {x: 50, y: 60},
     }
     const initialNodes = buildFlowNodes(source, initialPositions, null)
-    const initialEdges = buildFlowEdges(source, null)
+    const initialEdges = buildFlowEdges(source, null, initialPositions)
 
     const nextNodes = buildFlowNodes(
       source,
@@ -143,7 +176,7 @@ describe('graph-state', () => {
       null,
       initialNodes,
     )
-    const nextEdges = buildFlowEdges(source, null, initialEdges)
+    const nextEdges = buildFlowEdges(source, null, initialPositions, initialEdges)
 
     expect(nextNodes).not.toBe(initialNodes)
     expect(nextNodes.find((node) => node.id === 'owners')).not.toBe(initialNodes.find((node) => node.id === 'owners'))
