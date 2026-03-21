@@ -2,19 +2,22 @@
 
 > Early alpha. `chart-studio` and `chart-studio-ui` are active work-in-progress packages. APIs, package structure, and behavior may change without much notice. They are not recommended for production use yet.
 
-Composable charting for React with two adoption paths:
+Composable charting for React with two adoption paths, plus optional devtools:
 
 - use the **headless core** if you want chart state, filtering, grouping, and transformed data
 - use the **optional UI layer** if you also want ready-made controls and a Recharts canvas
+- add **devtools** in development if you want a visual panel for your data model and datasets
 
 ## Start Here
 
 Choose the path that matches your app:
 
-| Path | Description | What you get | Requirements | When to use |
-|------|-------------|--------------|--------------|-------------|
-| **Headless core** | Chart state and data plumbing without a bundled UI; you bring your own controls and chart renderer. | `useChart`; optional `schema` via `defineDataset(...).chart(...)`; transformed chart data; filtering, grouping, metrics, and time bucketing. | `react` >= 18.2.0 | You already have a design system or chart library and only need chart state and data plumbing. |
-| **Ready-made UI** | Headless runtime plus `@matthieumordrel/chart-studio-ui` so the package can render controls and a Recharts canvas. | Everything from the headless path; `<Chart>`, `<ChartToolbar>`, `<ChartCanvas>`; granular controls from `@matthieumordrel/chart-studio-ui`. | `react` >= 18.2.0, `react-dom` >= 18.2.0, `recharts` >= 3.0.0 (v2 is **not** supported), `lucide-react` >= 0.577.0, `tailwindcss` >= 4.0.0 | You want ready-made controls and a Recharts-based canvas without building that UI yourself. |
+| | **Headless core** (`@matthieumordrel/chart-studio`) | **Ready-made UI** (`@matthieumordrel/chart-studio-ui`) | **Devtools** (`@matthieumordrel/chart-studio-devtools`) |
+|---|-------------------|-------------------|--------------|
+| **Description** | Chart state and data plumbing without a bundled UI; you bring your own controls and chart renderer. | Headless runtime plus `@matthieumordrel/chart-studio-ui` so the package can render controls and a Recharts canvas. | Dev-only panel that renders an interactive graph of your data model (datasets, relationships, associations, materialized views) and row-level data for inspection. |
+| **What you get** | `useChart`; optional `schema` via `defineDataset(...).chart(...)`; transformed chart data; filtering, grouping, metrics, and time bucketing. | Everything from the headless column; `<Chart>`, `<ChartToolbar>`, `<ChartCanvas>`; granular controls from `@matthieumordrel/chart-studio-ui`. | `ChartStudioDevtools` from `@matthieumordrel/chart-studio-devtools/react`; graph layout, virtualized tables, search, and context/issue inspection. |
+| **Requirements** | `react` >= 18.2.0 | `react` >= 18.2.0, `react-dom` >= 18.2.0, `recharts` >= 3.0.0 (v2 is **not** supported), `lucide-react` >= 0.577.0, `tailwindcss` >= 4.0.0 | chart-studio headless layer and ui-layer in the project. |
+| **When to use** | You already have a design system or chart library and only need chart state and data plumbing. | You want ready-made controls and a Recharts-based canvas without building that UI yourself. | You use `defineDataModel` / dashboard-style models and want to debug or explore schema and data during development. |
 
 ### Headless — install and import
 
@@ -53,6 +56,20 @@ Import the package theme once in your app stylesheet:
 import { useChart } from '@matthieumordrel/chart-studio'
 import { Chart, ChartToolbar, ChartCanvas } from '@matthieumordrel/chart-studio-ui'
 ```
+
+### Devtools — install and import
+
+Install as a dev dependency; chart-studio, chart-studio-ui, and their peers should already match your app.
+
+```bash
+bun add -D @matthieumordrel/chart-studio-devtools
+```
+
+```tsx
+import { ChartStudioDevtools } from '@matthieumordrel/chart-studio-devtools/react'
+```
+
+See [`packages/chart-studio-devtools/README.md`](packages/chart-studio-devtools/README.md) for `getSnapshot`, `subscribe`, and props.
 
 ## Smallest Working Example (Single Source)
 
