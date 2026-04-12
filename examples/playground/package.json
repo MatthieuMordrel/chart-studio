@@ -4,11 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "bunx vite",
+    "build": "tsc -b && bunx vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "bunx vite preview"
   },
   "dependencies": {
     "@matthieumordrel/chart-studio": "workspace:*",
