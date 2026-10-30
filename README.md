@@ -731,6 +731,31 @@ Rules:
 - category or boolean X-axis: `bar`, `pie`, `donut`
 - `pie` and `donut` do not support `groupBy`
 
+### How do I control data labels?
+
+`<ChartCanvas>` draws value labels on the chart. Two props control them:
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `showDataLabels` | `boolean \| 'auto'` | `'auto'` | `true` / `false` force labels on or off; `'auto'` picks per chart type and time bucket (`DATA_LABEL_DEFAULTS`) |
+| `stackedDataLabels` | `'segments' \| 'total'` | `'segments'` | On stacked bar charts (a `bar` chart split by a `groupBy`), label every segment or draw one label per stack with the total |
+
+```tsx
+<Chart chart={chart}>
+  <ChartToolbar />
+  {/* One total on top of each stacked bar instead of one label per segment */}
+  <ChartCanvas showDataLabels stackedDataLabels="total" />
+</Chart>
+```
+
+Notes on `stackedDataLabels="total"`:
+
+- the total is the sum of the series shown in the chart, formatted like the other data labels
+- the label sits just past the end of the stack: above it for a positive total, below it for a negative one
+- stacks with no values or a total of zero get no label
+- it only changes stacked `bar` charts; unstacked bars, `grouped-bar`, `percent-bar` (always 100%), and the other chart types keep their usual labels
+- it has no effect when labels are hidden, so it combines with `showDataLabels` (including `'auto'`)
+
 ## Troubleshooting
 
 ### The UI looks mostly unstyled
