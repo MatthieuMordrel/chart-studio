@@ -3,7 +3,7 @@ type ChartPoint = Record<string, string | number | null>
 /**
  * How data labels are drawn on stacked bar charts.
  *
- * - `'segments'` — one label per segment (default)
+ * - `'segments'` — one label per segment, showing that segment's own value (default)
  * - `'total'` — one label per stack, showing the sum of all visible segments
  */
 export type StackedDataLabelMode = 'segments' | 'total'
@@ -54,6 +54,23 @@ export function getStackTotalAnchorKey(point: ChartPoint, seriesKeys: readonly s
     }
   }
   return anchorKey
+}
+
+/**
+ * Label value for one stacked segment in `'segments'` mode: the segment's own
+ * value from the transformed point.
+ *
+ * Recharts' default label accessor reads the stacked `[lower, upper]` bounds
+ * and returns `upper`, i.e. the running total up to that segment, so stacked
+ * labels must read the raw value instead.
+ */
+export function getStackSegmentLabelValue(payload: unknown, dataKey: string): number | null {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  const value = (payload as ChartPoint)[dataKey]
+  return typeof value === 'number' ? value : null
 }
 
 /**

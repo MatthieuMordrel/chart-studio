@@ -1,5 +1,10 @@
 import {describe, expect, it} from 'vitest'
-import {getStackTotal, getStackTotalAnchorKey, getStackTotalLabelValue} from './stack-total-labels.js'
+import {
+  getStackSegmentLabelValue,
+  getStackTotal,
+  getStackTotalAnchorKey,
+  getStackTotalLabelValue,
+} from './stack-total-labels.js'
 
 describe('stack-total-labels helpers', () => {
   const seriesKeys = ['Interim', 'Permanent', 'Freelance'] as const
@@ -56,5 +61,15 @@ describe('stack-total-labels helpers', () => {
 
   it('handles missing payloads', () => {
     expect(getStackTotalLabelValue(undefined, 'Interim', seriesKeys)).toBeNull()
+  })
+
+  it('reads a segment label from the raw value, not the stacked bounds', () => {
+    const payload = {xKey: '2026-01', Interim: 1200, Permanent: -800, Freelance: null}
+
+    expect(getStackSegmentLabelValue(payload, 'Interim')).toBe(1200)
+    expect(getStackSegmentLabelValue(payload, 'Permanent')).toBe(-800)
+    expect(getStackSegmentLabelValue(payload, 'Freelance')).toBeNull()
+    expect(getStackSegmentLabelValue(payload, 'xKey')).toBeNull()
+    expect(getStackSegmentLabelValue(undefined, 'Interim')).toBeNull()
   })
 })

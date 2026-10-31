@@ -40,7 +40,7 @@ import type {ChartColumn} from '@matthieumordrel/chart-studio'
 import {useChartContext} from './chart-context.js'
 import {selectVisibleXAxisTicks} from './chart-axis-ticks.js'
 import {getPercentStackedDisplayValue} from './percent-stacked.js'
-import {getStackTotalLabelValue, type StackedDataLabelMode} from './stack-total-labels.js'
+import {getStackSegmentLabelValue, getStackTotalLabelValue, type StackedDataLabelMode} from './stack-total-labels.js'
 
 /**
  * Estimates the pixel width the YAxis needs so no label is ever clipped.
@@ -211,7 +211,7 @@ type ChartCanvasProps = {
   /**
    * How data labels are drawn on stacked bar charts (a `bar` chart split into
    * several series, e.g. by a group-by). Only applies when data labels are shown.
-   * - `'segments'` — one label per segment (default, unchanged behaviour)
+   * - `'segments'` — one label per segment with that segment's own value (default)
    * - `'total'` — one label per stack with the sum of all segments, placed
    *   outside the end of the stack (below it when the total is negative)
    *
@@ -721,6 +721,7 @@ function BarChartRenderer(props: RendererProps & {stackedDataLabels: StackedData
               <LabelList
                 position={dataLabelStyle.position}
                 offset={dataLabelStyle.offset}
+                valueAccessor={isStacked ? (entry) => getStackSegmentLabelValue(entry.payload, s.dataKey) : undefined}
                 formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
               />
             )}

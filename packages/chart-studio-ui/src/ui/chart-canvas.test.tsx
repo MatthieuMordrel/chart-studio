@@ -32,6 +32,7 @@ const stackedSchema = revenueDataset
   .chart('revenueByType')
   .xAxis((x) => x.allowed('month').default('month'))
   .groupBy((g) => g.allowed('type').default('type'))
+  .filters((f) => f.allowed('type'))
   .metric((m) => m.aggregate('revenue', 'sum').defaultAggregate('revenue', 'sum'))
   .chartType((t) => t.allowed('bar').default('bar'))
 
@@ -50,8 +51,18 @@ const ungroupedSchema = revenueDataset
 
 type CanvasProps = Parameters<typeof ChartCanvas>[0]
 
-function StackedHarness({rows = revenueRows, ...props}: CanvasProps & {rows?: RevenueRow[]}) {
-  const chart = useChart({data: rows, schema: stackedSchema})
+type StackedHarnessProps = CanvasProps & {
+  rows?: RevenueRow[]
+  /** Only keep these employment types (the other series disappear from the chart). */
+  visibleTypes?: string[]
+}
+
+function StackedHarness({rows = revenueRows, visibleTypes, ...props}: StackedHarnessProps) {
+  const chart = useChart({
+    data: rows,
+    schema: stackedSchema,
+    inputs: visibleTypes ? {filters: new Map([['type' as const, new Set(visibleTypes)]])} : undefined,
+  })
   return (
     <Chart chart={chart}>
       <ChartCanvas {...props} />
@@ -129,11 +140,45 @@ afterEach(() => {
 })
 
 describe('ChartCanvas stacked data labels', () => {
-  it('labels every segment of a stacked bar by default', () => {
+  it('labels every segment of a stacked bar with its own value by default', () => {
     const {container} = render(<StackedHarness showDataLabels />)
 
-    // Jan has three segments and Feb two: one label each.
-    expect(getDataLabels(container)).toHaveLength(5)
+    // Jan: 1200 / 800 / 500, Feb: 300 / 200 — not the running totals
+    // (1.7K, 2.5K, 500) Recharts' default accessor would show.
+    expect(getDataLabels(container).sort()).toEqual(['1.2K', '200', '300', '500', '800'])
+  })
+
+  it("labels segments with their own value when stackedDataLabels is 'segments'", () => {
+    const {container} = render(<StackedHarness showDataLabels stackedDataLabels="segments" />)
+
+    expect(getDataLabels(container).sort()).toEqual(['1.2K', '200', '300', '500', '800'])
+  })
+
+  it('labels mixed-sign segments with their own signed value', () => {
+    const rows: RevenueRow[] = [
+      {month: 'Jan', type: 'Interim', revenue: 400},
+      {month: 'Jan', type: 'Permanent', revenue: -100},
+      {month: 'Feb', type: 'Interim', revenue: -400},
+      {month: 'Feb', type: 'Permanent', revenue: 100},
+    ]
+    const {container} = render(<StackedHarness rows={rows} showDataLabels />)
+
+    expect(getDataLabels(container).sort()).toEqual(['-100', '-400', '100', '400'])
+  })
+
+  it('leaves hidden series out of segment labels', () => {
+    const {container} = render(<StackedHarness visibleTypes={['Interim', 'Freelance']} showDataLabels />)
+
+    expect(getDataLabels(container).sort()).toEqual(['1.2K', '300', '500'])
+  })
+
+  it('leaves hidden series out of stack totals', () => {
+    const {container} = render(
+      <StackedHarness visibleTypes={['Interim', 'Freelance']} showDataLabels stackedDataLabels="total" />,
+    )
+
+    // Jan: 1200 + 500 (Permanent filtered out), Feb: 300.
+    expect(getDataLabels(container).sort()).toEqual(['1.7K', '300'])
   })
 
   it("labels each stack once with its total when stackedDataLabels is 'total'", () => {

@@ -738,7 +738,7 @@ Rules:
 | Prop | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `showDataLabels` | `boolean \| 'auto'` | `'auto'` | `true` / `false` force labels on or off; `'auto'` picks per chart type and time bucket (`DATA_LABEL_DEFAULTS`) |
-| `stackedDataLabels` | `'segments' \| 'total'` | `'segments'` | On stacked bar charts (a `bar` chart split by a `groupBy`), label every segment or draw one label per stack with the total |
+| `stackedDataLabels` | `'segments' \| 'total'` | `'segments'` | On stacked bar charts (a `bar` chart split by a `groupBy`), label every segment with its own value, or draw one label per stack with the total |
 
 ```tsx
 <Chart chart={chart}>
