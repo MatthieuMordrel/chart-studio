@@ -1,6 +1,12 @@
 import { defineDataset, useChart } from '@matthieumordrel/chart-studio'
-import { Chart, ChartCanvas, ChartDebug, ChartToolbar } from '@matthieumordrel/chart-studio-ui'
+import { Chart, ChartCanvas, ChartDebug, ChartToolbar, type StackedDataLabelMode } from '@matthieumordrel/chart-studio-ui'
+import { useState } from 'react'
 import { quarterlyFinancialData, type QuarterlyFinancialRecord } from '../mock-data'
+
+const STACKED_LABEL_MODES = [
+  { id: 'segments', label: 'Segments' },
+  { id: 'total', label: 'Total' }
+] as const satisfies ReadonlyArray<{ id: StackedDataLabelMode; label: string }>
 
 const quarterlyFinancials = defineDataset<QuarterlyFinancialRecord>()
   .columns((c) => [
@@ -81,7 +87,8 @@ const singleSourceChartSchema = quarterlyFinancials
 /**
  * Dedicated single-source example for the formatting API.
  * It showcases surface-aware defaults, explicit `format` overrides, filter
- * labels, and opt-in chart data labels in one compact playground.
+ * labels, and opt-in chart data labels in one compact playground. Group by a
+ * column on the bar chart to compare per-segment labels with stack totals.
  */
 export function SingleSourceChart() {
   const chart = useChart({
@@ -89,6 +96,7 @@ export function SingleSourceChart() {
     schema: singleSourceChartSchema,
     sourceLabel: 'Quarterly Financials'
   })
+  const [stackedDataLabels, setStackedDataLabels] = useState<StackedDataLabelMode>('segments')
 
   return (
     <Chart chart={chart} className='space-y-4'>
@@ -97,8 +105,30 @@ export function SingleSourceChart() {
           <ChartToolbar pinned={['source', 'chartType', 'metric', 'groupBy', 'filters', 'timeBucket']} />
         </div>
 
+        <div className='flex items-center justify-between gap-3 border-t border-border px-4 py-2.5'>
+          <p className='text-xs text-muted-foreground'>
+            Stacked bar labels <code className='font-semibold'>{`stackedDataLabels="${stackedDataLabels}"`}</code>
+          </p>
+          <div className='inline-flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-background p-0.5'>
+            {STACKED_LABEL_MODES.map(mode => {
+              const active = stackedDataLabels === mode.id
+              return (
+                <button
+                  key={mode.id}
+                  type='button'
+                  onClick={() => setStackedDataLabels(mode.id)}
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                    active ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}>
+                  {mode.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <div className='border-t border-border p-4'>
-          <ChartCanvas height={360} showDataLabels />
+          <ChartCanvas height={360} showDataLabels stackedDataLabels={stackedDataLabels} />
         </div>
       </div>
 

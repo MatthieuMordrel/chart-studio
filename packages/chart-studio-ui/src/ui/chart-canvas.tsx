@@ -40,6 +40,7 @@ import type {ChartColumn} from '@matthieumordrel/chart-studio'
 import {useChartContext} from './chart-context.js'
 import {selectVisibleXAxisTicks} from './chart-axis-ticks.js'
 import {getPercentStackedDisplayValue} from './percent-stacked.js'
+import {getStackSegmentLabelValue, getStackTotalLabelValue, type StackedDataLabelMode} from './stack-total-labels.js'
 
 /**
  * Estimates the pixel width the YAxis needs so no label is ever clipped.
@@ -192,6 +193,8 @@ function getXAxisTickValue(point: Record<string, string | number | null>): strin
  * @property className - Additional CSS classes
  * @property showDataLabels - Control data label visibility: `true`/`false` for explicit control,
  *   or `'auto'` (default) to let {@link DATA_LABEL_DEFAULTS} decide per chart type and time bucket.
+ * @property stackedDataLabels - On stacked bar charts, label each segment (`'segments'`, default)
+ *   or only the stack total (`'total'`).
  */
 type ChartCanvasProps = {
   /** Chart height in pixels (default: 300) */
@@ -205,6 +208,16 @@ type ChartCanvasProps = {
    * - `'auto'` — resolved from {@link DATA_LABEL_DEFAULTS} per chart type and time bucket
    */
   showDataLabels?: boolean | 'auto'
+  /**
+   * How data labels are drawn on stacked bar charts (a `bar` chart split into
+   * several series, e.g. by a group-by). Only applies when data labels are shown.
+   * - `'segments'` — one label per segment with that segment's own value (default)
+   * - `'total'` — one label per stack with the sum of all segments, placed
+   *   outside the end of the stack (below it when the total is negative)
+   *
+   * Other chart types are unaffected.
+   */
+  stackedDataLabels?: StackedDataLabelMode
 }
 
 /**
@@ -289,8 +302,14 @@ function useCssBarRadius(): number {
  * @param height - Chart height in pixels (default: 300)
  * @param className - Additional CSS classes
  * @param showDataLabels - Control data label visibility: `true`/`false` for explicit control, or `'auto'` (default) to let {@link DATA_LABEL_DEFAULTS} decide per chart type and time bucket.
+ * @param stackedDataLabels - On stacked bar charts, label each segment (`'segments'`, default) or only the stack total (`'total'`).
  */
-export function ChartCanvas({height = 300, className, showDataLabels = 'auto'}: ChartCanvasProps) {
+export function ChartCanvas({
+  height = 300,
+  className,
+  showDataLabels = 'auto',
+  stackedDataLabels = 'segments',
+}: ChartCanvasProps) {
   const chart = useChartContext()
   const {chartType, transformedData, series, connectNulls} = chart
   const timeBucket = chart.isTimeSeries ? chart.timeBucket : undefined
@@ -450,6 +469,7 @@ export function ChartCanvas({height = 300, className, showDataLabels = 'auto'}: 
             showDataLabels={resolvedShowDataLabels}
             dataLabelStyle={dataLabelStyle}
             connectNulls={connectNulls}
+            stackedDataLabels={stackedDataLabels}
           />
         ))}
     </div>
@@ -655,11 +675,19 @@ function formatXAxisValue(
   })
 }
 
-function BarChartRenderer(props: RendererProps) {
-  const {series, showDataLabels, dataLabelStyle, valueColumn, valueRange} = props
+/**
+ * Neutral styling for stack-total labels: the label belongs to the whole stack,
+ * not to the segment it is anchored on, so it should not take that series color.
+ */
+const STACK_TOTAL_LABEL_CLASS = 'fill-foreground font-medium'
+
+function BarChartRenderer(props: RendererProps & {stackedDataLabels: StackedDataLabelMode}) {
+  const {series, showDataLabels, dataLabelStyle, valueColumn, valueRange, stackedDataLabels} = props
   const barRadius = useCssBarRadius()
   const isStacked = series.length > 1
   const topSeriesKey = series[series.length - 1]?.dataKey
+  const showStackTotals = isStacked && stackedDataLabels === 'total'
+  const seriesKeys = series.map((s) => s.dataKey)
   return (
     <CartesianChartShell
       {...props}
@@ -677,10 +705,23 @@ function BarChartRenderer(props: RendererProps) {
             radius={isTop ? [barRadius, barRadius, 0, 0] : 0}
             stackId={isStacked ? 'stack' : undefined}
           >
-            {showDataLabels && (
+            {showDataLabels && showStackTotals && (
+              // Every segment gets a LabelList, but only the one reaching the
+              // outer edge of each stack returns a value, so each stack ends up
+              // with exactly one label.
+              <LabelList
+                position="top"
+                offset={dataLabelStyle.offset}
+                className={STACK_TOTAL_LABEL_CLASS}
+                valueAccessor={(entry) => getStackTotalLabelValue(entry.payload, s.dataKey, seriesKeys)}
+                formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
+              />
+            )}
+            {showDataLabels && !showStackTotals && (
               <LabelList
                 position={dataLabelStyle.position}
                 offset={dataLabelStyle.offset}
+                valueAccessor={isStacked ? (entry) => getStackSegmentLabelValue(entry.payload, s.dataKey) : undefined}
                 formatter={(value: unknown) => formatDataLabel(value, valueColumn, valueRange)}
               />
             )}

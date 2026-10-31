@@ -7,6 +7,7 @@
 
 export {Chart, useChartContext, useTypedChartContext} from './chart-context.js'
 export {ChartCanvas} from './chart-canvas.js'
+export type {StackedDataLabelMode} from './stack-total-labels.js'
 export {ChartToolbar} from './chart-toolbar.js'
 export {ChartToolbarOverflow} from './chart-toolbar-overflow.js'
 export type {ControlId} from './toolbar-types.js'
