@@ -1,6 +1,6 @@
 {
   "name": "@matthieumordrel/chart-studio-devtools",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Dev-only semantic model workspace for chart-studio.",
   "type": "module",
   "sideEffects": false,
@@ -46,8 +46,8 @@
     "typecheck": "bunx tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
-    "@matthieumordrel/chart-studio": "0.5.3",
-    "@matthieumordrel/chart-studio-ui": "0.5.3",
+    "@matthieumordrel/chart-studio": "0.6.0",
+    "@matthieumordrel/chart-studio-ui": "0.6.0",
     "lucide-react": ">=0.577.0 <1",
     "react": ">=18.2.0 <20",
     "react-dom": ">=18.2.0 <20",
